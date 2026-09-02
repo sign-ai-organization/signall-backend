@@ -1,0 +1,13 @@
+services:
+  backend:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+
+  # Placeholder — implemented in Fase 10, lives in a separate repo (STT/Whisper).
+  # stt:
+  #   build: ../sign-ai-stt
+  #   ports:
+  #     - "9000:9000"
