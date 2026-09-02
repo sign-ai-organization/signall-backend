@@ -2,5 +2,7 @@
 fastapi
 # ASGI server that runs the FastAPI app. [standard] adds full WebSocket support, used by the Controller.
 uvicorn[standard]
-# Data validation and domain models (Segment, Gloss, etc.) and settings).
+# Data validation and domain models (Segment, Gloss, etc.).
 pydantic
+# Centralized app configuration, reading settings from environment variables.
+pydantic-settings
