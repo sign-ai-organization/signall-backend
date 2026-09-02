@@ -1,0 +1,6 @@
+# Web framework: defines the HTTP/WebSocket endpoints (Controller, /health, static GLB server).
+fastapi
+# ASGI server that runs the FastAPI app. [standard] adds full WebSocket support, used by the Controller.
+uvicorn[standard]
+# Data validation and domain models (Segment, Gloss, etc.) and settings).
+pydantic
