@@ -1,5 +1,10 @@
 from fastapi import FastAPI
 
+from app.config.logging import configure_logging
+from app.config.settings import settings
+
+configure_logging(settings.log_level)
+
 app = FastAPI()
 
 
