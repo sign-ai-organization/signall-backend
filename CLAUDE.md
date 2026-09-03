@@ -73,10 +73,13 @@ actualizar si hace falta.
 - Seguir buenas prácticas generales de Python/FastAPI: type hints, funciones
   pequeñas y con una sola responsabilidad, nombres descriptivos, evitar
   código muerto o comentado.
-- Los nombres de clases y métodos deben coincidir exactamente con los del
-  SDD (`Controller`, `Orchestrator`, `NLPServiceImpl`, `GlossAnalyzer`,
+- Los nombres de clases deben coincidir exactamente con los del SDD
+  (`Controller`, `Orchestrator`, `NLPServiceImpl`, `GlossAnalyzer`,
   `SemanticCache`, `LLMClient`, `ValidatorServiceImpl`, `CatalogRepository`,
   `Segment`, `PhraseType`, `Gloss`, `ValidatedSegment`, `Fingerprint`).
+- Los métodos siguen el mismo nombre semántico del SDD pero en snake_case
+  (ej. `loadAll()` del SDD se implementa como `load_all()`), no camelCase
+  literal — se prioriza PEP8 sobre la notación UML del diagrama.
 
 ## Verificación mientras se avanza
 
