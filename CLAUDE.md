@@ -48,8 +48,14 @@ como el punto de partida, no como algo incuestionable: si al implementar
 algo notas que una de estas reglas no tiene sentido, genera un problema
 real, o hay una forma claramente mejor de resolverlo, dilo explícitamente
 y explica por qué antes de decidir qué hacer — no lo cambies en silencio,
-pero tampoco lo sigas ciegamente si crees que está mal. El SDD se puede
-actualizar si hace falta.
+pero tampoco lo sigas ciegamente si crees que está mal.
+
+No edites `docs/sdd.md` ni los diagramas directamente al encontrar una
+inconsistencia (diagrama vs. narrativa vs. tabla de persistencia). En su
+lugar, documenta el hallazgo en `docs/sdd-changes.md` (qué dice cada
+fuente, cuál parece correcta y por qué, qué se implementó en el código
+mientras tanto) y sigue con la implementación según lo que decidiste con
+el usuario. Es él quien decide cuándo y cómo aplicar el cambio al SDD.
 
 - **LLMClient solo devuelve glosas, nunca decide el tipo de frase.** El
   `phrase_type` siempre viene de `GlossAnalyzer` (huella gramatical), tanto
