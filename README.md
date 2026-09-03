@@ -25,3 +25,24 @@ Lengua de Señas Colombiana mediante un avatar 3D). Ver `CLAUDE.md` y
    ```
 
 Para desactivar el entorno virtual en cualquier momento: `deactivate`.
+
+## Carpeta `scripts/`
+
+Contiene scripts sueltos para probar manualmente una pieza del backend
+(un repositorio, un servicio) sin pasar por la API HTTP/WebSocket —
+útil en fases tempranas del proyecto, antes de que el Controller (Fase 11)
+exista, o simplemente para verificar un componente de forma aislada. No es
+parte de la aplicación en sí, no se despliega con el backend.
+
+Cada script se corre como módulo, desde la raíz del proyecto, con el
+entorno virtual activado:
+
+```bash
+python -m scripts.<nombre_del_script>
+```
+
+Por ejemplo:
+
+```bash
+python -m scripts.verify_catalog_repository
+```

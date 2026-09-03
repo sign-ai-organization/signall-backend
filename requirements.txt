@@ -6,3 +6,5 @@ uvicorn[standard]
 pydantic
 # Centralized app configuration, reading settings from environment variables.
 pydantic-settings
+# Async PostgreSQL driver
+asyncpg
