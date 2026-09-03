@@ -10,11 +10,18 @@ Entradas más recientes al final.
 
 ---
 
-## Ejemplo (borrar cuando se agregue la primera decisión real)
+## 1.3 — Herramienta de acceso a datos (DEC-15)
 
 **Subfase:** 1.3 — Herramienta de acceso a datos (DEC-15)
-**Decisión:** `asyncpg` directo, sin ORM.
-**Por qué:** el modelo son dos tablas sin relaciones entre sí y
-`CatalogRepository` carga todo en memoria al arrancar — un ORM añadía
-complejidad de configuración sin beneficio real para este caso.
-**Fecha:** —
+**Decisión:** `asyncpg` directo, sin ORM. Migraciones como scripts `.sql`
+versionados a mano.
+**Por qué:** el modelo son dos tablas sin relaciones entre sí (`catalog`,
+`semantic_cache`), y `CatalogRepository` carga todo el catálogo en memoria
+al arrancar sin volver a consultar por fila — no hay joins, lazy loading
+ni N+1 queries que un ORM (SQLAlchemy + Alembic) resuelva mejor aquí. Se
+evaluó explícitamente frente a SQLAlchemy por preferencia previa con JPA
+en Java; la diferencia de esfuerzo de setup es mínima (~10 min), pero
+SQLAlchemy suma dependencias y piezas de configuración (Alembic, engine,
+sesiones async) que no aportan valor real dado que no hay complejidad
+relacional que gestionar.
+**Fecha:** 2026-09-02
