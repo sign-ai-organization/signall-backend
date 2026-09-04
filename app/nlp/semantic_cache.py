@@ -42,3 +42,26 @@ class SemanticCache:
             return None
 
         return list(row["glosses"])
+
+    async def store(self, text: str, fingerprint: Fingerprint, glosses: list[str]) -> None:
+        embedding = self._embedding_model.embed(text)
+        secondary_signals = [signal.value for signal in fingerprint.secondary_signals]
+
+        conn = await asyncpg.connect(self._database_url)
+        try:
+            await conn.execute(
+                """
+                INSERT INTO semantic_cache
+                    (original_text, embedding, phrase_type, glosses, secondary_signals, had_collision)
+                VALUES
+                    ($1, $2::vector, $3, $4, $5, $6)
+                """,
+                text,
+                _format_vector(embedding),
+                fingerprint.category.value,
+                glosses,
+                secondary_signals,
+                fingerprint.has_collision,
+            )
+        finally:
+            await conn.close()
