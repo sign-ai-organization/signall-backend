@@ -8,3 +8,5 @@ pydantic
 pydantic-settings
 # Async PostgreSQL driver
 asyncpg
+# Local embeddings model for EmbeddingModel (SemanticCache).
+sentence-transformers

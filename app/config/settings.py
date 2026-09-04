@@ -13,5 +13,9 @@ class Settings(BaseSettings):
     llm_model: str
     llm_temperature: float = 0.0
 
+    # Max cosine distance (pgvector <=>) between embeddings to count as a
+    # semantic cache HIT. Lower = stricter match required.
+    semantic_cache_similarity_threshold: float = 0.15
+
 
 settings = Settings()

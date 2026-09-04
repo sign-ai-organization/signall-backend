@@ -25,3 +25,26 @@ SQLAlchemy suma dependencias y piezas de configuración (Alembic, engine,
 sesiones async) que no aportan valor real dado que no hay complejidad
 relacional que gestionar.
 **Fecha:** 2026-09-02
+
+---
+
+## 4.1 y 4.2 — Diseño del caché semántico y modelo de embeddings
+
+**Subfase:** 4.1 (Cómo simular similitud semántica) y 4.2 (Modelo de
+embeddings local), resueltas juntas.
+**Decisión:** No se simula. Se implementa un `EmbeddingModel` real desde
+el inicio, corriendo dentro del mismo contenedor del backend (no aparte, como
+STT/Whisper), usando `sentence-transformers` con el modelo
+`paraphrase-multilingual-MiniLM-L12-v2` (384 dimensiones, coincide con
+`semantic_cache.embedding VECTOR(384)` ya definido anteriormente).
+**Por qué:** se evaluó explícitamente si aislarlo en un contenedor aparte
+(como STT), dado que `sentence-transformers` depende de PyTorch, una
+dependencia pesada que infla la imagen Docker y el tiempo de arranque.
+Se decidió no separarlo ya que esa razón (peso de imagen/arranque) no es
+un problema de recursos en ejecución (a diferencia de STT, que se separa
+por consumo real de GPU/VRAM compartida), es solo un costo de build,
+aceptable. Separarlo replicaría la
+complejidad operativa de STT (protocolo, contenedor, orquestación) sin
+necesidad real. Se eligió la variante multilingüe sobre `all-MiniLM-L6-v2`
+(inglés) porque todo el texto de entrada del sistema es en español.
+**Fecha:** 2026-09-03

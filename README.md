@@ -26,6 +26,16 @@ Lengua de Señas Colombiana mediante un avatar 3D). Ver `CLAUDE.md` y
 
 Para desactivar el entorno virtual en cualquier momento: `deactivate`.
 
+### Nota sobre el modelo de embeddings
+
+`requirements.txt` incluye `sentence-transformers` (usado por
+`EmbeddingModel` para el caché semántico, ver `docs/decisions.md`), que
+trae PyTorch como dependencia — el `pip install` tarda notablemente más
+por esto, es esperado.
+
+Además, la primera vez que el modelo se use (no al instalar, sino al
+correr código que lo invoque por primera vez).
+
 ## Carpeta `scripts/`
 
 Contiene scripts sueltos para probar manualmente una pieza del backend
