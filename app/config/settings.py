@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     llm_api_key: str
     llm_model: str
     llm_temperature: float = 0.0
+    llm_timeout_ms: int = 10000
 
     # Max cosine distance (pgvector <=>) between embeddings to count as a
     # semantic cache HIT. Lower = stricter match required.
