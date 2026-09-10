@@ -48,3 +48,23 @@ complejidad operativa de STT (protocolo, contenedor, orquestación) sin
 necesidad real. Se eligió la variante multilingüe sobre `all-MiniLM-L6-v2`
 (inglés) porque todo el texto de entrada del sistema es en español.
 **Fecha:** 2026-09-03
+
+---
+
+## 6.1 — Proveedor, modelo y parámetros del LLM externo
+
+**Subfase:** 6.1 — Configuración del LLMClient.
+**Decisión:** Proveedor OpenAI, modelo `gpt-4o-mini`, `temperature=0`, `timeoutMs=10000`.
+Interfaz vía **LangChain** (`langchain` + `langchain-openai`), no el SDK
+de OpenAI directo.
+**Por qué:** se evaluó explícitamente LangChain vs. SDK directo — para
+una sola llamada (texto → glosas), el SDK directo sería más simple y
+liviano, sin capas de más. Se optó por LangChain de todas formas porque
+la API key de OpenAI usada hoy es personal y temporal (solo para
+pruebas); hay una posibilidad de cambiar de proveedor más adelante
+(costos, calidad, o disponibilidad de la key), y LangChain permite ese
+cambio sin reescribir `LLMClient` (solo cambia el chat model
+subyacente). El timeout de 10s es un techo de seguridad, no la latencia
+esperada (`gpt-4o-mini` normalmente responde en 1-3s para este tipo de
+prompt corto).
+**Fecha:** 2026-09-09

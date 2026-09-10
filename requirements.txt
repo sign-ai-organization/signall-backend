@@ -10,3 +10,6 @@ pydantic-settings
 asyncpg
 # Local embeddings model for EmbeddingModel (SemanticCache).
 sentence-transformers
+# LLMClient: interface to the external LLM provider.
+langchain
+langchain-openai
