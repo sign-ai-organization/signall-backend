@@ -1,10 +1,13 @@
 import asyncio
+import logging
 
 from fastapi import APIRouter, WebSocket
 
 from app.config.settings import settings
 from app.controller.controller import Controller
 from app.controller.stt_service_client_impl import SttServiceClientImpl
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -35,13 +38,22 @@ async def translation_session(websocket: WebSocket) -> None:
     await websocket.accept()
 
     stt_client = SttServiceClientImpl(settings.stt_ws_url)
-    await stt_client.connect()
     controller = Controller(websocket, websocket.app.state.orchestrator, stt_client)
+
+    try:
+        await stt_client.connect()
+    except OSError:
+        logger.exception("Could not connect to the STT service")
+        await controller.send_error("El servicio de transcripción no está disponible.")
+        return
 
     try:
         await asyncio.gather(
             _forward_audio(websocket, controller),
             _forward_transcripts(controller),
         )
+    except Exception:
+        logger.exception("Translation session failed")
+        await controller.send_error("Ocurrió un error inesperado durante la sesión.")
     finally:
         await stt_client.close()

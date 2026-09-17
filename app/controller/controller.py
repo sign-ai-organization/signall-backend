@@ -23,8 +23,16 @@ class Controller:
         if not is_final:
             return
 
-        validated_segments = await self.orchestrator.translate(text)
+        try:
+            validated_segments = await self.orchestrator.translate(text)
+        except Exception:
+            await self.send_error("No se pudo traducir el texto.")
+            return
+
         await self.send_result(validated_segments)
 
     async def send_result(self, segments: list[ValidatedSegment]) -> None:
         await self.websocket.send_json([segment.model_dump() for segment in segments])
+
+    async def send_error(self, message: str) -> None:
+        await self.websocket.send_json({"type": "error", "message": message})
