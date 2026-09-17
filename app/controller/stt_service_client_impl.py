@@ -12,7 +12,8 @@ class SttServiceClientImpl(SttServiceClient):
         self._connection: ClientConnection | None = None
 
     async def connect(self) -> None:
-        self._connection = await websockets.connect(self._stt_ws_url)
+        # Disable the client-driven keepalive ping: this is a long-lived
+        self._connection = await websockets.connect(self._stt_ws_url, ping_interval=None)
 
     async def send_audio(self, chunk: bytes) -> None:
         await self._connection.send(chunk)
