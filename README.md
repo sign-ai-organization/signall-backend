@@ -56,3 +56,15 @@ Por ejemplo:
 ```bash
 python -m scripts.verify_catalog_repository
 ```
+
+### Dependencias solo de desarrollo (`requirements-dev.txt`)
+
+Algunos scripts necesitan librerías que el backend en sí nunca usa (ej.
+captura de micrófono para probar manualmente una sesión de traducción
+completa). Esas van en `requirements-dev.txt`, no en `requirements.txt`,
+para no inflar la imagen Docker del backend con algo que solo sirve para
+pruebas locales:
+
+```bash
+pip install -r requirements-dev.txt
+```

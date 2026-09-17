@@ -13,3 +13,5 @@ sentence-transformers
 # LLMClient: interface to the external LLM provider.
 langchain
 langchain-openai
+# SttServiceClient: outbound WebSocket client to the STT service (sign-ai-stt).
+websockets
