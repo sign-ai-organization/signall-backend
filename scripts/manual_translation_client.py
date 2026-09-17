@@ -34,7 +34,7 @@ async def main() -> None:
         pcm16 = (np.clip(indata[:, 0] * 32768, -32768, 32767)).astype(np.int16)
         loop.call_soon_threadsafe(audio_queue.put_nowait, pcm16.tobytes())
 
-    async with websockets.connect(URL) as ws:
+    async with websockets.connect(URL, ping_interval=None) as ws:
         print(f"Conectado a {URL}. Hablá por el micrófono (Ctrl+C para salir)...\n")
 
         async def sender():
@@ -52,8 +52,17 @@ async def main() -> None:
         async def receiver():
             async for message in ws:
                 data = json.loads(message)
+
+                if isinstance(data, dict) and data.get("type") == "transcript":
+                    if data["final"]:
+                        print(f"\n[TEXTO FINAL] {data['text']!r}")
+                        print("[procesando...]")
+                    else:
+                        print(f"\n[texto parcial] {data['text']!r}")
+                    continue
+
                 if isinstance(data, dict) and data.get("type") == "error":
-                    print(f"\n[ERROR] {data['message']}")
+                    print(f"\n[ERROR] {data['message']}\n")
                     continue
 
                 print("\n[RESULTADO]")
@@ -61,8 +70,12 @@ async def main() -> None:
                     print(f"  type={segment['type']}")
                     for gloss in segment["glosses"]:
                         print(f"    {gloss}")
+                print()
 
-        await asyncio.gather(sender(), receiver())
+        try:
+            await asyncio.gather(sender(), receiver())
+        except websockets.exceptions.ConnectionClosed as exc:
+            print(f"\n[conexión cerrada] {exc}")
 
 
 if __name__ == "__main__":
