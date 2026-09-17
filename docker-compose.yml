@@ -6,8 +6,26 @@ services:
     env_file:
       - .env
 
-  # Placeholder — implemented in Fase 10, lives in a separate repo (STT/Whisper).
-  # stt:
-  #   build: ../sign-ai-stt
-  #   ports:
-  #     - "9000:9000"
+  # STT service (Whisper), lives in a separate repo (sign-ai-stt.
+  stt:
+    build: ../sign-ai-stt
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_SIZE: medium
+      DEVICE: cuda
+      COMPUTE_TYPE: float16
+      LANGUAGE: es
+      SILENCE_TIMEOUT_MS: 1500
+    volumes:
+      - stt-hf-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  stt-hf-cache:
