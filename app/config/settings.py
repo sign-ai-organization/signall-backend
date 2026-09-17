@@ -18,5 +18,8 @@ class Settings(BaseSettings):
     # semantic cache HIT. Lower = stricter match required.
     semantic_cache_similarity_threshold: float = 0.15
 
+    # Default matches the "stt" service name in docker-compose.yml.
+    stt_ws_url: str = "ws://stt:8000/ws/transcribe"
+
 
 settings = Settings()
