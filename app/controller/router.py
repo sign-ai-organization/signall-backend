@@ -42,9 +42,9 @@ async def translation_session(websocket: WebSocket) -> None:
 
     try:
         await stt_client.connect()
-    except OSError:
+    except Exception:
         logger.exception("Could not connect to the STT service")
-        await controller.send_error("El servicio de transcripción no está disponible.")
+        await _try_send_error(controller, "El servicio de transcripción no está disponible.")
         return
 
     try:
@@ -54,6 +54,13 @@ async def translation_session(websocket: WebSocket) -> None:
         )
     except Exception:
         logger.exception("Translation session failed")
-        await controller.send_error("Ocurrió un error inesperado durante la sesión.")
+        await _try_send_error(controller, "Ocurrió un error inesperado durante la sesión.")
     finally:
         await stt_client.close()
+
+
+async def _try_send_error(controller: Controller, message: str) -> None:
+    try:
+        await controller.send_error(message)
+    except Exception:
+        logger.exception("Could not notify the client about the error")
