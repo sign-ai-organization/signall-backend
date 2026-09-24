@@ -12,6 +12,7 @@ Usage: python -m scripts.manual_translation_client [ws_url]
 import asyncio
 import json
 import sys
+import time
 
 import numpy as np
 import sounddevice as sd
@@ -50,6 +51,8 @@ async def main() -> None:
                     await ws.send(chunk)
 
         async def receiver():
+            processing_started_at = None
+
             async for message in ws:
                 data = json.loads(message)
 
@@ -59,15 +62,23 @@ async def main() -> None:
                             continue
                         print(f"\n[TEXTO FINAL] {data['text']!r}")
                         print("[procesando...]")
+                        processing_started_at = time.perf_counter()
                     else:
                         print(f"\n[texto parcial] {data['text']!r}")
                     continue
 
+                elapsed = (
+                    f" ({time.perf_counter() - processing_started_at:.2f}s)"
+                    if processing_started_at is not None
+                    else ""
+                )
+                processing_started_at = None
+
                 if isinstance(data, dict) and data.get("type") == "error":
-                    print(f"\n[ERROR] {data['message']}\n")
+                    print(f"\n[ERROR]{elapsed} {data['message']}\n")
                     continue
 
-                print("\n[RESULTADO]")
+                print(f"\n[RESULTADO]{elapsed}")
                 for segment in data:
                     print(f"  type={segment['type']}")
                     for gloss in segment["glosses"]:
