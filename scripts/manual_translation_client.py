@@ -67,6 +67,10 @@ async def main() -> None:
                         print(f"\n[texto parcial] {data['text']!r}")
                     continue
 
+                if isinstance(data, dict) and data.get("type") == "source":
+                    print(f"[fuente: {data['source']}]")
+                    continue
+
                 elapsed = (
                     f" ({time.perf_counter() - processing_started_at:.2f}s)"
                     if processing_started_at is not None

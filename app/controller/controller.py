@@ -31,7 +31,7 @@ class Controller:
 
         logger.info("Final transcript: %r -> translating", text)
         try:
-            validated_segments = await self.orchestrator.translate(text)
+            validated_segments = await self.orchestrator.translate(text, on_source=self.send_source)
         except Exception:
             logger.exception("orchestrator.translate failed for %r", text)
             await self.send_error("No se pudo traducir el texto.")
@@ -41,6 +41,9 @@ class Controller:
 
     async def send_transcript(self, text: str, is_final: bool) -> None:
         await self.websocket.send_json({"type": "transcript", "text": text, "final": is_final})
+
+    async def send_source(self, source: str) -> None:
+        await self.websocket.send_json({"type": "source", "source": source})
 
     async def send_result(self, segments: list[ValidatedSegment]) -> None:
         logger.info("Sending result: %s", segments)

@@ -1,5 +1,5 @@
 from app.domain.models import ValidatedSegment
-from app.nlp.nlp_service import NLPService
+from app.nlp.nlp_service import NLPService, SourceCallback
 from app.validation.validator_service import ValidatorService
 
 
@@ -8,6 +8,6 @@ class Orchestrator:
         self.nlp_service = nlp_service
         self.validator_service = validator_service
 
-    async def translate(self, text: str) -> list[ValidatedSegment]:
-        segments = await self.nlp_service.transform(text)
+    async def translate(self, text: str, on_source: SourceCallback | None = None) -> list[ValidatedSegment]:
+        segments = await self.nlp_service.transform(text, on_source=on_source)
         return self.validator_service.validate(segments)
