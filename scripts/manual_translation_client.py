@@ -55,6 +55,8 @@ async def main() -> None:
 
                 if isinstance(data, dict) and data.get("type") == "transcript":
                     if data["final"]:
+                        if not data["text"].strip():
+                            continue
                         print(f"\n[TEXTO FINAL] {data['text']!r}")
                         print("[procesando...]")
                     else:

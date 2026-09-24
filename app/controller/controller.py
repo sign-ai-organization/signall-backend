@@ -26,7 +26,7 @@ class Controller:
     async def handle_transcript(self, text: str, is_final: bool) -> None:
         await self.send_transcript(text, is_final)
 
-        if not is_final:
+        if not is_final or not text.strip():
             return
 
         logger.info("Final transcript: %r -> translating", text)
