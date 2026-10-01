@@ -35,8 +35,11 @@ def main() -> None:
         settings.llm_model,
         settings.llm_temperature,
         settings.llm_timeout_ms,
+        settings.llm_base_url,
     )
 
+    target = settings.llm_base_url or "api.openai.com"
+    print(f"model: {settings.llm_model} @ {target}")
     print("1. Correr casos predeterminados")
     print("2. Escribir mis propias oraciones")
     choice = input("Elija una opción (1/2) > ").strip()

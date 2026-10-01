@@ -29,12 +29,23 @@ SYSTEM_PROMPT = (
 
 
 class LLMClient:
-    def __init__(self, api_key: str, model: str, temperature: float, timeout_ms: int) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        temperature: float,
+        timeout_ms: int,
+        base_url: str = "",
+    ) -> None:
         self.model = model
         self.temperature = temperature
         self.timeout_ms = timeout_ms
+        # An empty base_url means the provider default (OpenAI). Pointing it at
+        # any OpenAI-compatible endpoint runs the same prompt on a local model
+        # instead: Ollama, LM Studio, vLLM, llama.cpp's server.
         self._chat = ChatOpenAI(
             api_key=api_key,
+            base_url=base_url or None,
             model=model,
             temperature=temperature,
             timeout=timeout_ms / 1000,

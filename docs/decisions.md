@@ -108,6 +108,27 @@ final en el otro — la alternativa necesitaría una segunda conexión
 
 ---
 
+## LLM por defecto en desarrollo — Ollama local (addenda a 6.1)
+
+**Subfase:** 6.1 revisited — el proveedor de la 6.1 sigue siendo OpenAI para
+mediciones comparables; esto es cómo se ejecuta en la máquina de desarrollo.
+**Decisión:** `LLMBaseURL` permite apuntar `LLMClient` a cualquier endpoint
+compatible con OpenAI. Para desarrollo, Ollama local
+(`http://localhost:11434/v1`, `qwen3:4b-instruct`) en lugar de la API de pago.
+Con la variable vacía, el comportamiento es el de la 6.1 (OpenAI) — no cambia
+nada por defecto.
+**Por qué:** sin API key ni costo por llamada, y sin enviar el texto de las
+frases de prueba a un servicio externo. `ChatOpenAI` ya aceptaba `base_url`:
+faltaba exponerlo en `Settings`. LangChain Justifica haberlo elegido en la 6.1
+precisamente para este caso. Medido con `qwen3:4b-instruct`: reproduce los tres
+ejemplos del prompt de glosado exactamente y responde en ~0.2 s (OpenAI:
+1-3 s). Ojo: la primera llamada tras arrancar Ollama carga el modelo en memoria
+y puede tardar ~1 min, lo que excede `LLM_TIMEOUT_MS` — hay que calentar el
+modelo (`ollama run <model>`) antes de medir.
+**Fecha:** 2026-09-30
+
+---
+
 ## Nota — Tiempo de silencio para transcripción final
 
 **Decisión:** 1500 ms, tal como ya especifica el SDD (Vista de Procesos).

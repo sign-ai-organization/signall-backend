@@ -64,3 +64,29 @@ una relación de dependencia desde `SemanticCache` hacia `EmbeddingModel`.
 **Estado:** implementado en código (`app/nlp/embedding_model.py`, Fase
 5.1), pendiente de agregar al diagrama.
 **Fecha:** 2026-09-03
+
+---
+
+## El canal WebSocket también transporta frases escritas
+
+**Dónde:** Vista de Procesos, pasos 2 y 8, y el requerimiento `RF-INT-COM-01`
+("audio capturado en un sentido y las glosas junto con los datos de animación
+en el otro").
+
+**Inconsistencia:** el SDD modela el canal como audio en un sentido y resultado
+en el otro, pero `RF-UI-01`/`RF-UI-02` exigen una barra de transcripción
+editable que se confirma para enviarla al NLP. Con un canal solo-de-audio, esa
+confirmación no tiene por dónde viajar: el texto escrito no tiene ninguna ruta
+al backend.
+
+**Cambio propuesto:** el mismo canal acepta además un frame de texto
+`{"type": "text", "text": "<frase>"}`, enrutado a
+`Controller.handle_text` → `handle_transcript(text, is_final=True)`. Así la
+frase escrita y la hablada comparten un único pipeline y no se abre un segundo
+canal, que es lo que `RF-INT-COM-01` prohíbe. El canal sigue siendo uno solo,
+persistente y bidireccional; lo que cambia es que admite un tipo de mensaje
+más, no su dirección.
+
+**Estado:** implementado en código (rama `feat/android-client-support`),
+pendiente de reflejar en el SDD y en la Vista de Procesos.
+**Fecha:** 2026-09-30

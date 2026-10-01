@@ -34,6 +34,7 @@ async def lifespan(app: FastAPI):
             settings.llm_model,
             settings.llm_temperature,
             settings.llm_timeout_ms,
+            settings.llm_base_url,
         ),
     )
     validator_service = ValidatorServiceImpl(catalog_repository)

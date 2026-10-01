@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     llm_model: str
     llm_temperature: float = 0.0
     llm_timeout_ms: int = 10000
+    # Base URL of an OpenAI-compatible endpoint. Empty means OpenAI itself.
+    # Set it to a local model server to run the same prompt offline, e.g.
+    # http://localhost:11434/v1 for Ollama.
+    llm_base_url: str = ""
 
     # Max cosine distance (pgvector <=>) between embeddings to count as a
     # semantic cache HIT. Lower = stricter match required.
