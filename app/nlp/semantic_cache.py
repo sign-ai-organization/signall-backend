@@ -40,7 +40,8 @@ class SemanticCache:
                     fingerprint.category.value,
                 )
         finally:
-            await self._pool.release(conn)
+            with trace_step("cache.release"):
+                await self._pool.release(conn)
 
         if row is None or row["distance"] > self._similarity_threshold:
             return None
@@ -71,4 +72,5 @@ class SemanticCache:
                     fingerprint.has_collision,
                 )
         finally:
-            await self._pool.release(conn)
+            with trace_step("store.release"):
+                await self._pool.release(conn)
