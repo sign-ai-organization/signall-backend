@@ -414,8 +414,8 @@ entorno). Frase nueva, `'Me llamo Julian.'` en la entrada 2 frente a
   el usuario.
 - La diferencia en el total (−1.5 s) se debe sobre todo a la variación
   del LLM (3.2 s → 1.9 s), no a este cambio. Sin contar el LLM, el
-  resto del pipeline pasa de 439 ms a 316 ms: menos de los 218 ms
-  esperados porque en esta sesión la red estaba más lenta
+  resto del pipeline pasa de 439 ms a 316 ms (−123 ms): menos de los
+  218 ms esperados porque en esta sesión la red estaba más lenta
   (`cache.query` 189 ms frente a 103 ms).
 - En esta sesión la latencia de red varió bastante: entre frases en
   caché, `cache.query` fue de 147 a 646 ms y `cache.release` de 111 a
@@ -427,3 +427,91 @@ entorno). Frase nueva, `'Me llamo Julian.'` en la entrada 2 frente a
 segundo plano. Después, `'Me llamo Julian'` (sin tilde ni punto) salió
 del caché por similitud semántica con esa fila: distancia coseno
 **0.110**, por debajo del umbral de 0.15.
+
+---
+
+# Pendientes
+
+Trabajo identificado y analizado, pero aplazado. Cada uno queda descrito
+con lo necesario para retomarlo sin repetir el análisis.
+
+## Evaluar el modelo del LLM
+
+**Estado:** aplazado por decisión del autor (2026-10-01).
+
+**Por qué importa:** tras las optimizaciones de este documento, el LLM
+es el paso dominante en toda frase nueva: **74–88 %** del total (1.9–3.2
+s según la medición, entradas 2 y 6). Es la mayor palanca de latencia
+que queda en el backend. El resto del pipeline de una frase nueva suma
+~0.3 s.
+
+**Contexto:** el proveedor y el modelo son una decisión abierta del
+proyecto. Hoy se usa OpenAI `gpt-4o-mini`, `temperature=0`, vía
+LangChain (`app/nlp/llm_client.py`). LangChain se eligió precisamente
+para poder cambiar de proveedor o modelo sin reescribir `LLMClient`
+(ver `docs/decisions.md`, subfase 6.1).
+
+**Qué hacer:**
+
+1. **Elegir los candidatos** al momento de hacerlo, según
+   disponibilidad y precio: el modelo actual como referencia, variantes
+   más pequeñas o rápidas del mismo proveedor y, opcionalmente, modelos
+   de otros proveedores compatibles con LangChain. No fijar la lista
+   aquí: cambia rápido.
+2. **Armar el conjunto de frases** a partir de
+   `scripts/fixtures/oraciones_prueba.md`: unas 5–10 por tipo de frase
+   (afirmativa, interrogativa sí/no, interrogativa de contenido,
+   negativa, imperativa), priorizando las del dominio de registro de
+   datos e incluyendo algunas marcadas con `(*)`. Total sugerido:
+   30–50 frases.
+3. **Escribir un script** `scripts/compare_llm_models.py` que, para
+   cada modelo candidato:
+   - Instancie `LLMClient` con ese modelo (mismo `SYSTEM_PROMPT`, misma
+     temperatura), sin pasar por el caché semántico.
+   - Llame `transform` para cada frase y mida la latencia de cada
+     llamada.
+   - Repita cada frase al menos 3 veces: la latencia de la API varía
+     mucho entre llamadas (en este documento, 1.9–3.2 s para el mismo
+     modelo).
+   - Guarde los resultados en un CSV o JSON: modelo, frase, glosas,
+     latencia.
+4. **Métricas a comparar:**
+   - **Latencia:** mediana (p50) y p95 por modelo. La mediana sola
+     esconde los picos que el usuario sí nota.
+   - **Formato válido (automático):** que cada glosa cumpla las reglas
+     del prompt: mayúsculas, sin tildes (salvo Ñ), sin puntuación,
+     separadas por comas. Hoy `gpt-4o-mini` ya las incumple a veces
+     (devuelve `CÓMO` con tilde).
+   - **Cobertura del catálogo (automático):** porcentaje de glosas que
+     existen en `catalog`. Mide qué tan bien se ajusta el modelo al
+     vocabulario disponible.
+   - **Calidad (manual):** revisar las glosas de cada modelo frente a
+     las del modelo actual en las mismas frases. Para las frases
+     principales del caso de uso, idealmente contrastar con una
+     referencia validada por alguien que conozca LSC.
+   - **Costo:** precio por millón de tokens de entrada y salida de cada
+     modelo, multiplicado por los tokens usados en la prueba.
+5. **Decidir** con la tabla de resultados: el modelo más rápido cuya
+   calidad y formato no empeoren frente al actual. Registrar la
+   decisión en `docs/decisions.md` (qué se eligió y por qué) y las
+   mediciones aquí, como una entrada nueva.
+6. **Aplicar** cambiando `LLM_MODEL` (y el proveedor, si cambia) en
+   `.env` y `.env.example`.
+
+**Incluir en el mismo trabajo:** fijar `max_tokens` en `LLMClient`
+como setting (`LLM_MAX_TOKENS`). La respuesta son unas pocas glosas,
+así que un tope bajo protege contra respuestas desbocadas (costo y
+tiempo). Casi no mejora la latencia normal.
+
+**Descartado:** el caché de prompts del proveedor. En OpenAI solo
+aplica a prompts de más de 1024 tokens, y el `SYSTEM_PROMPT` actual es
+más corto.
+
+## Pruebas pendientes del keep-alive (entrada 3)
+
+1. Frase, pausa de más de 5 min dentro de la ventana de actividad,
+   misma frase: se espera ~0.27 s y no ~4.4 s.
+2. Pausa de más de 25 min (Neon suspendido): el pool debe recuperarse
+   sin errores. Si aparece `[ERROR] No se pudo traducir el texto.`, el
+   pool está entregando conexiones cerradas por Neon y hay que agregar
+   un reintento al obtener la conexión.
