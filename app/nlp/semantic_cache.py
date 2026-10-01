@@ -12,11 +12,11 @@ def _format_vector(embedding: list[float]) -> str:
 class SemanticCache:
     def __init__(
         self,
-        database_url: str,
+        pool: asyncpg.Pool,
         embedding_model: EmbeddingModel,
         similarity_threshold: float,
     ) -> None:
-        self._database_url = database_url
+        self._pool = pool
         self._embedding_model = embedding_model
         self._similarity_threshold = similarity_threshold
 
@@ -24,8 +24,8 @@ class SemanticCache:
         with trace_step("cache.embed"):
             embedding = self._embedding_model.embed(text)
 
-        with trace_step("cache.connect"):
-            conn = await asyncpg.connect(self._database_url)
+        with trace_step("cache.acquire"):
+            conn = await self._pool.acquire()
         try:
             with trace_step("cache.query"):
                 row = await conn.fetchrow(
@@ -40,7 +40,7 @@ class SemanticCache:
                     fingerprint.category.value,
                 )
         finally:
-            await conn.close()
+            await self._pool.release(conn)
 
         if row is None or row["distance"] > self._similarity_threshold:
             return None
@@ -52,8 +52,8 @@ class SemanticCache:
             embedding = self._embedding_model.embed(text)
         secondary_signals = [signal.value for signal in fingerprint.secondary_signals]
 
-        with trace_step("store.connect"):
-            conn = await asyncpg.connect(self._database_url)
+        with trace_step("store.acquire"):
+            conn = await self._pool.acquire()
         try:
             with trace_step("store.insert"):
                 await conn.execute(
@@ -71,4 +71,4 @@ class SemanticCache:
                     fingerprint.has_collision,
                 )
         finally:
-            await conn.close()
+            await self._pool.release(conn)

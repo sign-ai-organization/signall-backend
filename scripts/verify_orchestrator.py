@@ -8,6 +8,7 @@ from app.nlp.llm_client import LLMClient
 from app.nlp.nlp_service_impl import NLPServiceImpl
 from app.nlp.semantic_cache import SemanticCache
 from app.orchestrator.orchestrator import Orchestrator
+from app.persistence.database import create_pool
 from app.validation.catalog_repository import CatalogRepository
 from app.validation.validator_service_impl import ValidatorServiceImpl
 
@@ -18,7 +19,8 @@ TEST_SENTENCES = [
 
 
 async def main() -> None:
-    catalog_repository = CatalogRepository(settings.database_url)
+    pool = await create_pool(settings.database_url, settings.db_pool_min_size, settings.db_pool_max_size)
+    catalog_repository = CatalogRepository(pool)
     await catalog_repository.load_all()
     print(f"catalog entries loaded: {list(catalog_repository.cache.keys())}")
 
@@ -26,7 +28,7 @@ async def main() -> None:
         NLPServiceImpl(
             GlossAnalyzer(),
             SemanticCache(
-                settings.database_url,
+                pool,
                 EmbeddingModel(),
                 settings.semantic_cache_similarity_threshold,
             ),
@@ -47,6 +49,8 @@ async def main() -> None:
             print(f"  type={segment.type.value}")
             for gloss in segment.glosses:
                 print(f"    {gloss.model_dump()}")
+
+    await pool.close()
 
 
 if __name__ == "__main__":

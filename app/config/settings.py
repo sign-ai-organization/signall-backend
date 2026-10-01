@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     debug_trace_enabled: bool = False
 
     database_url: str
+    db_pool_min_size: int = 2
+    db_pool_max_size: int = 10
     llm_api_key: str
     llm_model: str
     llm_temperature: float = 0.0
