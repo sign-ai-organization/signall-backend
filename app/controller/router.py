@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 
 from fastapi import APIRouter, WebSocket
@@ -12,6 +13,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _parse_text_frame(raw: str) -> str | None:
+    """Return the phrase carried by a client text frame, or None.
+
+    A text frame is `{"type": "text", "text": "<phrase>"}`. Anything else —
+    malformed JSON, another type, an empty phrase — is not a phrase we can
+    translate, so it is ignored rather than turned into an error the user
+    cannot act on.
+    """
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(payload, dict) or payload.get("type") != "text":
+        return None
+
+    text = payload.get("text")
+    if not isinstance(text, str) or not text.strip():
+        return None
+
+    return text.strip()
+
+
 async def _forward_audio(websocket: WebSocket, controller: Controller) -> None:
     while True:
         message = await websocket.receive()
@@ -21,6 +45,13 @@ async def _forward_audio(websocket: WebSocket, controller: Controller) -> None:
         chunk = message.get("bytes")
         if chunk is not None:
             await controller.handle_audio_chunk(chunk)
+            continue
+
+        raw = message.get("text")
+        if raw is not None:
+            text = _parse_text_frame(raw)
+            if text is not None:
+                await controller.handle_text(text)
 
 
 async def _forward_transcripts(controller: Controller) -> None:

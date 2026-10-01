@@ -23,6 +23,15 @@ class Controller:
     async def handle_audio_chunk(self, chunk: bytes) -> None:
         await self.stt_client.send_audio(chunk)
 
+    async def handle_text(self, text: str) -> None:
+        """Translate a phrase the client typed instead of spoke.
+
+        Goes through `handle_transcript` with `is_final=True` so a typed
+        phrase and a spoken one share the same pipeline: echo the transcript,
+        translate, send the result.
+        """
+        await self.handle_transcript(text, is_final=True)
+
     async def handle_transcript(self, text: str, is_final: bool) -> None:
         await self.send_transcript(text, is_final)
 
