@@ -57,6 +57,7 @@ async def lifespan(app: FastAPI):
     app.state.db_keep_alive = db_keep_alive
     yield
 
+    await nlp_service.wait_for_pending_stores()
     await db_keep_alive.stop()
     await pool.close()
 

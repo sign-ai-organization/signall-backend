@@ -94,3 +94,29 @@ WebSocket como mensaje opcional de debug.
 **Estado:** implementado en código, pendiente de decidir si se refleja
 en el SDD.
 **Fecha:** 2026-10-01
+
+---
+
+## `SemanticCache.store` ya no bloquea la respuesta
+
+**Dónde:** sección 7.2 de `docs/sdd.md` (secuencia del flujo de
+traducción), paso 7 del camino de fallo de caché, y la Figura 7.2.
+
+**Situación:** la secuencia muestra `NLPServiceImpl → SemanticCache:
+store(text, fingerprint, glosses)` como paso síncrono antes de que
+`NLPServiceImpl` devuelva la `List<Segment>` al `Orchestrator`. En el
+código, `store` se sigue llamando con los mismos parámetros, pero como
+tarea en segundo plano: `NLPServiceImpl` devuelve los segmentos sin
+esperar a que termine.
+
+**Por qué:** guardar en caché no es necesario para responder al usuario
+y costaba ~220 ms por frase nueva (embedding + INSERT + devolver la
+conexión al pool, ver `docs/performance.md`). Si el `store` falla, solo
+se pierde la entrada de caché; el resultado entregado no cambia.
+
+**Cambio propuesto:** en la Figura 7.2, marcar la llamada `store` como
+asíncrona (flecha de mensaje asíncrono) y reflejarlo en la narrativa
+del paso 7.
+
+**Estado:** implementado en código, pendiente de reflejar en el SDD.
+**Fecha:** 2026-10-01

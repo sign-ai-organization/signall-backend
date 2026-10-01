@@ -305,3 +305,125 @@ CU-horas.
 2. Pausa de más de 25 min (fuera de la ventana, Neon suspendido): se
    espera que el pool se recupere sin errores, con la primera frase más
    lenta.
+
+---
+
+## 4. Llamada al LLM asíncrona
+
+**Fecha:** 2026-10-01
+**Cambio:** `LLMClient.transform` pasa de `invoke` (síncrono) a
+`await ainvoke` (asíncrono).
+
+**Problema:** la llamada síncrona dentro de una corrutina congelaba el
+event loop de todo el backend durante 2–3 s por cada frase nueva: no se
+reenviaba audio al STT, no corría el keep-alive y cualquier otra sesión
+quedaba detenida.
+
+**Medición:** una llamada real al LLM (`'¿Cuál es su nombre?'`, 2.06 s)
+en paralelo con una tarea que marca cada 100 ms. Durante la llamada la
+tarea marcó **18 de ~20** veces posibles; con la versión síncrona habría
+marcado 0.
+
+**Efecto en la latencia:** ninguno. El LLM tarda lo mismo y, para una
+frase aislada, el total no cambia. El orden de las frases tampoco: los
+mensajes del STT se siguen leyendo y traduciendo en serie
+(`_forward_transcripts`), así que los parciales siguen llegando al
+cliente después de la traducción en curso. El beneficio es que el resto
+del sistema sigue funcionando durante la espera, y es requisito para
+procesar segmentos en paralelo (segmentador) y para desacoplar la
+traducción de la lectura del STT.
+
+---
+
+## 5. Evaluado y descartado: optimizar el cálculo del embedding
+
+**Fecha:** 2026-10-01
+
+**Qué se evaluó:**
+- Calcularlo una sola vez por frase nueva: hoy se calcula en `lookup` y
+  otra vez en `store` con el mismo texto. Se haría con memoización en
+  `EmbeddingModel.embed`, para no cambiar firmas del SDD.
+- Ejecutar el `encode` en un hilo (`asyncio.to_thread`) para no
+  bloquear el event loop.
+
+**Por qué se descarta:** según la traza, `cache.embed` y `store.embed`
+cuestan ~12–17 ms (~25–60 ms la primera vez tras arrancar). Es menos del
+1 % de una frase nueva (~2.5–3.5 s, dominada por el LLM) y un bloqueo
+de ~15 ms no afecta el reenvío de audio ni el keep-alive. A cambio, la
+memoización agregaría un segundo caché, distinto de `SemanticCache`,
+con su propio tamaño configurable, consumo de memoria y riesgo de
+compartir listas mutables. Tampoco se precalienta el modelo al
+arrancar: ahorraría ~40 ms una sola vez por arranque.
+
+**Cuándo reconsiderarlo:** si con el segmentador se procesan varios
+segmentos en paralelo y los bloqueos del `encode` empiezan a sumarse en
+la traza.
+
+---
+
+## 6. Guardar en caché en segundo plano
+
+**Fecha:** 2026-10-01
+**Cambio:** en un fallo de caché, `NLPServiceImpl` ya no espera
+`SemanticCache.store`: lo programa como tarea en segundo plano y
+devuelve las glosas de inmediato.
+
+**Problema:** según la entrada 2, el usuario esperaba ~220 ms de
+`store.embed` + `store.insert` + `store.release` en cada frase nueva,
+aunque guardar en caché no es necesario para responderle.
+
+**Detalles de la implementación:**
+- `NLPServiceImpl` guarda referencia a las tareas pendientes, para que
+  Python no las descarte antes de terminar.
+- Los errores del `store` se registran en el log con el texto afectado.
+  Si falla, la siguiente vez esa frase vuelve a ir al LLM: el usuario
+  nunca recibe un resultado incorrecto.
+- Al apagar el backend, `wait_for_pending_stores()` espera los `store`
+  pendientes antes de cerrar el pool.
+- La tarea corre con un contexto limpio: sus tiempos no se escriben en
+  la traza de la frase, que ya se envió. Los pasos `store.*`
+  desaparecen de la traza porque ya no forman parte del tiempo que
+  espera el usuario.
+
+**Caso límite aceptado:** si la misma frase nueva se repite antes de
+que termine su `store` (< ~200 ms), ambas van al LLM y quedan dos filas
+iguales en `semantic_cache`. No rompe nada.
+
+**Medición de punta a punta** (`manual_translation_client`, mismo
+entorno). Frase nueva, `'Me llamo Julian.'` en la entrada 2 frente a
+`'Me llamo Julián.'` ahora (fuente: llm):
+
+| Paso | Entrada 2 (ms) | Store en segundo plano (ms) |
+|---|---:|---:|
+| fingerprint | 0.1 | 0.1 |
+| cache.embed | 17.0 | 15.5 |
+| cache.acquire | 0.0 | 0.0 |
+| cache.query | 103.3 | 189.1 |
+| cache.release | 99.9 | 111.4 |
+| llm | 3241.6 | 1865.8 |
+| store.embed | 14.3 | — |
+| store.acquire | 0.0 | — |
+| store.insert | 103.2 | — |
+| store.release | 101.0 | — |
+| validation | 0.0 | 0.0 |
+| **total** | **3680.8** | **2182.2** |
+
+**Análisis:**
+
+- Los pasos `store.*` (**218.5 ms**) desaparecen del tiempo que espera
+  el usuario.
+- La diferencia en el total (−1.5 s) se debe sobre todo a la variación
+  del LLM (3.2 s → 1.9 s), no a este cambio. Sin contar el LLM, el
+  resto del pipeline pasa de 439 ms a 316 ms: menos de los 218 ms
+  esperados porque en esta sesión la red estaba más lenta
+  (`cache.query` 189 ms frente a 103 ms).
+- En esta sesión la latencia de red varió bastante: entre frases en
+  caché, `cache.query` fue de 147 a 646 ms y `cache.release` de 111 a
+  306 ms (antes, ~100 ms estables). La primera consulta tras reiniciar
+  (646 ms) incluye además preparar la sentencia en esa conexión.
+
+**Comprobación de que el `store` se ejecuta:** la fila
+`'Me llamo Julián.'` quedó guardada en `semantic_cache` por la tarea en
+segundo plano. Después, `'Me llamo Julian'` (sin tilde ni punto) salió
+del caché por similitud semántica con esa fila: distancia coseno
+**0.110**, por debajo del umbral de 0.15.

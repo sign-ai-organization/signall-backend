@@ -34,6 +34,10 @@ async def main() -> None:
         elapsed = time.perf_counter() - start
         print(f"  1st call (expected MISS -> LLM): {first} ({elapsed:.2f}s)")
 
+        # The MISS stores its result in the background; wait for it so the
+        # 2nd call can hit the cache.
+        await service.wait_for_pending_stores()
+
         start = time.perf_counter()
         second = await service.transform(sentence)
         elapsed = time.perf_counter() - start
@@ -41,6 +45,7 @@ async def main() -> None:
 
         assert first == second, "same text should produce the same Segment both times"
 
+    await service.wait_for_pending_stores()
     await pool.close()
 
 

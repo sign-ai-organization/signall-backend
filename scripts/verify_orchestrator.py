@@ -24,23 +24,21 @@ async def main() -> None:
     await catalog_repository.load_all()
     print(f"catalog entries loaded: {list(catalog_repository.cache.keys())}")
 
-    orchestrator = Orchestrator(
-        NLPServiceImpl(
-            GlossAnalyzer(),
-            SemanticCache(
-                pool,
-                EmbeddingModel(),
-                settings.semantic_cache_similarity_threshold,
-            ),
-            LLMClient(
-                settings.llm_api_key,
-                settings.llm_model,
-                settings.llm_temperature,
-                settings.llm_timeout_ms,
-            ),
+    nlp_service = NLPServiceImpl(
+        GlossAnalyzer(),
+        SemanticCache(
+            pool,
+            EmbeddingModel(),
+            settings.semantic_cache_similarity_threshold,
         ),
-        ValidatorServiceImpl(catalog_repository),
+        LLMClient(
+            settings.llm_api_key,
+            settings.llm_model,
+            settings.llm_temperature,
+            settings.llm_timeout_ms,
+        ),
     )
+    orchestrator = Orchestrator(nlp_service, ValidatorServiceImpl(catalog_repository))
 
     for sentence in TEST_SENTENCES:
         print(f"\n{sentence!r}")
@@ -50,6 +48,7 @@ async def main() -> None:
             for gloss in segment.glosses:
                 print(f"    {gloss.model_dump()}")
 
+    await nlp_service.wait_for_pending_stores()
     await pool.close()
 
 
