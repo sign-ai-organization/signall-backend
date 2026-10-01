@@ -31,7 +31,7 @@ class NLPServiceImpl(NLPService):
             logger.info("SemanticCache MISS for %r -> calling LLM", text)
             set_trace_source("llm")
             with trace_step("llm"):
-                glosses = self.llm_client.transform(text)
+                glosses = await self.llm_client.transform(text)
             await self.cache.store(text, fingerprint, glosses)
         else:
             logger.info("SemanticCache HIT for %r", text)

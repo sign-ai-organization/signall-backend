@@ -40,8 +40,8 @@ class LLMClient:
             timeout=timeout_ms / 1000,
         )
 
-    def transform(self, text: str) -> list[str]:
-        response = self._chat.invoke(
+    async def transform(self, text: str) -> list[str]:
+        response = await self._chat.ainvoke(
             [
                 ("system", SYSTEM_PROMPT),
                 ("human", text),

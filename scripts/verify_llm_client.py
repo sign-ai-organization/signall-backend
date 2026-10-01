@@ -1,3 +1,5 @@
+import asyncio
+
 from app.config.settings import settings
 from app.nlp.llm_client import LLMClient
 
@@ -10,13 +12,13 @@ PRESET_SENTENCES = [
 ]
 
 
-def run_presets(client: LLMClient) -> None:
+async def run_presets(client: LLMClient) -> None:
     for sentence in PRESET_SENTENCES:
-        glosses = client.transform(sentence)
+        glosses = await client.transform(sentence)
         print(f"{sentence!r} -> {glosses}")
 
 
-def run_interactive(client: LLMClient) -> None:
+async def run_interactive(client: LLMClient) -> None:
     print("\nEscriba una oración y presione Enter. Escriba 'salir' para terminar.\n")
     while True:
         sentence = input("Oración > ").strip()
@@ -25,11 +27,11 @@ def run_interactive(client: LLMClient) -> None:
         if sentence.lower() in {"salir", "exit", "quit"}:
             break
 
-        glosses = client.transform(sentence)
+        glosses = await client.transform(sentence)
         print(f"  -> {glosses}\n")
 
 
-def main() -> None:
+async def main() -> None:
     client = LLMClient(
         settings.llm_api_key,
         settings.llm_model,
@@ -42,12 +44,12 @@ def main() -> None:
     choice = input("Elija una opción (1/2) > ").strip()
 
     if choice == "1":
-        run_presets(client)
+        await run_presets(client)
     elif choice == "2":
-        run_interactive(client)
+        await run_interactive(client)
     else:
         print("Opción no válida.")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
