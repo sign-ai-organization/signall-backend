@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     app_port: int = 8080
     log_level: str = "INFO"
 
+    # Send per-step pipeline timings to the client as a "trace" message.
+    # Debug-only: keep it off for the production Android client.
+    debug_trace_enabled: bool = False
+
     database_url: str
     llm_api_key: str
     llm_model: str

@@ -1,7 +1,8 @@
 """Manual, real-microphone test of the full translation session
 (/ws/translate): captures your voice, streams it to OUR backend (not
 directly to the STT service), and prints whatever comes back — the final
-translated result, or an error message.
+translated result, or an error message. With DEBUG_TRACE_ENABLED=true on
+the backend, it also prints the per-step pipeline timings.
 
 Requires requirements-dev.txt (sounddevice) installed.
 
@@ -23,6 +24,15 @@ FRAME_DURATION_MS = 30
 FRAME_SIZE = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000)
 
 URL = sys.argv[1] if len(sys.argv) > 1 else "ws://127.0.0.1:8080/ws/translate"
+
+
+def print_trace(trace: dict) -> None:
+    print(f"[traza] fuente: {trace['source']}")
+    steps_ms = trace["steps_ms"]
+    name_width = max((len(name) for name in steps_ms), default=0)
+    for name, ms in steps_ms.items():
+        print(f"    {name:<{name_width}}  {ms:>8.1f} ms")
+    print()
 
 
 async def main() -> None:
@@ -67,8 +77,8 @@ async def main() -> None:
                         print(f"\n[texto parcial] {data['text']!r}")
                     continue
 
-                if isinstance(data, dict) and data.get("type") == "source":
-                    print(f"[fuente: {data['source']}]")
+                if isinstance(data, dict) and data.get("type") == "trace":
+                    print_trace(data)
                     continue
 
                 elapsed = (
@@ -87,7 +97,6 @@ async def main() -> None:
                     print(f"  type={segment['type']}")
                     for gloss in segment["glosses"]:
                         print(f"    {gloss}")
-                print()
 
         try:
             await asyncio.gather(sender(), receiver())

@@ -64,3 +64,33 @@ una relación de dependencia desde `SemanticCache` hacia `EmbeddingModel`.
 **Estado:** implementado en código (`app/nlp/embedding_model.py`, Fase
 5.1), pendiente de agregar al diagrama.
 **Fecha:** 2026-09-03
+
+---
+
+## Instrumentación de tiempos del pipeline (`PipelineTrace`)
+
+**Dónde:** no figura en el SDD (ni en las Figuras 4–6 ni en la secuencia
+de la Figura 7.2).
+
+**Situación:** para medir la latencia de cada paso (huella, embedding,
+conexión y consulta a `semantic_cache`, LLM, inserción, validación) se
+agregó `app/observability/pipeline_trace.py`. La traza activa vive en un
+`ContextVar`, de modo que **ninguna firma del SDD cambia**:
+`Orchestrator.translate(text)`, `NLPService.transform(text)` y
+`SemanticCache.lookup/store` conservan sus parámetros. Esto además
+reemplaza el callback de debug `on_source`, que sí había agregado un
+parámetro fuera del diseño a `translate` y `transform`.
+
+El `Controller` crea la traza por cada transcripción final, la registra
+en el log y, si `DEBUG_TRACE_ENABLED=true`, envía al cliente un mensaje
+`{"type": "trace", "source": ..., "steps_ms": {...}}` después del
+resultado. El mensaje `{"type": "source"}` se eliminó.
+
+**Cambio propuesto:** si se decide documentarlo, mencionarlo como
+instrumentación no funcional (fuera del contrato funcional del
+`Controller` con Android), y agregar el mensaje `trace` al protocolo
+WebSocket como mensaje opcional de debug.
+
+**Estado:** implementado en código, pendiente de decidir si se refleja
+en el SDD.
+**Fecha:** 2026-10-01

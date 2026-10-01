@@ -2,6 +2,7 @@ import asyncpg
 
 from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.models import Fingerprint
+from app.observability.pipeline_trace import trace_step
 
 
 def _format_vector(embedding: list[float]) -> str:
@@ -20,21 +21,24 @@ class SemanticCache:
         self._similarity_threshold = similarity_threshold
 
     async def lookup(self, text: str, fingerprint: Fingerprint) -> list[str] | None:
-        embedding = self._embedding_model.embed(text)
+        with trace_step("cache.embed"):
+            embedding = self._embedding_model.embed(text)
 
-        conn = await asyncpg.connect(self._database_url)
+        with trace_step("cache.connect"):
+            conn = await asyncpg.connect(self._database_url)
         try:
-            row = await conn.fetchrow(
-                """
-                SELECT glosses, embedding <=> $1::vector AS distance
-                FROM semantic_cache
-                WHERE phrase_type = $2
-                ORDER BY embedding <=> $1::vector
-                LIMIT 1
-                """,
-                _format_vector(embedding),
-                fingerprint.category.value,
-            )
+            with trace_step("cache.query"):
+                row = await conn.fetchrow(
+                    """
+                    SELECT glosses, embedding <=> $1::vector AS distance
+                    FROM semantic_cache
+                    WHERE phrase_type = $2
+                    ORDER BY embedding <=> $1::vector
+                    LIMIT 1
+                    """,
+                    _format_vector(embedding),
+                    fingerprint.category.value,
+                )
         finally:
             await conn.close()
 
@@ -44,24 +48,27 @@ class SemanticCache:
         return list(row["glosses"])
 
     async def store(self, text: str, fingerprint: Fingerprint, glosses: list[str]) -> None:
-        embedding = self._embedding_model.embed(text)
+        with trace_step("store.embed"):
+            embedding = self._embedding_model.embed(text)
         secondary_signals = [signal.value for signal in fingerprint.secondary_signals]
 
-        conn = await asyncpg.connect(self._database_url)
+        with trace_step("store.connect"):
+            conn = await asyncpg.connect(self._database_url)
         try:
-            await conn.execute(
-                """
-                INSERT INTO semantic_cache
-                    (original_text, embedding, phrase_type, glosses, secondary_signals, had_collision)
-                VALUES
-                    ($1, $2::vector, $3, $4, $5, $6)
-                """,
-                text,
-                _format_vector(embedding),
-                fingerprint.category.value,
-                glosses,
-                secondary_signals,
-                fingerprint.has_collision,
-            )
+            with trace_step("store.insert"):
+                await conn.execute(
+                    """
+                    INSERT INTO semantic_cache
+                        (original_text, embedding, phrase_type, glosses, secondary_signals, had_collision)
+                    VALUES
+                        ($1, $2::vector, $3, $4, $5, $6)
+                    """,
+                    text,
+                    _format_vector(embedding),
+                    fingerprint.category.value,
+                    glosses,
+                    secondary_signals,
+                    fingerprint.has_collision,
+                )
         finally:
             await conn.close()

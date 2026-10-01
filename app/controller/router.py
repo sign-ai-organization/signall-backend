@@ -38,7 +38,12 @@ async def translation_session(websocket: WebSocket) -> None:
     await websocket.accept()
 
     stt_client = SttServiceClientImpl(settings.stt_ws_url)
-    controller = Controller(websocket, websocket.app.state.orchestrator, stt_client)
+    controller = Controller(
+        websocket,
+        websocket.app.state.orchestrator,
+        stt_client,
+        debug_trace_enabled=settings.debug_trace_enabled,
+    )
 
     try:
         await stt_client.connect()
