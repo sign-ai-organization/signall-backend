@@ -12,6 +12,7 @@ from app.nlp.nlp_service_impl import NLPServiceImpl
 from app.nlp.semantic_cache import SemanticCache
 from app.orchestrator.orchestrator import Orchestrator
 from app.persistence.database import create_pool
+from app.persistence.keep_alive import DatabaseKeepAlive
 from app.validation.catalog_repository import CatalogRepository
 from app.validation.validator_service_impl import ValidatorServiceImpl
 
@@ -24,7 +25,14 @@ async def lifespan(app: FastAPI):
         settings.database_url,
         settings.db_pool_min_size,
         settings.db_pool_max_size,
+        settings.db_pool_max_inactive_connection_lifetime_seconds,
     )
+    db_keep_alive = DatabaseKeepAlive(
+        pool,
+        settings.db_keepalive_interval_seconds,
+        settings.db_keepalive_idle_window_seconds,
+    )
+    db_keep_alive.start()
 
     catalog_repository = CatalogRepository(pool)
     await catalog_repository.load_all()
@@ -46,8 +54,10 @@ async def lifespan(app: FastAPI):
     validator_service = ValidatorServiceImpl(catalog_repository)
 
     app.state.orchestrator = Orchestrator(nlp_service, validator_service)
+    app.state.db_keep_alive = db_keep_alive
     yield
 
+    await db_keep_alive.stop()
     await pool.close()
 
 

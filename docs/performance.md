@@ -189,3 +189,119 @@ se mantiene de forma confiable de todos modos.
 procesan en serie y los ~100 ms se acumulan por segmento sin poder
 cambiar la región, o si la demo debe correr contra una base de datos
 lejana.
+
+---
+
+## 3. Región de Neon y *scale-to-zero*
+
+**Fecha:** 2026-10-01
+
+### Región: se mantiene `us-east-2`
+
+Latencia TCP desde el entorno de desarrollo (Colombia) a endpoints de
+AWS en las regiones donde Neon ofrece proyectos, 20 muestras por región:
+
+| Región | Mínimo | Mediana |
+|---|---:|---:|
+| us-east-1 (Virginia) | 92 ms | 234 ms |
+| **us-east-2 (Ohio), actual** | 109 ms | 213 ms |
+| sa-east-1 (São Paulo) | 141 ms | 240 ms |
+| us-west-2 (Oregon) | 169 ms | 226 ms |
+| eu-central-1 (Frankfurt) | 177 ms | 301 ms |
+
+- Virginia y Ohio son equivalentes (~15 ms de diferencia en el mínimo,
+  a favor de Ohio en la mediana). São Paulo es peor pese a la cercanía
+  geográfica.
+
+  **No se cambia.**
+- La mediana duplica el mínimo en todas las regiones: la variación de
+  la red local pesa más que la región elegida.
+
+### *Scale-to-zero*: el problema
+
+Misma frase en caché, `'Hola, ¿cómo estás?'`, inmediatamente y tras
+~5 minutos sin actividad (backend encendido):
+
+| Paso | Normal (ms) | Tras 5 min (ms) |
+|---|---:|---:|
+| cache.embed | 24.0 | 15.4 |
+| cache.acquire | 0.0 | **3837.6** |
+| cache.query | 143.7 | 297.5 |
+| cache.release | 102.1 | 296.9 |
+| **total** | **270.3** | **4448.0** |
+
+Dos mecanismos cierran las conexiones a los 5 minutos:
+
+1. Neon suspende el cómputo tras 5 min de inactividad. En el plan
+   gratuito **no se puede desactivar**.
+2. El pool de `asyncpg` cierra las conexiones inactivas tras 300 s
+   (`max_inactive_connection_lifetime`, valor por defecto).
+
+La siguiente consulta paga abrir una conexión nueva (TCP + TLS +
+autenticación), despertar Neon y el precalentamiento del tipo `vector`
+(~3.8 s), y las primeras consultas sobre el cómputo recién despierto
+son más lentas. El pool se recupera solo: no hubo errores.
+
+En el caso de uso (registro de datos en ventanilla) es normal que pasen
+más de 5 minutos entre una atención y la siguiente, así que **la
+primera frase de cada atención** pagaría este costo.
+
+### Límites del plan gratuito de Neon
+
+| Recurso | Límite |
+|---|---|
+| Cómputo | 100 CU-horas por proyecto al mes |
+| Almacenamiento | 1 GB por proyecto |
+| *Scale-to-zero* | A los 5 min, no desactivable |
+| Al agotar el cómputo | Se suspende hasta el siguiente ciclo (no hay cobro) |
+
+Con el cómputo mínimo (0.25 CU), 100 CU-horas equivalen a ~400 horas
+encendida (~16 días seguidos). Mantener Neon despierto mientras el
+backend esté encendido arriesga agotarlo si se olvida encendido.
+
+### Alternativas evaluadas
+
+| Alternativa | Por qué no / por qué sí |
+|---|---|
+| Mantener Neon despierto siempre que el backend esté encendido | Olvidar el backend encendido consume cómputo sin uso; dos semanas bastan para suspender la base de datos hasta el mes siguiente. |
+| Mantenerlo despierto mientras haya sesiones WebSocket abiertas | Mismo riesgo si se olvida un cliente conectado. Requiere contar sesiones. |
+| Desactivar *scale-to-zero* en Neon | Solo en planes pagos. |
+| No hacer nada | ~4 s extra en la primera frase de cada atención. |
+| **Mantenerlo despierto solo con actividad reciente** | **Elegida.** Gasto acotado en todos los casos, sin depender de apagar nada. |
+
+### Cambio implementado
+
+`DatabaseKeepAlive` (`app/persistence/keep_alive.py`), iniciado y
+detenido con la app:
+
+- Guarda la marca de tiempo de la **última actividad**: arranque del
+  backend, apertura de una sesión WebSocket o llegada de una
+  transcripción final.
+- El arranque cuenta como actividad porque al encender el backend el
+  pool ya despierta Neon (crea y precalienta las conexiones y carga el
+  catálogo antes de aceptar clientes), y lo habitual es conectar el
+  cliente un rato después. Sin esto, si pasan más de 5 min entre
+  encender el backend y la primera sesión, Neon se dormiría de nuevo.
+  Así queda despierto los primeros 20 min tras el arranque.
+- Cada `DB_KEEPALIVE_INTERVAL_SECONDS` (240 s, por debajo de los 5 min
+  de Neon) hace un `SELECT 1`, **solo si** la última actividad fue hace
+  menos de `DB_KEEPALIVE_IDLE_WINDOW_SECONDS` (1200 s = 20 min). Fuera
+  de esa ventana no hace nada y Neon se duerme solo.
+- Al abrir una sesión WebSocket lanza un `SELECT 1` inmediato en
+  segundo plano: si Neon estaba dormido, despierta mientras el usuario
+  empieza a hablar y el STT espera el silencio que cierra la frase.
+- El pool deja de cerrar conexiones inactivas por su cuenta
+  (`DB_POOL_MAX_INACTIVE_CONNECTION_LIFETIME_SECONDS=0`): cuándo puede
+  quedar inactiva la base de datos lo decide el keep-alive.
+
+**Peor caso de consumo:** con todo olvidado encendido (con o sin
+cliente conectado), Neon se mantiene despierto como mucho 20 min de
+ventana desde la última actividad + 5 min hasta suspenderse ≈ 0.1
+CU-horas.
+
+**Pendiente:** medir de punta a punta:
+1. Frase, pausa de más de 5 min **dentro** de la ventana, misma frase:
+   se espera ~0.27 s y no ~4.4 s.
+2. Pausa de más de 25 min (fuera de la ventana, Neon suspendido): se
+   espera que el pool se recupere sin errores, con la primera frase más
+   lenta.
