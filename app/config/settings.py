@@ -1,8 +1,10 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.config.sentence_segmenter import SentenceSegmenterSettings
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_nested_delimiter="__")
 
     app_host: str = "127.0.0.1"
     app_port: int = 8080
@@ -35,6 +37,9 @@ class Settings(BaseSettings):
 
     # Default matches the "stt" service name in docker-compose.yml.
     stt_ws_url: str = "ws://stt:8000/ws/transcribe"
+
+    # Nested: override as SENTENCE_SEGMENTER__<FIELD>, e.g. SENTENCE_SEGMENTER__ENABLED=false.
+    sentence_segmenter: SentenceSegmenterSettings = SentenceSegmenterSettings()
 
 
 settings = Settings()

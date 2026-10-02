@@ -24,6 +24,7 @@ async def main() -> None:
         LLMClient(
             settings.llm_api_key, settings.llm_model, settings.llm_temperature, settings.llm_timeout_ms
         ),
+        segmenter=None,
     )
 
     for sentence in TEST_SENTENCES:

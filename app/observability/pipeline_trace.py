@@ -22,7 +22,9 @@ class PipelineTrace:
         try:
             yield
         finally:
-            self.steps_ms[name] = (time.perf_counter() - started_at) * 1000
+            # A step repeats once per sentence: report the total.
+            elapsed_ms = (time.perf_counter() - started_at) * 1000
+            self.steps_ms[name] = self.steps_ms.get(name, 0.0) + elapsed_ms
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -57,5 +59,7 @@ def trace_step(name: str) -> Iterator[None]:
 
 def set_trace_source(source: str) -> None:
     trace = _current_trace.get()
-    if trace is not None:
-        trace.source = source
+    if trace is None:
+        return
+    # Sentences of one text may come from different sources (cache and LLM).
+    trace.source = source if trace.source in (None, source) else "mixed"

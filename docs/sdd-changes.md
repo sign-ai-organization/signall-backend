@@ -120,3 +120,84 @@ del paso 7.
 
 **Estado:** implementado en código, pendiente de reflejar en el SDD.
 **Fecha:** 2026-10-01
+
+---
+
+## Segmentación de oraciones antes de la huella (`SentenceSegmenter`)
+
+**Dónde:** no figura en el SDD. Afecta la sección 6.3 (Figura 3), la
+sección 7.1 (Figura 5, diagrama de clases de NLP) y la sección 7.2
+(Figura 7, secuencia del flujo de traducción).
+
+**Situación:** hoy `NLPServiceImpl.transform(text)` trata todo el texto
+final del STT como una sola unidad: una huella, un `lookup` en
+`SemanticCache` y, si falla, una llamada al LLM, y siempre devuelve un
+único `Segment`. Cuando el STT entrega varias oraciones juntas ("me llamo
+andrea || tengo veinticinco años || ¿dónde vive?"), la huella mezcla tipos
+de frase, el caché casi nunca acierta (la combinación exacta no se repite)
+y el LLM recibe un texto largo. El cambio divide el texto en oraciones
+antes de la huella, con el método `hibrido_ligero` evaluado en el
+laboratorio del segmentador (puntuación → marcadores de discurso →
+cláusulas con spaCy `es_core_news_md`, con postproceso que fusiona las
+muletillas), y cada oración recorre el camino huella → caché → LLM por su
+cuenta.
+
+**Clase nueva:**
+- **`SentenceSegmenter`**: `+ segment(text: String): List<String>`.
+  Devuelve las oraciones en orden; nunca devuelve una lista vacía para un
+  texto no vacío. Carga el modelo local de spaCy una sola vez al
+  construirse (al arrancar el backend), con una llamada de calentamiento.
+  Clase concreta, sin interfaz, igual que los demás colaboradores de
+  `NLPServiceImpl` (`GlossAnalyzer`, `SemanticCache`, `LLMClient`).
+
+`NLPServiceImpl` recibe un cuarto colaborador, `segmenter: SentenceSegmenter`.
+La firma `transform(text): List<Segment>` no cambia, así que `Orchestrator`
+y `ValidatorService` no se tocan; solo que ahora la lista puede tener más
+de un `Segment` (uno por oración, en orden). Las reglas internas del
+segmentador (puntuación, marcadores, cláusulas, postproceso) son módulos
+privados del paquete `app/nlp/segmenter/` y no se proponen como clases del
+SDD.
+
+**Qué habría que cambiar en el SDD:**
+1. **Sección 6.3 / Figura 3 (actividades):** en el paso 4, antes de la
+   huella, agregar "el texto se divide en oraciones", y envolver la huella,
+   el caché y el LLM en "para cada oración". El paso 5 pasa a "se arma un
+   segmento por oración, en orden".
+2. **Sección 7.1 / Figura 5 (clases de NLP):** agregar la clase
+   `SentenceSegmenter` con `+ segment(text: String): List<String>`, el
+   atributo `segmenter: SentenceSegmenter` en `NLPServiceImpl` (asociación
+   hacia `SentenceSegmenter`) y la nota de que se apoya en un modelo local
+   de spaCy. En la narrativa: `NLPServiceImpl` primero llama a
+   `segmenter.segment(text)` y luego, por cada oración, hace lo que hoy se
+   describe para el texto completo.
+3. **Sección 7.2 / Figura 7 (secuencia):** nuevo participante
+   `SentenceSegmenter`; nuevo paso `NLPServiceImpl → SentenceSegmenter:
+   segment(text)` que devuelve `List<String>`; los pasos 3–7 (huella,
+   `lookup`, hit/miss, LLM, `store`) quedan dentro de un fragmento
+   `loop [para cada oración]` y reciben `sentence` en vez de `text`. El
+   paso 5 devuelve una `List<Segment>` con un segmento por oración.
+4. **Sección 7.3 (persistencia):** sin cambios de esquema. Solo precisar
+   que `semantic_cache.original_text` guarda una oración, ya no el texto
+   final completo del STT (la narrativa ya dice "la oración tal como
+   llegó", así que el texto queda más exacto que antes).
+5. **Sección 6.2 (vista física):** opcional. Mencionar que el contenedor
+   del backend incluye el modelo de spaCy `es_core_news_md` (≈ +440 MB de
+   memoria, ≈ 0.7 s de carga al arrancar).
+6. **Sección 1 (historial de cambios):** agregar la entrada.
+
+Las secciones 6.1, 8.1, 8.2 y 8.3 no cambian: el segmentador es interno a
+NLPService y no agrega contenedores, sistemas externos ni componentes C4.
+
+**Interruptor (solo en el código, no en el SDD):** en el diseño el
+segmentador es obligatorio. En el código se mantiene temporalmente
+`SENTENCE_SEGMENTER__ENABLED` (por defecto `true`), una opción operativa
+como `DEBUG_TRACE_ENABLED`: permite medir el antes/después (tasa de
+aciertos del caché, llamadas al LLM, precisión del tipo de frase) con la
+misma versión del backend, y apagarlo si falla con transcripciones reales
+mientras la validación con casos nuevos del laboratorio sigue pendiente.
+Desactivado, `NLPServiceImpl` recibe `segmenter=None` y procesa el texto
+completo como antes. Se quita cuando esa validación confirme el método.
+
+**Estado:** confirmado; implementado en código (`app/nlp/segmenter/`),
+pendiente de reflejar en el SDD.
+**Fecha:** 2026-10-02
