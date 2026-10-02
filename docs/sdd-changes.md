@@ -81,10 +81,13 @@ agregó `app/observability/pipeline_trace.py`. La traza activa vive en un
 reemplaza el callback de debug `on_source`, que sí había agregado un
 parámetro fuera del diseño a `translate` y `transform`.
 
-El `Controller` crea la traza por cada transcripción final, la registra
-en el log y, si `DEBUG_TRACE_ENABLED=true`, envía al cliente un mensaje
-`{"type": "trace", "source": ..., "steps_ms": {...}}` después del
-resultado. El mensaje `{"type": "source"}` se eliminó.
+El `Controller` crea la traza por cada transcripción final y la
+registra en el log. Si `DEBUG_TRACE_ENABLED=true`, envía al cliente un
+`{"type": "sentence_trace", "index", "text", "source", "steps_ms"}`
+antes de cada oración y un `{"type": "trace", "steps_ms"}` con los pasos
+globales (segmentación, validación, total) al terminar. El mensaje
+`{"type": "source"}` se eliminó. (Actualizado el 2026-10-02 con el envío
+por oración.)
 
 **Cambio propuesto:** si se decide documentarlo, mencionarlo como
 instrumentación no funcional (fuera del contrato funcional del
@@ -200,4 +203,47 @@ completo como antes. Se quita cuando esa validación confirme el método.
 
 **Estado:** confirmado; implementado en código (`app/nlp/segmenter/`),
 pendiente de reflejar en el SDD.
+**Fecha:** 2026-10-02
+
+---
+
+## Envío de cada oración en cuanto está lista
+
+**Dónde:** sección 7.2 (Figura 7, secuencia), clases de orquestación y
+NLP (Figuras 4 y 5), y el contrato WebSocket del `Controller` con
+Android.
+
+**Situación:** con el segmentador, el backend esperaba a traducir todas
+las oraciones y enviaba una sola lista. Si la última iba al LLM (~1.5–3
+s), las anteriores, listas en ~0.2 s, esperaban con ella, y el avatar no
+podía empezar a señar.
+
+**Cambio en el código:**
+- `NLPService` agrega `split(text): List<String>` y
+  `transform_sentence(sentence): Segment`. `transform(text)` se mantiene
+  y ahora se implementa con ambos.
+- `Orchestrator` agrega `translate_stream(text)`, que entrega
+  `(índice, total, ValidatedSegment)` por oración, en orden, en cuanto
+  cada una está traducida y validada. `translate(text)` se mantiene y se
+  implementa con `translate_stream`.
+- El `Controller` envía un mensaje por oración y uno al final:
+  `{"type": "segment", "index", "total", "segment": {...}}` y
+  `{"type": "done"}`. Antes enviaba una lista JSON con todos los
+  segmentos. `total` se conoce tras segmentar, así que el cliente sabe
+  cuántas oraciones esperar desde la primera.
+- Las oraciones se procesan en serie, en el orden en que se dijeron. El
+  procesamiento en paralelo (más rápido cuando varias van al LLM, pero
+  con reordenamiento antes de enviar) queda como paso posterior.
+
+**Qué habría que cambiar en el SDD:**
+1. **Figura 7:** el bucle `loop [para cada oración]` incluye la
+   validación y un mensaje `Controller → App: segment` por iteración;
+   tras el bucle, `Controller → App: done`.
+2. **Figuras 4 y 5:** `translate_stream(text)` en `Orchestrator`;
+   `split(text)` y `transform_sentence(sentence)` en `NLPService`.
+3. **Contrato con Android:** los mensajes `segment` y `done` reemplazan
+   la lista única de resultado.
+
+**Estado:** implementado en código, pendiente de reflejar en el SDD y de
+acordar con el cliente Android.
 **Fecha:** 2026-10-02

@@ -575,10 +575,10 @@ automáticamente cada final para las pruebas).
    y garantizar que los resultados se envíen al cliente en el orden de
    las frases (una frase posterior que sale del caché no puede llegar
    antes que una anterior que fue al LLM).
-2. **Enviar cada segmento en cuanto esté listo**, en orden, en lugar de
-   un único resultado por frase, para que el avatar empiece a señar
-   antes. Cambia el contrato con Android y el SDD: registrar en
-   `docs/sdd-changes.md`.
+2. ~~Enviar cada segmento en cuanto esté listo.~~ Hecho el 2026-10-02
+   (ver `docs/sdd-changes.md`, "Envío de cada oración en cuanto está
+   lista"). Las oraciones se procesan en serie; el punto 1 (paralelo)
+   sigue pendiente.
 
 ## Limpiar docstrings y comentarios largos
 

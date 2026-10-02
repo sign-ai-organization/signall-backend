@@ -9,7 +9,7 @@ from app.nlp.models import Fingerprint
 from app.nlp.nlp_service import NLPService
 from app.nlp.segmenter import SentenceSegmenter
 from app.nlp.semantic_cache import SemanticCache
-from app.observability.pipeline_trace import set_trace_source, trace_step
+from app.observability.pipeline_trace import set_trace_source, trace_sentence, trace_step
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +30,14 @@ class NLPServiceImpl(NLPService):
         self._pending_stores: set[asyncio.Task] = set()
 
     async def transform(self, text: str) -> list[Segment]:
-        sentences = self.segmenter.segment(text) if self.segmenter else [text]
-        return [await self._transform_sentence(sentence) for sentence in sentences]
+        return [await self.transform_sentence(sentence) for sentence in self.split(text)]
+
+    def split(self, text: str) -> list[str]:
+        return self.segmenter.segment(text) if self.segmenter else [text]
+
+    async def transform_sentence(self, sentence: str) -> Segment:
+        with trace_sentence(sentence):
+            return await self._transform_sentence(sentence)
 
     async def wait_for_pending_stores(self) -> None:
         await asyncio.gather(*self._pending_stores, return_exceptions=True)
