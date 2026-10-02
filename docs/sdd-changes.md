@@ -64,3 +64,59 @@ una relación de dependencia desde `SemanticCache` hacia `EmbeddingModel`.
 **Estado:** implementado en código (`app/nlp/embedding_model.py`, Fase
 5.1), pendiente de agregar al diagrama.
 **Fecha:** 2026-09-03
+
+---
+
+## Instrumentación de tiempos del pipeline (`PipelineTrace`)
+
+**Dónde:** no figura en el SDD (ni en las Figuras 4–6 ni en la secuencia
+de la Figura 7.2).
+
+**Situación:** para medir la latencia de cada paso (huella, embedding,
+conexión y consulta a `semantic_cache`, LLM, inserción, validación) se
+agregó `app/observability/pipeline_trace.py`. La traza activa vive en un
+`ContextVar`, de modo que **ninguna firma del SDD cambia**:
+`Orchestrator.translate(text)`, `NLPService.transform(text)` y
+`SemanticCache.lookup/store` conservan sus parámetros. Esto además
+reemplaza el callback de debug `on_source`, que sí había agregado un
+parámetro fuera del diseño a `translate` y `transform`.
+
+El `Controller` crea la traza por cada transcripción final, la registra
+en el log y, si `DEBUG_TRACE_ENABLED=true`, envía al cliente un mensaje
+`{"type": "trace", "source": ..., "steps_ms": {...}}` después del
+resultado. El mensaje `{"type": "source"}` se eliminó.
+
+**Cambio propuesto:** si se decide documentarlo, mencionarlo como
+instrumentación no funcional (fuera del contrato funcional del
+`Controller` con Android), y agregar el mensaje `trace` al protocolo
+WebSocket como mensaje opcional de debug.
+
+**Estado:** implementado en código, pendiente de decidir si se refleja
+en el SDD.
+**Fecha:** 2026-10-01
+
+---
+
+## `SemanticCache.store` ya no bloquea la respuesta
+
+**Dónde:** sección 7.2 de `docs/sdd.md` (secuencia del flujo de
+traducción), paso 7 del camino de fallo de caché, y la Figura 7.2.
+
+**Situación:** la secuencia muestra `NLPServiceImpl → SemanticCache:
+store(text, fingerprint, glosses)` como paso síncrono antes de que
+`NLPServiceImpl` devuelva la `List<Segment>` al `Orchestrator`. En el
+código, `store` se sigue llamando con los mismos parámetros, pero como
+tarea en segundo plano: `NLPServiceImpl` devuelve los segmentos sin
+esperar a que termine.
+
+**Por qué:** guardar en caché no es necesario para responder al usuario
+y costaba ~220 ms por frase nueva (embedding + INSERT + devolver la
+conexión al pool, ver `docs/performance.md`). Si el `store` falla, solo
+se pierde la entrada de caché; el resultado entregado no cambia.
+
+**Cambio propuesto:** en la Figura 7.2, marcar la llamada `store` como
+asíncrona (flecha de mensaje asíncrono) y reflejarlo en la narrativa
+del paso 7.
+
+**Estado:** implementado en código, pendiente de reflejar en el SDD.
+**Fecha:** 2026-10-01

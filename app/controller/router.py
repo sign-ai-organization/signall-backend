@@ -6,6 +6,7 @@ from fastapi import APIRouter, WebSocket
 from app.config.settings import settings
 from app.controller.controller import Controller
 from app.controller.stt_service_client_impl import SttServiceClientImpl
+from app.persistence.keep_alive import DatabaseKeepAlive
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +24,15 @@ async def _forward_audio(websocket: WebSocket, controller: Controller) -> None:
             await controller.handle_audio_chunk(chunk)
 
 
-async def _forward_transcripts(controller: Controller) -> None:
+async def _forward_transcripts(controller: Controller, db_keep_alive: DatabaseKeepAlive) -> None:
     while True:
         result = await controller.stt_client.receive_transcript()
         if result is None:
             break
 
         text, is_final = result
+        if is_final:
+            db_keep_alive.mark_activity()
         await controller.handle_transcript(text, is_final)
 
 
@@ -37,8 +40,16 @@ async def _forward_transcripts(controller: Controller) -> None:
 async def translation_session(websocket: WebSocket) -> None:
     await websocket.accept()
 
+    db_keep_alive: DatabaseKeepAlive = websocket.app.state.db_keep_alive
+    db_keep_alive.wake_up()
+
     stt_client = SttServiceClientImpl(settings.stt_ws_url)
-    controller = Controller(websocket, websocket.app.state.orchestrator, stt_client)
+    controller = Controller(
+        websocket,
+        websocket.app.state.orchestrator,
+        stt_client,
+        debug_trace_enabled=settings.debug_trace_enabled,
+    )
 
     try:
         await stt_client.connect()
@@ -50,7 +61,7 @@ async def translation_session(websocket: WebSocket) -> None:
     try:
         await asyncio.gather(
             _forward_audio(websocket, controller),
-            _forward_transcripts(controller),
+            _forward_transcripts(controller, db_keep_alive),
         )
     except Exception:
         logger.exception("Translation session failed")

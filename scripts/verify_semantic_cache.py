@@ -5,13 +5,13 @@ from app.domain.models import PhraseType
 from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.models import Fingerprint
 from app.nlp.semantic_cache import SemanticCache
+from app.persistence.database import create_pool
 
 
 async def main() -> None:
     model = EmbeddingModel()
-    cache = SemanticCache(
-        settings.database_url, model, settings.semantic_cache_similarity_threshold
-    )
+    pool = await create_pool(settings.database_url, settings.db_pool_min_size, settings.db_pool_max_size)
+    cache = SemanticCache(pool, model, settings.semantic_cache_similarity_threshold)
 
     content_question = Fingerprint(
         category=PhraseType.CONTENT_QUESTION,
@@ -56,6 +56,8 @@ async def main() -> None:
     result = await cache.lookup("No firme, ¿es correcto?", negative_with_collision)
     print(f"5. entry stored with collision signals -> {result}")
     assert result == ["FIRMAR", "NO"], "expected HIT for the collision entry"
+
+    await pool.close()
 
 
 if __name__ == "__main__":

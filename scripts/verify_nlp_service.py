@@ -7,6 +7,7 @@ from app.nlp.gloss_analyzer import GlossAnalyzer
 from app.nlp.llm_client import LLMClient
 from app.nlp.nlp_service_impl import NLPServiceImpl
 from app.nlp.semantic_cache import SemanticCache
+from app.persistence.database import create_pool
 
 TEST_SENTENCES = [
     "Su cita quedó confirmada para las tres de la tarde.",
@@ -16,11 +17,10 @@ TEST_SENTENCES = [
 
 
 async def main() -> None:
+    pool = await create_pool(settings.database_url, settings.db_pool_min_size, settings.db_pool_max_size)
     service = NLPServiceImpl(
         GlossAnalyzer(),
-        SemanticCache(
-            settings.database_url, EmbeddingModel(), settings.semantic_cache_similarity_threshold
-        ),
+        SemanticCache(pool, EmbeddingModel(), settings.semantic_cache_similarity_threshold),
         LLMClient(
             settings.llm_api_key, settings.llm_model, settings.llm_temperature, settings.llm_timeout_ms
         ),
@@ -34,12 +34,19 @@ async def main() -> None:
         elapsed = time.perf_counter() - start
         print(f"  1st call (expected MISS -> LLM): {first} ({elapsed:.2f}s)")
 
+        # The MISS stores its result in the background; wait for it so the
+        # 2nd call can hit the cache.
+        await service.wait_for_pending_stores()
+
         start = time.perf_counter()
         second = await service.transform(sentence)
         elapsed = time.perf_counter() - start
         print(f"  2nd call (expected HIT -> cache): {second} ({elapsed:.2f}s)")
 
         assert first == second, "same text should produce the same Segment both times"
+
+    await service.wait_for_pending_stores()
+    await pool.close()
 
 
 if __name__ == "__main__":

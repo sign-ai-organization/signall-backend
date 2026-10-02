@@ -1,5 +1,6 @@
 from app.domain.models import ValidatedSegment
 from app.nlp.nlp_service import NLPService
+from app.observability.pipeline_trace import trace_step
 from app.validation.validator_service import ValidatorService
 
 
@@ -9,5 +10,7 @@ class Orchestrator:
         self.validator_service = validator_service
 
     async def translate(self, text: str) -> list[ValidatedSegment]:
-        segments = await self.nlp_service.transform(text)
-        return self.validator_service.validate(segments)
+        with trace_step("total"):
+            segments = await self.nlp_service.transform(text)
+            with trace_step("validation"):
+                return self.validator_service.validate(segments)
