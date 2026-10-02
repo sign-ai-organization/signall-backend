@@ -575,10 +575,13 @@ automáticamente cada final para las pruebas).
    y garantizar que los resultados se envíen al cliente en el orden de
    las frases (una frase posterior que sale del caché no puede llegar
    antes que una anterior que fue al LLM).
-2. ~~Enviar cada segmento en cuanto esté listo.~~ Hecho el 2026-10-02
-   (ver `docs/sdd-changes.md`, "Envío de cada oración en cuanto está
-   lista"). Las oraciones se procesan en serie; el punto 1 (paralelo)
-   sigue pendiente.
+2. ~~Enviar cada segmento en cuanto esté listo.~~ Hecho el 2026-10-02,
+   junto con traducir las oraciones de un mismo texto en paralelo y
+   enviarlas en orden (ver `docs/sdd-changes.md`, "Envío de cada oración
+   en cuanto está lista"). Sigue pendiente la parte del punto 1 que
+   afecta a frases distintas: `_forward_transcripts` todavía espera a
+   que termine la traducción de una frase antes de leer la siguiente del
+   STT.
 
 ## Limpiar docstrings y comentarios largos
 

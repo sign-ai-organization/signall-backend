@@ -1,3 +1,4 @@
+import asyncio
 from typing import AsyncIterator
 
 from app.domain.models import ValidatedSegment
@@ -15,10 +16,20 @@ class Orchestrator:
         return [segment async for _, _, segment in self.translate_stream(text)]
 
     async def translate_stream(self, text: str) -> AsyncIterator[tuple[int, int, ValidatedSegment]]:
-        """Yields (index, total, segment) as soon as each sentence is translated, in order."""
+        """Translates all sentences concurrently; yields (index, total, segment) in sentence order."""
         sentences = self.nlp_service.split(text)
-        for index, sentence in enumerate(sentences):
-            segment = await self.nlp_service.transform_sentence(sentence)
-            with trace_step("validation"):
-                validated = self.validator_service.validate([segment])[0]
-            yield index, len(sentences), validated
+        tasks = [asyncio.create_task(self._translate_sentence(sentence)) for sentence in sentences]
+        try:
+            for index, task in enumerate(tasks):
+                yield index, len(tasks), await task
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+                elif not task.cancelled():
+                    task.exception()
+
+    async def _translate_sentence(self, sentence: str) -> ValidatedSegment:
+        segment = await self.nlp_service.transform_sentence(sentence)
+        with trace_step("validation"):
+            return self.validator_service.validate([segment])[0]

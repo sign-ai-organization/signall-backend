@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     debug_trace_enabled: bool = False
 
     database_url: str
-    db_pool_min_size: int = 2
+    db_pool_min_size: int = 5
     db_pool_max_size: int = 10
     # 0 = never close idle pooled connections; the keep-alive below decides
     # when the database may go idle instead.

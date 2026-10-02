@@ -231,14 +231,17 @@ podía empezar a señar.
   `{"type": "done"}`. Antes enviaba una lista JSON con todos los
   segmentos. `total` se conoce tras segmentar, así que el cliente sabe
   cuántas oraciones esperar desde la primera.
-- Las oraciones se procesan en serie, en el orden en que se dijeron. El
-  procesamiento en paralelo (más rápido cuando varias van al LLM, pero
-  con reordenamiento antes de enviar) queda como paso posterior.
+- Todas las oraciones se traducen a la vez (una tarea por oración) y se
+  envían en el orden en que se dijeron: cada una sale en cuanto está
+  lista y todas las anteriores ya se enviaron. Así una oración del caché
+  no espera a que termine el LLM de la anterior, y varias llamadas al
+  LLM se solapan en lugar de sumarse.
 
 **Qué habría que cambiar en el SDD:**
-1. **Figura 7:** el bucle `loop [para cada oración]` incluye la
-   validación y un mensaje `Controller → App: segment` por iteración;
-   tras el bucle, `Controller → App: done`.
+1. **Figura 7:** el bucle pasa a un fragmento `par [para cada oración]`
+   que incluye la validación, seguido del envío en orden de un mensaje
+   `Controller → App: segment` por oración; al final,
+   `Controller → App: done`.
 2. **Figuras 4 y 5:** `translate_stream(text)` en `Orchestrator`;
    `split(text)` y `transform_sentence(sentence)` en `NLPService`.
 3. **Contrato con Android:** los mensajes `segment` y `done` reemplazan
