@@ -3,7 +3,7 @@ from spacy.tokens import Token
 
 from app.config.sentence_segmenter import SentenceSegmenterSettings
 from app.nlp.segmenter._discourse_markers import is_infinitive, is_interrogative
-from app.nlp.segmenter._normalizer import normalize
+from app.nlp.text_normalizer import normalize
 
 
 def _is_finite_verb(token: Token) -> bool:

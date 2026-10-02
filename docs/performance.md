@@ -464,6 +464,41 @@ tramo del STT se toma de sus últimas mediciones (1.8–2.1 s, de los que
 
 ---
 
+## 8. Caché semántico con oraciones cortas
+
+**Fecha:** 2026-10-02
+**Problema:** con el segmentador, el caché compara oraciones cortas y
+devolvía las glosas de otra frase parecida pero con más contenido:
+"¿cómo estás?" recibía las de "Hola, ¿cómo estás?" (el avatar señaría
+HOLA dos veces).
+
+**Medición** (`scripts/measure_cache_threshold.py`, distancia coseno
+entre pares de frases; sin tocar la base de datos; solo pares del mismo
+tipo de frase, que son los que el caché compara):
+
+| | Texto original, umbral 0.15 | Texto original, umbral 0.05 | Normalizado, umbral 0.05 |
+|---|---:|---:|---:|
+| Aciertos buenos | 9 de 10 | 5 de 10 | **7 de 10** |
+| Aciertos indebidos | 2 de 12 | 0 de 12 | **0 de 12** |
+
+- Con texto original, aciertos buenos e indebidos se solapan ("Por
+  favor, firme aquí" a 0.071; "Firme allá" a 0.076): ningún umbral los
+  separa.
+- Normalizar elimina las diferencias de forma ("Me llamo Julian" /
+  "Me llamo Julián.": 0.110 → 0.000) y aleja los casos problemáticos
+  ("¿cómo estás?": 0.102 → 0.298; "Firme allá": 0.076 → 0.259).
+- Normalizar acerca otros pares ("Vivo en Bogotá" / "Vivo en Medellín":
+  0.366 → 0.083), así que hay que bajar el umbral a la vez.
+
+**Cambio:** el embedding se calcula sobre el texto normalizado y el
+umbral pasa a 0.05 (ver `docs/decisions.md`). El normalizador del
+segmentador se movió a `app/nlp/text_normalizer.py` para compartirlo.
+
+**Costo:** paráfrasis más lejanas ("¿Cómo se llama usted?" por "¿Cuál
+es su nombre?") ahora van al LLM la primera vez.
+
+---
+
 # Pendientes
 
 Trabajo identificado y analizado, pero aplazado. Cada uno queda descrito
@@ -589,6 +624,14 @@ Quitar los docstrings y comentarios explicativos agregados durante estas
 optimizaciones (`app/persistence/keep_alive.py`,
 `app/observability/pipeline_trace.py`, `app/nlp/nlp_service_impl.py`,
 `app/persistence/database.py`): el porqué ya está en este documento.
+
+## Ampliar la medición del umbral del caché (entrada 8)
+
+El umbral 0.05 se eligió con 12 pares por grupo, y el par indebido más
+cercano quedó en 0.083. Antes de la demo, ampliar `SHOULD_HIT` y
+`SHOULD_MISS` en `scripts/measure_cache_threshold.py` con frases de
+`scripts/fixtures/oraciones_prueba.md` (en especial nombres, números,
+fechas y lugares) y confirmar el umbral.
 
 ## Catálogo incompleto
 

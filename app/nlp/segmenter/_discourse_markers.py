@@ -1,5 +1,5 @@
 from app.config.sentence_segmenter import SentenceSegmenterSettings
-from app.nlp.segmenter._normalizer import normalize
+from app.nlp.text_normalizer import normalize
 
 _ACCENTED = set("áéíóúÁÉÍÓÚ")
 

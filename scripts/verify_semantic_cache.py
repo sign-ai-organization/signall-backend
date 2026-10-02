@@ -35,10 +35,10 @@ async def main() -> None:
     print(f"1. exact text, same phrase_type       -> {result}")
     assert result == ["NOMBRE", "TU", "PREGUNTA"], "expected HIT with the stored glosses"
 
-    # 2. Look it up with a semantically similar (but not identical) text.
-    result = await cache.lookup("¿Cómo se llama usted?", content_question)
-    print(f"2. similar text, same phrase_type      -> {result}")
-    assert result == ["NOMBRE", "TU", "PREGUNTA"], "expected HIT via semantic similarity"
+    # 2. Same sentence with different accents/casing/punctuation (normalized before embedding).
+    result = await cache.lookup("¿cual es SU nombre", content_question)
+    print(f"2. same text, different form          -> {result}")
+    assert result == ["NOMBRE", "TU", "PREGUNTA"], "expected HIT after normalization"
 
     # 3. Same exact text, but a different phrase_type -> must MISS regardless of text match.
     result = await cache.lookup("¿Cuál es su nombre?", affirmative)

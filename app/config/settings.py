@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # Max cosine distance (pgvector <=>) between embeddings to count as a
     # semantic cache HIT. Lower = stricter match required.
-    semantic_cache_similarity_threshold: float = 0.15
+    semantic_cache_similarity_threshold: float = 0.05
 
     # Default matches the "stt" service name in docker-compose.yml.
     stt_ws_url: str = "ws://stt:8000/ws/transcribe"

@@ -1,5 +1,5 @@
 from app.config.sentence_segmenter import SentenceSegmenterSettings
-from app.nlp.segmenter._normalizer import clean, normalized_words
+from app.nlp.text_normalizer import clean, normalized_words
 
 
 def _is_only_filler(fragment: str, config: SentenceSegmenterSettings) -> bool:

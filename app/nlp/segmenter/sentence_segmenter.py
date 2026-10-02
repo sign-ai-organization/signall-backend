@@ -5,7 +5,7 @@ import spacy
 from app.config.sentence_segmenter import SentenceSegmenterSettings
 from app.nlp.segmenter._clauses import split_by_clauses
 from app.nlp.segmenter._discourse_markers import split_by_markers
-from app.nlp.segmenter._normalizer import normalized_words
+from app.nlp.text_normalizer import normalized_words
 from app.nlp.segmenter._post_processing import post_process
 from app.nlp.segmenter._punctuation import split_by_punctuation
 from app.observability.pipeline_trace import trace_step
