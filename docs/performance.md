@@ -600,6 +600,17 @@ registrarlo en `docs/sdd-changes.md`. `manual_translation_client`
 necesitará una forma de confirmar (por ejemplo, confirmar
 automáticamente cada final para las pruebas).
 
+## Cerrar la frase al detener el micrófono
+
+El STT acepta el mensaje de texto `"end"` para transcribir de inmediato
+la frase en curso, pero `_forward_audio` (`app/controller/router.py`)
+solo reenvía mensajes binarios e ignora los de texto. Si la app deja de
+enviar audio a mitad de una frase, nunca llegan los 1.5 s de silencio y
+la frase se pierde. Agregar al protocolo un mensaje de la app (por
+ejemplo `{"type": "end"}`) que el backend reenvíe al STT como `"end"`,
+y documentarlo en `docs/android-integration.md` (hoy indica enviar ~2 s
+de silencio como solución temporal).
+
 ## Desacoplar la traducción y enviar segmentos al estar listos
 
 **Depende de:** el segmentador.

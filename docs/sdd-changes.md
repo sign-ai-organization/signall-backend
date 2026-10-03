@@ -250,3 +250,30 @@ podía empezar a señar.
 **Estado:** implementado en código, pendiente de reflejar en el SDD y de
 acordar con el cliente Android.
 **Fecha:** 2026-10-02
+
+---
+
+## Las animaciones GLB viven en la app Android, no en el backend
+
+**Dónde:** Vista física 6.2 y C4 de componentes (el backend agrupa un
+"Static GLB Server"), Figura 8 (`catalog.glb_animation_path`), y la
+fase 12 del plan de implementación ("Servidor estático de GLB").
+
+**Situación:** el SDD ubica un servidor estático de archivos GLB dentro
+del contenedor del backend, y el catálogo guarda rutas servidas por él
+(ej. `/static/glb/casa.glb`). Decisión del equipo: las animaciones GLB
+se empaquetan en la app Android. El backend solo indica qué seña
+reproducir (glosa y `available`); la app resuelve la animación con sus
+propios recursos. El servidor estático no se implementó.
+
+**Cambio propuesto:**
+1. Quitar el "Static GLB Server" de la Vista 6.2 y del C4 de
+   componentes del backend, y ubicar los GLB en el contenedor de la app.
+2. Redefinir `catalog.glb_animation_path` como la referencia al recurso
+   dentro de la app (formato por acordar con el equipo Android), o
+   eliminarlo si la app usa la glosa como clave.
+3. Marcar la fase 12 del plan como descartada.
+
+**Estado:** decisión tomada; formato de la referencia al GLB pendiente
+de acordar con el equipo Android; pendiente de reflejar en el SDD.
+**Fecha:** 2026-10-02
