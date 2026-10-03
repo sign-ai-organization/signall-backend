@@ -7,8 +7,9 @@ from app.nlp.gloss_analyzer import GlossAnalyzer
 from app.nlp.llm_client import LLMClient
 from app.nlp.models import Fingerprint
 from app.nlp.nlp_service import NLPService
+from app.nlp.segmenter import SentenceSegmenter
 from app.nlp.semantic_cache import SemanticCache
-from app.observability.pipeline_trace import set_trace_source, trace_step
+from app.observability.pipeline_trace import set_trace_source, trace_sentence, trace_step
 
 logger = logging.getLogger(__name__)
 
@@ -19,31 +20,44 @@ class NLPServiceImpl(NLPService):
         analyzer: GlossAnalyzer,
         cache: SemanticCache,
         llm_client: LLMClient,
+        segmenter: SentenceSegmenter | None,
     ) -> None:
         self.analyzer = analyzer
         self.cache = cache
         self.llm_client = llm_client
+        # None = segmenter disabled: the whole text is translated as one sentence.
+        self.segmenter = segmenter
         self._pending_stores: set[asyncio.Task] = set()
 
     async def transform(self, text: str) -> list[Segment]:
-        with trace_step("fingerprint"):
-            fingerprint = self.analyzer.analyze(text)
+        return [await self.transform_sentence(sentence) for sentence in self.split(text)]
 
-        glosses = await self.cache.lookup(text, fingerprint)
-        if glosses is None:
-            logger.info("SemanticCache MISS for %r -> calling LLM", text)
-            set_trace_source("llm")
-            with trace_step("llm"):
-                glosses = await self.llm_client.transform(text)
-            self._store_in_background(text, fingerprint, glosses)
-        else:
-            logger.info("SemanticCache HIT for %r", text)
-            set_trace_source("cache")
+    def split(self, text: str) -> list[str]:
+        return self.segmenter.segment(text) if self.segmenter else [text]
 
-        return [self._build_segment(fingerprint, glosses)]
+    async def transform_sentence(self, sentence: str) -> Segment:
+        with trace_sentence(sentence):
+            return await self._transform_sentence(sentence)
 
     async def wait_for_pending_stores(self) -> None:
         await asyncio.gather(*self._pending_stores, return_exceptions=True)
+
+    async def _transform_sentence(self, sentence: str) -> Segment:
+        with trace_step("fingerprint"):
+            fingerprint = self.analyzer.analyze(sentence)
+
+        glosses = await self.cache.lookup(sentence, fingerprint)
+        if glosses is None:
+            logger.info("SemanticCache MISS for %r -> calling LLM", sentence)
+            set_trace_source("llm")
+            with trace_step("llm"):
+                glosses = await self.llm_client.transform(sentence)
+            self._store_in_background(sentence, fingerprint, glosses)
+        else:
+            logger.info("SemanticCache HIT for %r", sentence)
+            set_trace_source("cache")
+
+        return self._build_segment(fingerprint, glosses)
 
     def _store_in_background(self, text: str, fingerprint: Fingerprint, glosses: list[str]) -> None:
         # Storing is not part of answering the user, so it runs after the

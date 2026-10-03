@@ -1,0 +1,2139 @@
+[
+  {
+    "source": "01_puntuados_basicos.txt:8",
+    "text": "Hola, ¿cómo estás? Esta es la segunda prueba de una oración un poco más larga. Vamos a ver cómo funciona.",
+    "expected": [
+      "Hola, ¿cómo estás?",
+      "Esta es la segunda prueba de una oración un poco más larga.",
+      "Vamos a ver cómo funciona."
+    ],
+    "lab_output": [
+      "Hola,",
+      "¿cómo estás?",
+      "Esta es la segunda prueba de una oración un poco más larga.",
+      "Vamos a ver cómo funciona."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:11",
+    "text": "Buenos días. Bienvenido a la oficina de registro.",
+    "expected": [
+      "Buenos días.",
+      "Bienvenido a la oficina de registro."
+    ],
+    "lab_output": [
+      "Buenos días.",
+      "Bienvenido a la oficina de registro."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:14",
+    "text": "¿Cuál es su nombre completo? Por favor, dígalo despacio.",
+    "expected": [
+      "¿Cuál es su nombre completo?",
+      "Por favor, dígalo despacio."
+    ],
+    "lab_output": [
+      "¿Cuál es su nombre completo?",
+      "Por favor, dígalo despacio."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:17",
+    "text": "Me llamo Andrea Martínez. Tengo veinticinco años.",
+    "expected": [
+      "Me llamo Andrea Martínez.",
+      "Tengo veinticinco años."
+    ],
+    "lab_output": [
+      "Me llamo Andrea Martínez.",
+      "Tengo veinticinco años."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:20",
+    "text": "¿Cuántos años tiene? ¿Dónde vive?",
+    "expected": [
+      "¿Cuántos años tiene?",
+      "¿Dónde vive?"
+    ],
+    "lab_output": [
+      "¿Cuántos años tiene?",
+      "¿Dónde vive?"
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:23",
+    "text": "Vivo en Bogotá. Trabajo en una panadería.",
+    "expected": [
+      "Vivo en Bogotá.",
+      "Trabajo en una panadería."
+    ],
+    "lab_output": [
+      "Vivo en Bogotá.",
+      "Trabajo en una panadería."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:26",
+    "text": "Gracias. Ya terminamos el registro.",
+    "expected": [
+      "Gracias.",
+      "Ya terminamos el registro."
+    ],
+    "lab_output": [
+      "Gracias.",
+      "Ya terminamos el registro."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:29",
+    "text": "Siéntese, por favor. Ya lo atiendo.",
+    "expected": [
+      "Siéntese, por favor.",
+      "Ya lo atiendo."
+    ],
+    "lab_output": [
+      "Siéntese, por favor.",
+      "Ya lo atiendo."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:32",
+    "text": "¿Tiene su cédula? Muéstremela, por favor.",
+    "expected": [
+      "¿Tiene su cédula?",
+      "Muéstremela, por favor."
+    ],
+    "lab_output": [
+      "¿Tiene su cédula?",
+      "Muéstremela, por favor."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:35",
+    "text": "No tengo teléfono fijo. Solo tengo celular.",
+    "expected": [
+      "No tengo teléfono fijo.",
+      "Solo tengo celular."
+    ],
+    "lab_output": [
+      "No tengo teléfono fijo.",
+      "Solo tengo celular."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:38",
+    "text": "¡Qué bien! Ya quedó registrado.",
+    "expected": [
+      "¡Qué bien!",
+      "Ya quedó registrado."
+    ],
+    "lab_output": [
+      "¡Qué bien!",
+      "Ya quedó registrado."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:41",
+    "text": "Espere un momento. Voy a revisar el sistema. ¿Me repite su apellido?",
+    "expected": [
+      "Espere un momento.",
+      "Voy a revisar el sistema.",
+      "¿Me repite su apellido?"
+    ],
+    "lab_output": [
+      "Espere un momento.",
+      "Voy a revisar el sistema.",
+      "¿Me repite su apellido?"
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:44",
+    "text": "Mi hija se llama Laura. Ella tiene diez años.",
+    "expected": [
+      "Mi hija se llama Laura.",
+      "Ella tiene diez años."
+    ],
+    "lab_output": [
+      "Mi hija se llama Laura.",
+      "Ella tiene diez años."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:47",
+    "text": "¿Es usted el titular? Necesito su firma aquí.",
+    "expected": [
+      "¿Es usted el titular?",
+      "Necesito su firma aquí."
+    ],
+    "lab_output": [
+      "¿Es usted el titular?",
+      "Necesito su firma aquí."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:50",
+    "text": "Perdón, no le entendí. ¿Puede repetir?",
+    "expected": [
+      "Perdón, no le entendí.",
+      "¿Puede repetir?"
+    ],
+    "lab_output": [
+      "Perdón, no le entendí.",
+      "¿Puede repetir?"
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:53",
+    "text": "El formulario está listo. Revíselo antes de firmar.",
+    "expected": [
+      "El formulario está listo.",
+      "Revíselo antes de firmar."
+    ],
+    "lab_output": [
+      "El formulario está listo.",
+      "Revíselo antes de firmar."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:56",
+    "text": "Soy de Medellín, pero vivo en Cali desde hace cinco años.",
+    "expected": [
+      "Soy de Medellín, pero vivo en Cali desde hace cinco años."
+    ],
+    "lab_output": [
+      "Soy de Medellín, pero vivo en Cali desde hace cinco años."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:59",
+    "text": "¿Cómo se escribe su apellido? ¿Con be o con uve?",
+    "expected": [
+      "¿Cómo se escribe su apellido?",
+      "¿Con be o con uve?"
+    ],
+    "lab_output": [
+      "¿Cómo se escribe su apellido?",
+      "¿Con be o con uve?"
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:62",
+    "text": "Muy bien. Ahora necesito su dirección. Después le pido el teléfono.",
+    "expected": [
+      "Muy bien.",
+      "Ahora necesito su dirección.",
+      "Después le pido el teléfono."
+    ],
+    "lab_output": [
+      "Muy bien.",
+      "Ahora necesito su dirección.",
+      "Después le pido el teléfono."
+    ]
+  },
+  {
+    "source": "01_puntuados_basicos.txt:65",
+    "text": "Listo, gracias. Que tenga un buen día.",
+    "expected": [
+      "Listo, gracias.",
+      "Que tenga un buen día."
+    ],
+    "lab_output": [
+      "Listo, gracias.",
+      "Que tenga un buen día."
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:7",
+    "text": "hola como estas esta es la segunda prueba de una oracion un poco mas larga vamos a ver como funciona",
+    "expected": [
+      "hola como estas",
+      "esta es la segunda prueba de una oracion un poco mas larga",
+      "vamos a ver como funciona"
+    ],
+    "lab_output": [
+      "hola como estas esta es la segunda prueba de una oracion un poco mas larga vamos a ver como funciona"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:10",
+    "text": "buenos días bienvenido a la oficina de registro",
+    "expected": [
+      "buenos días",
+      "bienvenido a la oficina de registro"
+    ],
+    "lab_output": [
+      "buenos días",
+      "bienvenido a la oficina de registro"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:13",
+    "text": "cuál es su nombre completo por favor dígalo despacio",
+    "expected": [
+      "cuál es su nombre completo",
+      "por favor dígalo despacio"
+    ],
+    "lab_output": [
+      "cuál es su nombre completo por favor dígalo despacio"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:16",
+    "text": "me llamo andrea martínez tengo veinticinco años",
+    "expected": [
+      "me llamo andrea martínez",
+      "tengo veinticinco años"
+    ],
+    "lab_output": [
+      "me llamo andrea martínez",
+      "tengo veinticinco años"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:19",
+    "text": "cuántos años tiene dónde vive",
+    "expected": [
+      "cuántos años tiene",
+      "dónde vive"
+    ],
+    "lab_output": [
+      "cuántos años tiene dónde vive"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:22",
+    "text": "vivo en bogota trabajo en una panaderia",
+    "expected": [
+      "vivo en bogota",
+      "trabajo en una panaderia"
+    ],
+    "lab_output": [
+      "vivo en bogota trabajo en una panaderia"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:25",
+    "text": "gracias ya terminamos el registro",
+    "expected": [
+      "gracias",
+      "ya terminamos el registro"
+    ],
+    "lab_output": [
+      "gracias",
+      "ya terminamos el registro"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:28",
+    "text": "siéntese por favor ya lo atiendo",
+    "expected": [
+      "siéntese por favor",
+      "ya lo atiendo"
+    ],
+    "lab_output": [
+      "siéntese por favor",
+      "ya lo atiendo"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:31",
+    "text": "tiene su cédula muéstremela por favor",
+    "expected": [
+      "tiene su cédula",
+      "muéstremela por favor"
+    ],
+    "lab_output": [
+      "tiene su cédula muéstremela por favor"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:34",
+    "text": "no tengo telefono fijo solo tengo celular",
+    "expected": [
+      "no tengo telefono fijo",
+      "solo tengo celular"
+    ],
+    "lab_output": [
+      "no tengo telefono fijo",
+      "solo tengo celular"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:37",
+    "text": "qué bien ya quedó registrado",
+    "expected": [
+      "qué bien",
+      "ya quedó registrado"
+    ],
+    "lab_output": [
+      "qué bien ya quedó registrado"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:40",
+    "text": "espere un momento voy a revisar el sistema me repite su apellido",
+    "expected": [
+      "espere un momento",
+      "voy a revisar el sistema",
+      "me repite su apellido"
+    ],
+    "lab_output": [
+      "espere un momento",
+      "voy a revisar el sistema",
+      "me repite su apellido"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:43",
+    "text": "mi hija se llama laura ella tiene diez años",
+    "expected": [
+      "mi hija se llama laura",
+      "ella tiene diez años"
+    ],
+    "lab_output": [
+      "mi hija se llama laura",
+      "ella tiene diez años"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:46",
+    "text": "es usted el titular necesito su firma aquí",
+    "expected": [
+      "es usted el titular",
+      "necesito su firma aquí"
+    ],
+    "lab_output": [
+      "es usted el titular",
+      "necesito su firma aquí"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:49",
+    "text": "perdón no le entendí puede repetir",
+    "expected": [
+      "perdón no le entendí",
+      "puede repetir"
+    ],
+    "lab_output": [
+      "perdón",
+      "no le entendí puede repetir"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:52",
+    "text": "el formulario está listo revíselo antes de firmar",
+    "expected": [
+      "el formulario está listo",
+      "revíselo antes de firmar"
+    ],
+    "lab_output": [
+      "el formulario está listo",
+      "revíselo antes de firmar"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:55",
+    "text": "soy de medellín pero vivo en cali desde hace cinco años",
+    "expected": [
+      "soy de medellín pero vivo en cali desde hace cinco años"
+    ],
+    "lab_output": [
+      "soy de medellín pero vivo en cali desde hace cinco años"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:58",
+    "text": "como se escribe su apellido con be o con uve",
+    "expected": [
+      "como se escribe su apellido",
+      "con be o con uve"
+    ],
+    "lab_output": [
+      "como se escribe su apellido con be o con uve"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:61",
+    "text": "muy bien ahora necesito su dirección después le pido el teléfono",
+    "expected": [
+      "muy bien",
+      "ahora necesito su dirección",
+      "después le pido el teléfono"
+    ],
+    "lab_output": [
+      "muy bien",
+      "ahora necesito su dirección",
+      "después le pido el teléfono"
+    ]
+  },
+  {
+    "source": "02_sin_puntuacion.txt:64",
+    "text": "listo gracias que tenga un buen día",
+    "expected": [
+      "listo gracias",
+      "que tenga un buen día"
+    ],
+    "lab_output": [
+      "listo",
+      "gracias",
+      "que tenga un buen día"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:9",
+    "text": "¿Cuál es su nombre? ¿Y sus apellidos?",
+    "expected": [
+      "¿Cuál es su nombre?",
+      "¿Y sus apellidos?"
+    ],
+    "lab_output": [
+      "¿Cuál es su nombre?",
+      "¿Y sus apellidos?"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:12",
+    "text": "cuál es su nombre y sus apellidos",
+    "expected": [
+      "cuál es su nombre y sus apellidos"
+    ],
+    "lab_output": [
+      "cuál es su nombre y sus apellidos"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:15",
+    "text": "¿Cuál es su número de documento? Escríbalo aquí, por favor.",
+    "expected": [
+      "¿Cuál es su número de documento?",
+      "Escríbalo aquí, por favor."
+    ],
+    "lab_output": [
+      "¿Cuál es su número de documento?",
+      "Escríbalo aquí, por favor."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:18",
+    "text": "cual es su numero de documento escribalo aqui por favor",
+    "expected": [
+      "cual es su numero de documento",
+      "escribalo aqui por favor"
+    ],
+    "lab_output": [
+      "cual es su numero de documento escribalo aqui por favor"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:21",
+    "text": "¿Qué tipo de documento tiene? ¿Cédula o tarjeta de identidad?",
+    "expected": [
+      "¿Qué tipo de documento tiene?",
+      "¿Cédula o tarjeta de identidad?"
+    ],
+    "lab_output": [
+      "¿Qué tipo de documento tiene?",
+      "¿Cédula o tarjeta de identidad?"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:24",
+    "text": "qué tipo de documento tiene cédula o tarjeta de identidad",
+    "expected": [
+      "qué tipo de documento tiene",
+      "cédula o tarjeta de identidad"
+    ],
+    "lab_output": [
+      "qué tipo de documento tiene cédula o tarjeta de identidad"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:27",
+    "text": "¿En qué fecha nació? Necesito día, mes y año.",
+    "expected": [
+      "¿En qué fecha nació?",
+      "Necesito día, mes y año."
+    ],
+    "lab_output": [
+      "¿En qué fecha nació?",
+      "Necesito día, mes y año."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:30",
+    "text": "en qué fecha nació necesito día mes y año",
+    "expected": [
+      "en qué fecha nació",
+      "necesito día mes y año"
+    ],
+    "lab_output": [
+      "en qué fecha nació",
+      "necesito día mes y año"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:33",
+    "text": "¿Me da un número de teléfono para contactarlo?",
+    "expected": [
+      "¿Me da un número de teléfono para contactarlo?"
+    ],
+    "lab_output": [
+      "¿Me da un número de teléfono para contactarlo?"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:36",
+    "text": "¿Dónde vive? Dígame la dirección completa con el barrio.",
+    "expected": [
+      "¿Dónde vive?",
+      "Dígame la dirección completa con el barrio."
+    ],
+    "lab_output": [
+      "¿Dónde vive?",
+      "Dígame la dirección completa con el barrio."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:39",
+    "text": "donde vive digame la direccion completa con el barrio",
+    "expected": [
+      "donde vive",
+      "digame la direccion completa con el barrio"
+    ],
+    "lab_output": [
+      "donde vive digame la direccion completa con el barrio"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:42",
+    "text": "¿Tiene correo electrónico? Si no tiene, no hay problema.",
+    "expected": [
+      "¿Tiene correo electrónico?",
+      "Si no tiene, no hay problema."
+    ],
+    "lab_output": [
+      "¿Tiene correo electrónico?",
+      "Si no tiene, no hay problema."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:45",
+    "text": "tiene correo electrónico si no tiene no hay problema",
+    "expected": [
+      "tiene correo electrónico",
+      "si no tiene no hay problema"
+    ],
+    "lab_output": [
+      "tiene correo electrónico",
+      "si no tiene no hay problema"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:50",
+    "text": "Mi nombre es Carlos Gómez. Tengo treinta y dos años.",
+    "expected": [
+      "Mi nombre es Carlos Gómez.",
+      "Tengo treinta y dos años."
+    ],
+    "lab_output": [
+      "Mi nombre es Carlos Gómez.",
+      "Tengo treinta y dos años."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:53",
+    "text": "mi nombre es carlos gómez tengo treinta y dos años",
+    "expected": [
+      "mi nombre es carlos gómez",
+      "tengo treinta y dos años"
+    ],
+    "lab_output": [
+      "mi nombre es carlos gómez",
+      "tengo treinta y dos años"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:56",
+    "text": "Me llamo María Fernanda López Rincón.",
+    "expected": [
+      "Me llamo María Fernanda López Rincón."
+    ],
+    "lab_output": [
+      "Me llamo María Fernanda López Rincón."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:59",
+    "text": "Nací el quince de marzo de mil novecientos noventa. Soy de Tunja.",
+    "expected": [
+      "Nací el quince de marzo de mil novecientos noventa.",
+      "Soy de Tunja."
+    ],
+    "lab_output": [
+      "Nací el quince de marzo de mil novecientos noventa.",
+      "Soy de Tunja."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:62",
+    "text": "naci el quince de marzo de mil novecientos noventa soy de tunja",
+    "expected": [
+      "naci el quince de marzo de mil novecientos noventa",
+      "soy de tunja"
+    ],
+    "lab_output": [
+      "naci el quince de marzo de mil novecientos noventa",
+      "soy de tunja"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:65",
+    "text": "Vivo en la calle 45 con carrera 10, en el barrio Chapinero.",
+    "expected": [
+      "Vivo en la calle 45 con carrera 10, en el barrio Chapinero."
+    ],
+    "lab_output": [
+      "Vivo en la calle 45 con carrera 10, en el barrio Chapinero."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:68",
+    "text": "vivo en la calle 45 con carrera 10 y mi teléfono es 3104567890",
+    "expected": [
+      "vivo en la calle 45 con carrera 10 y mi teléfono es 3104567890"
+    ],
+    "lab_output": [
+      "vivo en la calle 45 con carrera 10",
+      "y mi teléfono es 3104567890"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:71",
+    "text": "Mi cédula es 1020304050. Me la expidieron en Bogotá.",
+    "expected": [
+      "Mi cédula es 1020304050.",
+      "Me la expidieron en Bogotá."
+    ],
+    "lab_output": [
+      "Mi cédula es 1020304050.",
+      "Me la expidieron en Bogotá."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:74",
+    "text": "mi cédula es 1020304050 me la expidieron en bogotá",
+    "expected": [
+      "mi cédula es 1020304050",
+      "me la expidieron en bogotá"
+    ],
+    "lab_output": [
+      "mi cédula es 1020304050",
+      "me la expidieron en bogotá"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:77",
+    "text": "Sí, tengo correo. Es carlos punto gomez arroba gmail punto com.",
+    "expected": [
+      "Sí, tengo correo.",
+      "Es carlos punto gomez arroba gmail punto com."
+    ],
+    "lab_output": [
+      "Sí, tengo correo.",
+      "Es carlos punto gomez arroba gmail punto com."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:80",
+    "text": "si tengo correo es carlos punto gomez arroba gmail punto com",
+    "expected": [
+      "si tengo correo",
+      "es carlos punto gomez arroba gmail punto com"
+    ],
+    "lab_output": [
+      "si tengo correo es carlos punto gomez arroba gmail punto com"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:83",
+    "text": "tengo treinta y dos años y vivo con mi mamá",
+    "expected": [
+      "tengo treinta y dos años y vivo con mi mamá"
+    ],
+    "lab_output": [
+      "tengo treinta y dos años y vivo con mi mamá"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:86",
+    "text": "No tengo correo, pero le doy el teléfono de mi hermana.",
+    "expected": [
+      "No tengo correo, pero le doy el teléfono de mi hermana."
+    ],
+    "lab_output": [
+      "No tengo correo, pero le doy el teléfono de mi hermana."
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:89",
+    "text": "mi nombre es juan david mi apellido es pérez",
+    "expected": [
+      "mi nombre es juan david",
+      "mi apellido es pérez"
+    ],
+    "lab_output": [
+      "mi nombre es juan david",
+      "mi apellido es pérez"
+    ]
+  },
+  {
+    "source": "03_registro_datos.txt:92",
+    "text": "soy soltero no tengo hijos",
+    "expected": [
+      "soy soltero",
+      "no tengo hijos"
+    ],
+    "lab_output": [
+      "soy soltero no tengo hijos"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:7",
+    "text": "Listo, de una. ¿Qué más necesita?",
+    "expected": [
+      "Listo, de una.",
+      "¿Qué más necesita?"
+    ],
+    "lab_output": [
+      "Listo, de una.",
+      "¿Qué más necesita?"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:10",
+    "text": "listo de una qué más necesita",
+    "expected": [
+      "listo de una",
+      "qué más necesita"
+    ],
+    "lab_output": [
+      "listo",
+      "de una",
+      "qué más necesita"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:13",
+    "text": "Qué pena con usted, ¿me repite el número?",
+    "expected": [
+      "Qué pena con usted, ¿me repite el número?"
+    ],
+    "lab_output": [
+      "Qué pena con usted,",
+      "¿me repite el número?"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:16",
+    "text": "que pena con usted me repite el numero",
+    "expected": [
+      "que pena con usted me repite el numero"
+    ],
+    "lab_output": [
+      "que pena con usted",
+      "me repite el numero"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:19",
+    "text": "Pues sí, yo vivo por allá en Suba.",
+    "expected": [
+      "Pues sí, yo vivo por allá en Suba."
+    ],
+    "lab_output": [
+      "Pues sí, yo vivo por allá en Suba."
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:22",
+    "text": "pues si yo vivo por alla en suba",
+    "expected": [
+      "pues si yo vivo por alla en suba"
+    ],
+    "lab_output": [
+      "pues si yo vivo por alla en suba"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:25",
+    "text": "A la orden, sumercé. ¿En qué le puedo ayudar?",
+    "expected": [
+      "A la orden, sumercé.",
+      "¿En qué le puedo ayudar?"
+    ],
+    "lab_output": [
+      "A la orden, sumercé.",
+      "¿En qué le puedo ayudar?"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:28",
+    "text": "a la orden sumercé en qué le puedo ayudar",
+    "expected": [
+      "a la orden sumercé",
+      "en qué le puedo ayudar"
+    ],
+    "lab_output": [
+      "a la orden sumercé",
+      "en qué le puedo ayudar"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:31",
+    "text": "Ahí vamos, gracias a Dios. ¿Y usted cómo va?",
+    "expected": [
+      "Ahí vamos, gracias a Dios.",
+      "¿Y usted cómo va?"
+    ],
+    "lab_output": [
+      "Ahí vamos, gracias a Dios.",
+      "¿Y usted cómo va?"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:34",
+    "text": "ahí vamos gracias a dios y usted cómo va",
+    "expected": [
+      "ahí vamos gracias a dios",
+      "y usted cómo va"
+    ],
+    "lab_output": [
+      "ahí vamos gracias a dios",
+      "y usted cómo va"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:37",
+    "text": "Hágale pues, siga. Siéntese ahí.",
+    "expected": [
+      "Hágale pues, siga.",
+      "Siéntese ahí."
+    ],
+    "lab_output": [
+      "Hágale pues, siga.",
+      "Siéntese ahí."
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:40",
+    "text": "hágale pues siga siéntese ahí",
+    "expected": [
+      "hágale pues siga",
+      "siéntese ahí"
+    ],
+    "lab_output": [
+      "hágale pues siga siéntese ahí"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:43",
+    "text": "Parce, no me acuerdo del número de la cédula.",
+    "expected": [
+      "Parce, no me acuerdo del número de la cédula."
+    ],
+    "lab_output": [
+      "Parce, no me acuerdo del número de la cédula."
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:46",
+    "text": "Claro que sí, con mucho gusto.",
+    "expected": [
+      "Claro que sí, con mucho gusto."
+    ],
+    "lab_output": [
+      "Claro que sí, con mucho gusto."
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:49",
+    "text": "claro que sí con mucho gusto le ayudo con eso",
+    "expected": [
+      "claro que sí con mucho gusto le ayudo con eso"
+    ],
+    "lab_output": [
+      "claro que sí con mucho gusto le ayudo con eso"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:52",
+    "text": "Me regala su nombre, por favor.",
+    "expected": [
+      "Me regala su nombre, por favor."
+    ],
+    "lab_output": [
+      "Me regala su nombre, por favor."
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:55",
+    "text": "me regala su nombre por favor y el número de cédula",
+    "expected": [
+      "me regala su nombre por favor y el número de cédula"
+    ],
+    "lab_output": [
+      "me regala su nombre por favor y el número de cédula"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:58",
+    "text": "Sí señor, ya le traigo los papeles.",
+    "expected": [
+      "Sí señor, ya le traigo los papeles."
+    ],
+    "lab_output": [
+      "Sí señor, ya le traigo los papeles."
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:61",
+    "text": "sí señor ya le traigo los papeles",
+    "expected": [
+      "sí señor ya le traigo los papeles"
+    ],
+    "lab_output": [
+      "sí señor ya le traigo los papeles"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:64",
+    "text": "Uy, no sé, toca preguntarle a mi mamá.",
+    "expected": [
+      "Uy, no sé, toca preguntarle a mi mamá."
+    ],
+    "lab_output": [
+      "Uy, no sé, toca preguntarle a mi mamá."
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:67",
+    "text": "uy no se toca preguntarle a mi mama",
+    "expected": [
+      "uy no se toca preguntarle a mi mama"
+    ],
+    "lab_output": [
+      "uy no se toca preguntarle a mi mama"
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:70",
+    "text": "Bien o qué, ¿todo bien? Siga, siga.",
+    "expected": [
+      "Bien o qué, ¿todo bien?",
+      "Siga, siga."
+    ],
+    "lab_output": [
+      "Bien o qué,",
+      "¿todo bien?",
+      "Siga, siga."
+    ]
+  },
+  {
+    "source": "04_coloquial_colombiano.txt:73",
+    "text": "quiubo cómo me le va siga no más",
+    "expected": [
+      "quiubo cómo me le va",
+      "siga no más"
+    ],
+    "lab_output": [
+      "quiubo cómo me le va",
+      "siga no más"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:8",
+    "text": "vamos a probar qué pasa así que bueno la idea es que sea un texto largo y bueno vamos a estar probando",
+    "expected": [
+      "vamos a probar qué pasa",
+      "así que bueno la idea es que sea un texto largo",
+      "y bueno vamos a estar probando"
+    ],
+    "lab_output": [
+      "vamos a probar qué pasa",
+      "así que bueno la idea es que sea un texto largo",
+      "y bueno vamos a estar probando"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:11",
+    "text": "y sí vamos a ver cómo funciona",
+    "expected": [
+      "y sí vamos a ver cómo funciona"
+    ],
+    "lab_output": [
+      "y sí vamos a ver cómo funciona"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:14",
+    "text": "bueno mi nombre es pedro y este tengo cuarenta años",
+    "expected": [
+      "bueno mi nombre es pedro",
+      "y este tengo cuarenta años"
+    ],
+    "lab_output": [
+      "bueno mi nombre es pedro y este tengo cuarenta años"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:17",
+    "text": "o sea yo no tengo la cédula aquí o sea la dejé en la casa",
+    "expected": [
+      "o sea yo no tengo la cédula aquí",
+      "o sea la dejé en la casa"
+    ],
+    "lab_output": [
+      "o sea yo no tengo la cédula aquí",
+      "o sea la dejé en la casa"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:20",
+    "text": "entonces cuál es su dirección",
+    "expected": [
+      "entonces cuál es su dirección"
+    ],
+    "lab_output": [
+      "entonces cuál es su dirección"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:23",
+    "text": "ya tenemos el nombre entonces ahora necesito la edad",
+    "expected": [
+      "ya tenemos el nombre",
+      "entonces ahora necesito la edad"
+    ],
+    "lab_output": [
+      "ya tenemos el nombre",
+      "entonces ahora necesito la edad"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:26",
+    "text": "pues vivo en kennedy pues cerca al portal",
+    "expected": [
+      "pues vivo en kennedy pues cerca al portal"
+    ],
+    "lab_output": [
+      "pues vivo en kennedy pues cerca al portal"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:29",
+    "text": "bueno entonces empecemos con el registro",
+    "expected": [
+      "bueno entonces empecemos con el registro"
+    ],
+    "lab_output": [
+      "bueno entonces empecemos con el registro"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:32",
+    "text": "y bueno eso es todo así que bueno muchas gracias",
+    "expected": [
+      "y bueno eso es todo",
+      "así que bueno muchas gracias"
+    ],
+    "lab_output": [
+      "y bueno eso es todo",
+      "así que bueno muchas gracias"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:35",
+    "text": "este cómo es que se llama la calle",
+    "expected": [
+      "este cómo es que se llama la calle"
+    ],
+    "lab_output": [
+      "este cómo es que se llama la calle"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:38",
+    "text": "le falta la firma o sea tiene que firmar aquí abajo",
+    "expected": [
+      "le falta la firma",
+      "o sea tiene que firmar aquí abajo"
+    ],
+    "lab_output": [
+      "le falta la firma",
+      "o sea tiene que firmar aquí abajo"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:41",
+    "text": "tengo dos hijos bueno tres con el que viene en camino",
+    "expected": [
+      "tengo dos hijos bueno tres con el que viene en camino"
+    ],
+    "lab_output": [
+      "tengo dos hijos bueno tres con el que viene en camino"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:44",
+    "text": "entonces bueno así que bueno",
+    "expected": [
+      "entonces bueno así que bueno"
+    ],
+    "lab_output": [
+      "entonces bueno así que bueno"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:49",
+    "text": "no tengo cédula entonces le doy el pasaporte",
+    "expected": [
+      "no tengo cédula entonces le doy el pasaporte"
+    ],
+    "lab_output": [
+      "no tengo cédula",
+      "entonces le doy el pasaporte"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:52",
+    "text": "si no tiene correo entonces déjelo en blanco",
+    "expected": [
+      "si no tiene correo entonces déjelo en blanco"
+    ],
+    "lab_output": [
+      "si no tiene correo entonces déjelo en blanco"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:55",
+    "text": "como es menor de edad pues necesita al acudiente",
+    "expected": [
+      "como es menor de edad pues necesita al acudiente"
+    ],
+    "lab_output": [
+      "como es menor de edad pues necesita al acudiente"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:58",
+    "text": "llegó tarde así que tiene que esperar el siguiente turno",
+    "expected": [
+      "llegó tarde así que tiene que esperar el siguiente turno"
+    ],
+    "lab_output": [
+      "llegó tarde así que tiene que esperar el siguiente turno"
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:63",
+    "text": "Vamos a probar qué pasa. Así que bueno, la idea es que sea un texto largo. Y bueno, vamos a estar probando.",
+    "expected": [
+      "Vamos a probar qué pasa.",
+      "Así que bueno, la idea es que sea un texto largo.",
+      "Y bueno, vamos a estar probando."
+    ],
+    "lab_output": [
+      "Vamos a probar qué pasa.",
+      "Así que bueno, la idea es que sea un texto largo.",
+      "Y bueno, vamos a estar probando."
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:66",
+    "text": "Bueno, mi nombre es Pedro. Y, este, tengo cuarenta años.",
+    "expected": [
+      "Bueno, mi nombre es Pedro.",
+      "Y, este, tengo cuarenta años."
+    ],
+    "lab_output": [
+      "Bueno, mi nombre es Pedro.",
+      "Y, este, tengo cuarenta años."
+    ]
+  },
+  {
+    "source": "05_muletillas.txt:69",
+    "text": "Y bueno, eso es todo. Así que bueno, muchas gracias.",
+    "expected": [
+      "Y bueno, eso es todo.",
+      "Así que bueno, muchas gracias."
+    ],
+    "lab_output": [
+      "Y bueno, eso es todo.",
+      "Así que bueno, muchas gracias."
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:6",
+    "text": "No tengo cédula. ¿Sirve el pasaporte?",
+    "expected": [
+      "No tengo cédula.",
+      "¿Sirve el pasaporte?"
+    ],
+    "lab_output": [
+      "No tengo cédula.",
+      "¿Sirve el pasaporte?"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:9",
+    "text": "no tengo cédula sirve el pasaporte",
+    "expected": [
+      "no tengo cédula",
+      "sirve el pasaporte"
+    ],
+    "lab_output": [
+      "no tengo cédula",
+      "sirve el pasaporte"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:12",
+    "text": "Siéntese, por favor. ¿Cómo se llama?",
+    "expected": [
+      "Siéntese, por favor.",
+      "¿Cómo se llama?"
+    ],
+    "lab_output": [
+      "Siéntese, por favor.",
+      "¿Cómo se llama?"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:15",
+    "text": "siéntese por favor cómo se llama",
+    "expected": [
+      "siéntese por favor",
+      "cómo se llama"
+    ],
+    "lab_output": [
+      "siéntese por favor",
+      "cómo se llama"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:18",
+    "text": "No firme todavía. Primero lea el documento.",
+    "expected": [
+      "No firme todavía.",
+      "Primero lea el documento."
+    ],
+    "lab_output": [
+      "No firme todavía.",
+      "Primero lea el documento."
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:21",
+    "text": "no firme todavía primero lea el documento",
+    "expected": [
+      "no firme todavía",
+      "primero lea el documento"
+    ],
+    "lab_output": [
+      "no firme todavía",
+      "primero lea el documento"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:24",
+    "text": "No, no vivo en Bogotá. Vivo en Soacha.",
+    "expected": [
+      "No, no vivo en Bogotá.",
+      "Vivo en Soacha."
+    ],
+    "lab_output": [
+      "No, no vivo en Bogotá.",
+      "Vivo en Soacha."
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:27",
+    "text": "no no vivo en bogotá vivo en soacha",
+    "expected": [
+      "no no vivo en bogotá",
+      "vivo en soacha"
+    ],
+    "lab_output": [
+      "no no vivo en bogotá vivo en soacha"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:30",
+    "text": "Escriba su nombre aquí y firme abajo.",
+    "expected": [
+      "Escriba su nombre aquí y firme abajo."
+    ],
+    "lab_output": [
+      "Escriba su nombre aquí y firme abajo."
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:33",
+    "text": "escriba su nombre aquí y firme abajo",
+    "expected": [
+      "escriba su nombre aquí y firme abajo"
+    ],
+    "lab_output": [
+      "escriba su nombre aquí y firme abajo"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:36",
+    "text": "Nunca he tenido pasaporte. ¿Es obligatorio?",
+    "expected": [
+      "Nunca he tenido pasaporte.",
+      "¿Es obligatorio?"
+    ],
+    "lab_output": [
+      "Nunca he tenido pasaporte.",
+      "¿Es obligatorio?"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:39",
+    "text": "nunca he tenido pasaporte es obligatorio",
+    "expected": [
+      "nunca he tenido pasaporte",
+      "es obligatorio"
+    ],
+    "lab_output": [
+      "nunca he tenido pasaporte es obligatorio"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:42",
+    "text": "Espere aquí. No se vaya, que ya lo llamo.",
+    "expected": [
+      "Espere aquí.",
+      "No se vaya, que ya lo llamo."
+    ],
+    "lab_output": [
+      "Espere aquí.",
+      "No se vaya, que ya lo llamo."
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:45",
+    "text": "espere aquí no se vaya que ya lo llamo",
+    "expected": [
+      "espere aquí",
+      "no se vaya que ya lo llamo"
+    ],
+    "lab_output": [
+      "espere aquí no se vaya que ya lo llamo"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:48",
+    "text": "¿No tiene teléfono? Entonces déme un correo.",
+    "expected": [
+      "¿No tiene teléfono?",
+      "Entonces déme un correo."
+    ],
+    "lab_output": [
+      "¿No tiene teléfono?",
+      "Entonces déme un correo."
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:51",
+    "text": "no tiene teléfono entonces déme un correo",
+    "expected": [
+      "no tiene teléfono",
+      "entonces déme un correo"
+    ],
+    "lab_output": [
+      "no tiene teléfono",
+      "entonces déme un correo"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:54",
+    "text": "Traiga la fotocopia de la cédula. Sin eso no podemos seguir.",
+    "expected": [
+      "Traiga la fotocopia de la cédula.",
+      "Sin eso no podemos seguir."
+    ],
+    "lab_output": [
+      "Traiga la fotocopia de la cédula.",
+      "Sin eso no podemos seguir."
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:57",
+    "text": "traiga la fotocopia de la cédula sin eso no podemos seguir",
+    "expected": [
+      "traiga la fotocopia de la cédula",
+      "sin eso no podemos seguir"
+    ],
+    "lab_output": [
+      "traiga la fotocopia de la cédula sin eso no podemos seguir"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:60",
+    "text": "No sé mi código postal.",
+    "expected": [
+      "No sé mi código postal."
+    ],
+    "lab_output": [
+      "No sé mi código postal."
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:63",
+    "text": "no sé no me acuerdo pregúntele a mi hijo",
+    "expected": [
+      "no sé no me acuerdo",
+      "pregúntele a mi hijo"
+    ],
+    "lab_output": [
+      "no sé no me acuerdo",
+      "pregúntele a mi hijo"
+    ]
+  },
+  {
+    "source": "06_negativas_imperativas.txt:66",
+    "text": "Muéstreme la cédula y dígame su fecha de nacimiento.",
+    "expected": [
+      "Muéstreme la cédula y dígame su fecha de nacimiento."
+    ],
+    "lab_output": [
+      "Muéstreme la cédula y dígame su fecha de nacimiento."
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:7",
+    "text": "¿Cuál es su nombre?",
+    "expected": [
+      "¿Cuál es su nombre?"
+    ],
+    "lab_output": [
+      "¿Cuál es su nombre?"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:10",
+    "text": "cuál es su nombre",
+    "expected": [
+      "cuál es su nombre"
+    ],
+    "lab_output": [
+      "cuál es su nombre"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:13",
+    "text": "Escriba su nombre y apellido.",
+    "expected": [
+      "Escriba su nombre y apellido."
+    ],
+    "lab_output": [
+      "Escriba su nombre y apellido."
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:16",
+    "text": "escriba su nombre y apellido",
+    "expected": [
+      "escriba su nombre y apellido"
+    ],
+    "lab_output": [
+      "escriba su nombre y apellido"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:19",
+    "text": "Entrégueme el papel que le dieron en la entrada.",
+    "expected": [
+      "Entrégueme el papel que le dieron en la entrada."
+    ],
+    "lab_output": [
+      "Entrégueme el papel que le dieron en la entrada."
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:22",
+    "text": "entrégueme el papel que le dieron en la entrada",
+    "expected": [
+      "entrégueme el papel que le dieron en la entrada"
+    ],
+    "lab_output": [
+      "entrégueme el papel que le dieron en la entrada"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:25",
+    "text": "Cuando tenga la cédula, vuelva y terminamos el registro.",
+    "expected": [
+      "Cuando tenga la cédula, vuelva y terminamos el registro."
+    ],
+    "lab_output": [
+      "Cuando tenga la cédula, vuelva y terminamos el registro."
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:28",
+    "text": "cuando tenga la cédula vuelva y terminamos el registro",
+    "expected": [
+      "cuando tenga la cédula vuelva y terminamos el registro"
+    ],
+    "lab_output": [
+      "cuando tenga la cédula vuelva y terminamos el registro"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:31",
+    "text": "Si no tiene correo, deje el espacio en blanco.",
+    "expected": [
+      "Si no tiene correo, deje el espacio en blanco."
+    ],
+    "lab_output": [
+      "Si no tiene correo, deje el espacio en blanco."
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:34",
+    "text": "vamos a ver cómo funciona",
+    "expected": [
+      "vamos a ver cómo funciona"
+    ],
+    "lab_output": [
+      "vamos a ver cómo funciona"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:37",
+    "text": "No sé qué tipo de documento necesito.",
+    "expected": [
+      "No sé qué tipo de documento necesito."
+    ],
+    "lab_output": [
+      "No sé qué tipo de documento necesito."
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:40",
+    "text": "no sé qué tipo de documento necesito",
+    "expected": [
+      "no sé qué tipo de documento necesito"
+    ],
+    "lab_output": [
+      "no sé qué tipo de documento necesito"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:43",
+    "text": "me preguntaron cuál era mi dirección",
+    "expected": [
+      "me preguntaron cuál era mi dirección"
+    ],
+    "lab_output": [
+      "me preguntaron cuál era mi dirección"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:46",
+    "text": "dígame cómo se escribe su apellido",
+    "expected": [
+      "dígame cómo se escribe su apellido"
+    ],
+    "lab_output": [
+      "dígame cómo se escribe su apellido"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:49",
+    "text": "Necesito saber dónde vive y cuántos años tiene.",
+    "expected": [
+      "Necesito saber dónde vive y cuántos años tiene."
+    ],
+    "lab_output": [
+      "Necesito saber dónde vive y cuántos años tiene."
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:52",
+    "text": "necesito saber dónde vive y cuántos años tiene",
+    "expected": [
+      "necesito saber dónde vive y cuántos años tiene"
+    ],
+    "lab_output": [
+      "necesito saber dónde vive y cuántos años tiene"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:55",
+    "text": "mi mamá y mi papá viven en Ibagué",
+    "expected": [
+      "mi mamá y mi papá viven en Ibagué"
+    ],
+    "lab_output": [
+      "mi mamá y mi papá viven en Ibagué"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:58",
+    "text": "tengo que traer la cédula y el recibo de la luz",
+    "expected": [
+      "tengo que traer la cédula y el recibo de la luz"
+    ],
+    "lab_output": [
+      "tengo que traer la cédula y el recibo de la luz"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:61",
+    "text": "la señora que atiende en la ventanilla dos le ayuda",
+    "expected": [
+      "la señora que atiende en la ventanilla dos le ayuda"
+    ],
+    "lab_output": [
+      "la señora que atiende en la ventanilla dos le ayuda"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:64",
+    "text": "creo que mi número termina en cuatro",
+    "expected": [
+      "creo que mi número termina en cuatro"
+    ],
+    "lab_output": [
+      "creo que mi número termina en cuatro"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:67",
+    "text": "hay que llenar el formulario antes de pasar",
+    "expected": [
+      "hay que llenar el formulario antes de pasar"
+    ],
+    "lab_output": [
+      "hay que llenar el formulario antes de pasar"
+    ]
+  },
+  {
+    "source": "07_no_dividir.txt:70",
+    "text": "bueno días señora",
+    "expected": [
+      "bueno días señora"
+    ],
+    "lab_output": [
+      "bueno días señora"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:7",
+    "text": "Mi cédula es 1.020.304.050.",
+    "expected": [
+      "Mi cédula es 1.020.304.050."
+    ],
+    "lab_output": [
+      "Mi cédula es 1.020.304.050."
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:10",
+    "text": "Mi cédula es 1.020.304.050. ¿Necesita la fecha de expedición?",
+    "expected": [
+      "Mi cédula es 1.020.304.050.",
+      "¿Necesita la fecha de expedición?"
+    ],
+    "lab_output": [
+      "Mi cédula es 1.020.304.050.",
+      "¿Necesita la fecha de expedición?"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:13",
+    "text": "mi cédula es uno cero dos cero tres cero cuatro cero cinco cero",
+    "expected": [
+      "mi cédula es uno cero dos cero tres cero cuatro cero cinco cero"
+    ],
+    "lab_output": [
+      "mi cédula es uno cero dos cero tres cero cuatro cero cinco cero"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:16",
+    "text": "mi celular es 310 456 7890 ese es el de whatsapp",
+    "expected": [
+      "mi celular es 310 456 7890",
+      "ese es el de whatsapp"
+    ],
+    "lab_output": [
+      "mi celular es 310 456 7890",
+      "ese es el de whatsapp"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:19",
+    "text": "Mi celular es 310 456 7890. Ese es el de WhatsApp.",
+    "expected": [
+      "Mi celular es 310 456 7890.",
+      "Ese es el de WhatsApp."
+    ],
+    "lab_output": [
+      "Mi celular es 310 456 7890.",
+      "Ese es el de WhatsApp."
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:22",
+    "text": "mi número es tres diez cuatro cincuenta y seis setenta y ocho noventa",
+    "expected": [
+      "mi número es tres diez cuatro cincuenta y seis setenta y ocho noventa"
+    ],
+    "lab_output": [
+      "mi número es tres diez cuatro cincuenta y seis setenta y ocho noventa"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:25",
+    "text": "Vivo en la Cra. 7 # 45-20, apto. 301.",
+    "expected": [
+      "Vivo en la Cra. 7 # 45-20, apto. 301."
+    ],
+    "lab_output": [
+      "Vivo en la Cra. 7 # 45-20, apto. 301."
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:28",
+    "text": "vivo en la carrera siete número cuarenta y cinco veinte apartamento trescientos uno",
+    "expected": [
+      "vivo en la carrera siete número cuarenta y cinco veinte apartamento trescientos uno"
+    ],
+    "lab_output": [
+      "vivo en la carrera siete número cuarenta y cinco veinte apartamento trescientos uno"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:31",
+    "text": "Nací el 15/03/1990. Tengo 35 años.",
+    "expected": [
+      "Nací el 15/03/1990.",
+      "Tengo 35 años."
+    ],
+    "lab_output": [
+      "Nací el 15/03/1990.",
+      "Tengo 35 años."
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:34",
+    "text": "nací el quince del tres del noventa tengo treinta y cinco años",
+    "expected": [
+      "nací el quince del tres del noventa",
+      "tengo treinta y cinco años"
+    ],
+    "lab_output": [
+      "nací el quince del tres del noventa",
+      "tengo treinta y cinco años"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:37",
+    "text": "La dirección es Calle 80 Sur No. 12-34.",
+    "expected": [
+      "La dirección es Calle 80 Sur No. 12-34."
+    ],
+    "lab_output": [
+      "La dirección es Calle 80 Sur No. 12-34."
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:40",
+    "text": "¿Su teléfono es el 601 234 5678? ¿O ese es el de la oficina?",
+    "expected": [
+      "¿Su teléfono es el 601 234 5678?",
+      "¿O ese es el de la oficina?"
+    ],
+    "lab_output": [
+      "¿Su teléfono es el 601 234 5678?",
+      "¿O ese es el de la oficina?"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:43",
+    "text": "el código postal es 110111 y el barrio es la candelaria",
+    "expected": [
+      "el código postal es 110111 y el barrio es la candelaria"
+    ],
+    "lab_output": [
+      "el código postal es 110111",
+      "y el barrio es la candelaria"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:46",
+    "text": "Mide 1.65 m y pesa 60 kg.",
+    "expected": [
+      "Mide 1.65 m y pesa 60 kg."
+    ],
+    "lab_output": [
+      "Mide 1.65 m y pesa 60 kg."
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:49",
+    "text": "tengo 2 hijos uno de 5 y otro de 8 años",
+    "expected": [
+      "tengo 2 hijos uno de 5 y otro de 8 años"
+    ],
+    "lab_output": [
+      "tengo 2 hijos uno de 5 y otro de 8 años"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:52",
+    "text": "es el 3 1 0 4 5 6 7 8 9 0 no perdón 3 2 0",
+    "expected": [
+      "es el 3 1 0 4 5 6 7 8 9 0",
+      "no perdón 3 2 0"
+    ],
+    "lab_output": [
+      "es el 3 1 0 4 5 6 7 8 9 0 no perdón 3 2 0"
+    ]
+  },
+  {
+    "source": "08_numeros_dictados.txt:55",
+    "text": "La cita es a las 10:30 a. m. Llegue temprano.",
+    "expected": [
+      "La cita es a las 10:30 a. m.",
+      "Llegue temprano."
+    ],
+    "lab_output": [
+      "La cita es a las 10:30 a. m.",
+      "Llegue temprano."
+    ]
+  },
+  {
+    "source": "09_trampas.txt:8",
+    "text": "muchas gracias que le vaya bien",
+    "expected": [
+      "muchas gracias",
+      "que le vaya bien"
+    ],
+    "lab_output": [
+      "muchas gracias",
+      "que le vaya bien"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:12",
+    "text": "no se que documento traer",
+    "expected": [
+      "no se que documento traer"
+    ],
+    "lab_output": [
+      "no se que documento traer"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:16",
+    "text": "mire como quedó bonito el carné",
+    "expected": [
+      "mire como quedó bonito el carné"
+    ],
+    "lab_output": [
+      "mire como quedó bonito el carné"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:20",
+    "text": "como no trajo la cédula toca volver mañana",
+    "expected": [
+      "como no trajo la cédula toca volver mañana"
+    ],
+    "lab_output": [
+      "como no trajo la cédula toca volver mañana"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:24",
+    "text": "ya tengo su nombre y ahora dígame la edad",
+    "expected": [
+      "ya tengo su nombre",
+      "y ahora dígame la edad"
+    ],
+    "lab_output": [
+      "ya tengo su nombre y ahora dígame la edad"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:28",
+    "text": "el formulario bueno es el azul",
+    "expected": [
+      "el formulario bueno es el azul"
+    ],
+    "lab_output": [
+      "el formulario bueno es el azul"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:32",
+    "text": "eso pues no lo sé",
+    "expected": [
+      "eso pues no lo sé"
+    ],
+    "lab_output": [
+      "eso pues no lo sé"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:36",
+    "text": "no entendí así que me repite por favor",
+    "expected": [
+      "no entendí",
+      "así que me repite por favor"
+    ],
+    "lab_output": [
+      "no entendí así que me repite por favor"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:40",
+    "text": "ya terminamos entonces",
+    "expected": [
+      "ya terminamos entonces"
+    ],
+    "lab_output": [
+      "ya terminamos entonces"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:44",
+    "text": "quiero saber cuánto se demora el trámite",
+    "expected": [
+      "quiero saber cuánto se demora el trámite"
+    ],
+    "lab_output": [
+      "quiero saber cuánto se demora el trámite"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:48",
+    "text": "vivo en la calle cuarenta no perdón en la cuarenta y dos",
+    "expected": [
+      "vivo en la calle cuarenta no perdón en la cuarenta y dos"
+    ],
+    "lab_output": [
+      "vivo en la calle cuarenta no perdón en la cuarenta y dos"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:52",
+    "text": "mi nombre es mi nombre completo es ana lucía torres",
+    "expected": [
+      "mi nombre es mi nombre completo es ana lucía torres"
+    ],
+    "lab_output": [
+      "mi nombre es mi nombre completo",
+      "es ana lucía torres"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:56",
+    "text": "Mi nombre es. Laura Gómez.",
+    "expected": [
+      "Mi nombre es. Laura Gómez."
+    ],
+    "lab_output": [
+      "Mi nombre es.",
+      "Laura Gómez."
+    ]
+  },
+  {
+    "source": "09_trampas.txt:60",
+    "text": "Cómo se llama? Yo soy Pedro.",
+    "expected": [
+      "Cómo se llama?",
+      "Yo soy Pedro."
+    ],
+    "lab_output": [
+      "Cómo se llama?",
+      "Yo soy Pedro."
+    ]
+  },
+  {
+    "source": "09_trampas.txt:64",
+    "text": "vivo con mi tía Rosa Ella trabaja en Corabastos",
+    "expected": [
+      "vivo con mi tía Rosa",
+      "Ella trabaja en Corabastos"
+    ],
+    "lab_output": [
+      "vivo con mi tía Rosa",
+      "Ella trabaja en Corabastos"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:68",
+    "text": "buenas tardes cómo se llama usted cuántos años tiene y dónde vive",
+    "expected": [
+      "buenas tardes cómo se llama usted",
+      "cuántos años tiene",
+      "y dónde vive"
+    ],
+    "lab_output": [
+      "buenas tardes",
+      "cómo se llama usted",
+      "cuántos años tiene",
+      "y dónde vive"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:72",
+    "text": "si tiene la cédula démela",
+    "expected": [
+      "si tiene la cédula démela"
+    ],
+    "lab_output": [
+      "si tiene la cédula démela"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:75",
+    "text": "si tengo la cédula aquí está",
+    "expected": [
+      "si tengo la cédula",
+      "aquí está"
+    ],
+    "lab_output": [
+      "si tengo la cédula aquí está"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:79",
+    "text": "gracias",
+    "expected": [
+      "gracias"
+    ],
+    "lab_output": [
+      "gracias"
+    ]
+  },
+  {
+    "source": "09_trampas.txt:83",
+    "text": "eh este o sea bueno",
+    "expected": [
+      "eh este o sea bueno"
+    ],
+    "lab_output": [
+      "eh este o sea bueno"
+    ]
+  }
+]

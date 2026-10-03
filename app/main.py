@@ -9,6 +9,7 @@ from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.gloss_analyzer import GlossAnalyzer
 from app.nlp.llm_client import LLMClient
 from app.nlp.nlp_service_impl import NLPServiceImpl
+from app.nlp.segmenter import SentenceSegmenter
 from app.nlp.semantic_cache import SemanticCache
 from app.orchestrator.orchestrator import Orchestrator
 from app.persistence.database import create_pool
@@ -50,6 +51,7 @@ async def lifespan(app: FastAPI):
             settings.llm_temperature,
             settings.llm_timeout_ms,
         ),
+        SentenceSegmenter(settings.sentence_segmenter) if settings.sentence_segmenter.enabled else None,
     )
     validator_service = ValidatorServiceImpl(catalog_repository)
 

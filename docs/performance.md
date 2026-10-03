@@ -430,6 +430,75 @@ del caché por similitud semántica con esa fila: distancia coseno
 
 ---
 
+## 7. De punta a punta con el STT optimizado
+
+**Fecha:** 2026-10-01
+**Contexto:** backend con todos los cambios anteriores y el STT
+(`sign-ai-stt`) con sus optimizaciones (ver su `docs/performance.md`):
+VAD con filtro de energía, parciales en segundo plano, cortes en pausas
+y precalentamiento del modelo.
+
+| Frase | Fuente | Backend (final → resultado) | LLM |
+|---|---|---:|---:|
+| "Hola, ¿cómo estás?" | cache | 0.36 s | — |
+| "un tiempo bastante rápido." | llm | 2.66 s | 2.33 s |
+| "Me llamo Julián." | llm | 1.39 s | 1.08 s |
+| "¿Y ahora cómo estás?" | llm | 1.68 s | 1.28 s |
+| "Hola, ¿cómo estás?" | cache | 0.29 s | — |
+
+**Latencia total para el usuario** (fin de la habla → resultado). El
+tramo del STT se toma de sus últimas mediciones (1.8–2.1 s, de los que
+1.5 s son el silencio que cierra la frase):
+
+| | STT | Backend | Total |
+|---|---:|---:|---:|
+| Frase en caché | 1.8–2.1 s | 0.3–0.4 s | ~2.1–2.5 s |
+| Frase nueva (LLM) | 1.8–2.1 s | 1.4–2.7 s | ~3.2–4.8 s |
+
+- En la línea base, una frase en caché tardaba ~3.9 s solo en el
+  backend, y el STT podía tardar hasta 8 s en cerrar una frase.
+- El STT entregó cada frase completa como un único final, con sus
+  parciales antes.
+- En frases nuevas, el LLM sigue siendo el 78–88 % del tiempo del
+  backend (ver Pendientes: evaluar el modelo del LLM).
+
+---
+
+## 8. Caché semántico con oraciones cortas
+
+**Fecha:** 2026-10-02
+**Problema:** con el segmentador, el caché compara oraciones cortas y
+devolvía las glosas de otra frase parecida pero con más contenido:
+"¿cómo estás?" recibía las de "Hola, ¿cómo estás?" (el avatar señaría
+HOLA dos veces).
+
+**Medición** (`scripts/measure_cache_threshold.py`, distancia coseno
+entre pares de frases; sin tocar la base de datos; solo pares del mismo
+tipo de frase, que son los que el caché compara):
+
+| | Texto original, umbral 0.15 | Texto original, umbral 0.05 | Normalizado, umbral 0.05 |
+|---|---:|---:|---:|
+| Aciertos buenos | 9 de 10 | 5 de 10 | **7 de 10** |
+| Aciertos indebidos | 2 de 12 | 0 de 12 | **0 de 12** |
+
+- Con texto original, aciertos buenos e indebidos se solapan ("Por
+  favor, firme aquí" a 0.071; "Firme allá" a 0.076): ningún umbral los
+  separa.
+- Normalizar elimina las diferencias de forma ("Me llamo Julian" /
+  "Me llamo Julián.": 0.110 → 0.000) y aleja los casos problemáticos
+  ("¿cómo estás?": 0.102 → 0.298; "Firme allá": 0.076 → 0.259).
+- Normalizar acerca otros pares ("Vivo en Bogotá" / "Vivo en Medellín":
+  0.366 → 0.083), así que hay que bajar el umbral a la vez.
+
+**Cambio:** el embedding se calcula sobre el texto normalizado y el
+umbral pasa a 0.05 (ver `docs/decisions.md`). El normalizador del
+segmentador se movió a `app/nlp/text_normalizer.py` para compartirlo.
+
+**Costo:** paráfrasis más lejanas ("¿Cómo se llama usted?" por "¿Cuál
+es su nombre?") ahora van al LLM la primera vez.
+
+---
+
 # Pendientes
 
 Trabajo identificado y analizado, pero aplazado. Cada uno queda descrito
@@ -515,3 +584,79 @@ más corto.
    sin errores. Si aparece `[ERROR] No se pudo traducir el texto.`, el
    pool está entregando conexiones cerradas por Neon y hay que agregar
    un reintento al obtener la conexión.
+
+## Confirmación del texto antes de traducir (RF-STT-03)
+
+**Situación:** RF-STT-03 dice que el texto final no se envía al NLP de
+forma automática: el usuario lo confirma, y según RF-UI-02 puede
+editarlo antes. Hoy el `Controller` traduce cada transcripción final en
+cuanto llega del STT.
+
+**Qué hacer:** el backend envía el final al cliente y espera un mensaje
+de confirmación del cliente con el texto (posiblemente editado); solo
+entonces llama a `Orchestrator.translate`. Cambia el protocolo
+WebSocket con Android, así que hay que acordarlo con el cliente y
+registrarlo en `docs/sdd-changes.md`. `manual_translation_client`
+necesitará una forma de confirmar (por ejemplo, confirmar
+automáticamente cada final para las pruebas).
+
+## Cerrar la frase al detener el micrófono
+
+El STT acepta el mensaje de texto `"end"` para transcribir de inmediato
+la frase en curso, pero `_forward_audio` (`app/controller/router.py`)
+solo reenvía mensajes binarios e ignora los de texto. Si la app deja de
+enviar audio a mitad de una frase, nunca llegan los 1.5 s de silencio y
+la frase se pierde. Agregar al protocolo un mensaje de la app (por
+ejemplo `{"type": "end"}`) que el backend reenvíe al STT como `"end"`,
+y documentarlo en `docs/android-integration.md` (hoy indica enviar ~2 s
+de silencio como solución temporal).
+
+## Desacoplar la traducción y enviar segmentos al estar listos
+
+**Depende de:** el segmentador.
+
+1. **Desacoplar la traducción de la lectura del STT.** Hoy
+   `_forward_transcripts` espera a que termine cada traducción antes de
+   leer el siguiente mensaje del STT. Lanzar cada traducción como tarea
+   y garantizar que los resultados se envíen al cliente en el orden de
+   las frases (una frase posterior que sale del caché no puede llegar
+   antes que una anterior que fue al LLM).
+2. ~~Enviar cada segmento en cuanto esté listo.~~ Hecho el 2026-10-02,
+   junto con traducir las oraciones de un mismo texto en paralelo y
+   enviarlas en orden (ver `docs/sdd-changes.md`, "Envío de cada oración
+   en cuanto está lista"). Sigue pendiente la parte del punto 1 que
+   afecta a frases distintas: `_forward_transcripts` todavía espera a
+   que termine la traducción de una frase antes de leer la siguiente del
+   STT.
+
+## Limpiar docstrings y comentarios largos
+
+Quitar los docstrings y comentarios explicativos agregados durante estas
+optimizaciones (`app/persistence/keep_alive.py`,
+`app/observability/pipeline_trace.py`, `app/nlp/nlp_service_impl.py`,
+`app/persistence/database.py`): el porqué ya está en este documento.
+
+## Ampliar la medición del umbral del caché (entrada 8)
+
+El umbral 0.05 se eligió con 12 pares por grupo, y el par indebido más
+cercano quedó en 0.083. Antes de la demo, ampliar `SHOULD_HIT` y
+`SHOULD_MISS` en `scripts/measure_cache_threshold.py` con frases de
+`scripts/fixtures/oraciones_prueba.md` (en especial nombres, números,
+fechas y lugares) y confirmar el umbral.
+
+## Catálogo incompleto
+
+La tabla `catalog` en Neon tiene 3 señas de las 50 del corpus, por eso
+casi todas las glosas salen con `available: False`. Cargar el catálogo
+completo antes de la demo.
+
+## STT (`sign-ai-stt`)
+
+- **README:** actualizar la descripción del final (ahora las frases
+  largas se cortan en pausas y los finales vacíos no se envían).
+- **Picos de transcripción:** no aparecieron tras los últimos cambios,
+  pero solo hay 2 sesiones de prueba; vigilar los logs `[timing]`.
+- **Inicio de frase recortado:** una vez se perdió un "No" inicial
+  corto. Si se repite, ajustar `SPEECH_ONSET_WINDOW_MS`.
+- **Varias sesiones a la vez:** todo se probó con un solo cliente; con
+  varios, comparten la misma GPU.

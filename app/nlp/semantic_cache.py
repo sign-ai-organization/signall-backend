@@ -2,6 +2,7 @@ import asyncpg
 
 from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.models import Fingerprint
+from app.nlp.text_normalizer import normalize
 from app.observability.pipeline_trace import trace_step
 
 
@@ -22,7 +23,7 @@ class SemanticCache:
 
     async def lookup(self, text: str, fingerprint: Fingerprint) -> list[str] | None:
         with trace_step("cache.embed"):
-            embedding = self._embedding_model.embed(text)
+            embedding = self._embedding_model.embed(normalize(text))
 
         with trace_step("cache.acquire"):
             conn = await self._pool.acquire()
@@ -50,7 +51,7 @@ class SemanticCache:
 
     async def store(self, text: str, fingerprint: Fingerprint, glosses: list[str]) -> None:
         with trace_step("store.embed"):
-            embedding = self._embedding_model.embed(text)
+            embedding = self._embedding_model.embed(normalize(text))
         secondary_signals = [signal.value for signal in fingerprint.secondary_signals]
 
         with trace_step("store.acquire"):

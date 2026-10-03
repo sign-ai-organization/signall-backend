@@ -115,3 +115,26 @@ final en el otro — la alternativa necesitaría una segunda conexión
 default — hay que ajustarlo a 1500 al configurar el servicio para este
 proyecto, no usar su valor por defecto.
 **Fecha:** 2026-09-16
+
+---
+
+## Nota — Umbral y normalización del caché semántico
+
+**Decisión:** el embedding del caché se calcula sobre el texto
+normalizado (minúsculas, sin tildes salvo la ñ, sin signos), con
+`app/nlp/text_normalizer.py`, y el umbral de distancia baja de 0.15 a
+0.05. En `semantic_cache.original_text` se sigue guardando el texto
+original.
+**Por qué:** con el segmentador, el caché compara oraciones cortas y
+devolvía glosas de frases distintas: "¿cómo estás?" recibía las de
+"Hola, ¿cómo estás?" (HOLA repetido) y "Firme allá" las de "Firme
+aquí". Medido con `scripts/measure_cache_threshold.py`: con texto
+original, los aciertos buenos y los indebidos se solapan (0.071 frente a
+0.076) y ningún umbral los separa. Con texto normalizado y umbral 0.05:
+7 de 10 aciertos buenos y 0 de 12 indebidos. Se prioriza que el caché
+nunca devuelva glosas equivocadas frente a acertar más: una glosa
+equivocada cambia el mensaje del avatar; un fallo solo cuesta una
+llamada al LLM, cuyo resultado queda guardado. Normalizar sin bajar el
+umbral sería peor que antes ("Vivo en Bogotá" / "Vivo en Medellín" baja
+a 0.083).
+**Fecha:** 2026-10-02

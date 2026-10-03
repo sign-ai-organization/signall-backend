@@ -1,8 +1,9 @@
 """Manual, real-microphone test of the full translation session
 (/ws/translate): captures your voice, streams it to OUR backend (not
 directly to the STT service), and prints whatever comes back — the final
-translated result, or an error message. With DEBUG_TRACE_ENABLED=true on
-the backend, it also prints the per-step pipeline timings.
+translated sentences as each one is ready, or an error message. With
+DEBUG_TRACE_ENABLED=true on the backend, it also prints each sentence's
+text, source and per-step timings.
 
 Requires requirements-dev.txt (sounddevice) installed.
 
@@ -26,13 +27,24 @@ FRAME_SIZE = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000)
 URL = sys.argv[1] if len(sys.argv) > 1 else "ws://127.0.0.1:8080/ws/translate"
 
 
-def print_trace(trace: dict) -> None:
-    print(f"[traza] fuente: {trace['source']}")
-    steps_ms = trace["steps_ms"]
+def print_steps(steps_ms: dict, indent: str) -> None:
     name_width = max((len(name) for name in steps_ms), default=0)
     for name, ms in steps_ms.items():
-        print(f"    {name:<{name_width}}  {ms:>8.1f} ms")
-    print()
+        print(f"{indent}{name:<{name_width}}  {ms:>8.1f} ms")
+
+
+def print_segment(message: dict, sentence: dict | None, elapsed: str) -> None:
+    segment = message["segment"]
+    header = f"[RESULTADO {message['index'] + 1}/{message['total']}]{elapsed}"
+    if sentence:
+        header += f" {sentence['text']!r}"
+    print(f"\n{header}")
+    print(f"  type={segment['type']}")
+    for gloss in segment["glosses"]:
+        print(f"    {gloss}")
+    if sentence:
+        print(f"[traza] fuente: {sentence['source']}")
+        print_steps(sentence["steps_ms"], indent="    ")
 
 
 async def main() -> None:
@@ -62,41 +74,40 @@ async def main() -> None:
 
         async def receiver():
             processing_started_at = None
+            sentence_traces: dict[int, dict] = {}
+
+            def elapsed() -> str:
+                if processing_started_at is None:
+                    return ""
+                return f" ({time.perf_counter() - processing_started_at:.2f}s)"
 
             async for message in ws:
                 data = json.loads(message)
+                kind = data.get("type")
 
-                if isinstance(data, dict) and data.get("type") == "transcript":
+                if kind == "transcript":
                     if data["final"]:
                         if not data["text"].strip():
                             continue
                         print(f"\n[TEXTO FINAL] {data['text']!r}")
                         print("[procesando...]")
                         processing_started_at = time.perf_counter()
+                        sentence_traces = {}
                     else:
                         print(f"\n[texto parcial] {data['text']!r}")
-                    continue
-
-                if isinstance(data, dict) and data.get("type") == "trace":
-                    print_trace(data)
-                    continue
-
-                elapsed = (
-                    f" ({time.perf_counter() - processing_started_at:.2f}s)"
-                    if processing_started_at is not None
-                    else ""
-                )
-                processing_started_at = None
-
-                if isinstance(data, dict) and data.get("type") == "error":
-                    print(f"\n[ERROR]{elapsed} {data['message']}\n")
-                    continue
-
-                print(f"\n[RESULTADO]{elapsed}")
-                for segment in data:
-                    print(f"  type={segment['type']}")
-                    for gloss in segment["glosses"]:
-                        print(f"    {gloss}")
+                elif kind == "sentence_trace":
+                    sentence_traces[data["index"]] = data
+                elif kind == "segment":
+                    print_segment(data, sentence_traces.get(data["index"]), elapsed())
+                elif kind == "trace":
+                    print("\n[traza] todas las oraciones")
+                    print_steps(data["steps_ms"], indent="    ")
+                elif kind == "done":
+                    print()
+                    processing_started_at = None
+                elif kind == "error":
+                    print(f"\n[ERROR]{elapsed()} {data['message']}\n")
+                    processing_started_at = None
 
         try:
             await asyncio.gather(sender(), receiver())

@@ -81,10 +81,13 @@ agregó `app/observability/pipeline_trace.py`. La traza activa vive en un
 reemplaza el callback de debug `on_source`, que sí había agregado un
 parámetro fuera del diseño a `translate` y `transform`.
 
-El `Controller` crea la traza por cada transcripción final, la registra
-en el log y, si `DEBUG_TRACE_ENABLED=true`, envía al cliente un mensaje
-`{"type": "trace", "source": ..., "steps_ms": {...}}` después del
-resultado. El mensaje `{"type": "source"}` se eliminó.
+El `Controller` crea la traza por cada transcripción final y la
+registra en el log. Si `DEBUG_TRACE_ENABLED=true`, envía al cliente un
+`{"type": "sentence_trace", "index", "text", "source", "steps_ms"}`
+antes de cada oración y un `{"type": "trace", "steps_ms"}` con los pasos
+globales (segmentación, validación, total) al terminar. El mensaje
+`{"type": "source"}` se eliminó. (Actualizado el 2026-10-02 con el envío
+por oración.)
 
 **Cambio propuesto:** si se decide documentarlo, mencionarlo como
 instrumentación no funcional (fuera del contrato funcional del
@@ -120,3 +123,157 @@ del paso 7.
 
 **Estado:** implementado en código, pendiente de reflejar en el SDD.
 **Fecha:** 2026-10-01
+
+---
+
+## Segmentación de oraciones antes de la huella (`SentenceSegmenter`)
+
+**Dónde:** no figura en el SDD. Afecta la sección 6.3 (Figura 3), la
+sección 7.1 (Figura 5, diagrama de clases de NLP) y la sección 7.2
+(Figura 7, secuencia del flujo de traducción).
+
+**Situación:** hoy `NLPServiceImpl.transform(text)` trata todo el texto
+final del STT como una sola unidad: una huella, un `lookup` en
+`SemanticCache` y, si falla, una llamada al LLM, y siempre devuelve un
+único `Segment`. Cuando el STT entrega varias oraciones juntas ("me llamo
+andrea || tengo veinticinco años || ¿dónde vive?"), la huella mezcla tipos
+de frase, el caché casi nunca acierta (la combinación exacta no se repite)
+y el LLM recibe un texto largo. El cambio divide el texto en oraciones
+antes de la huella, con el método `hibrido_ligero` evaluado en el
+laboratorio del segmentador (puntuación → marcadores de discurso →
+cláusulas con spaCy `es_core_news_md`, con postproceso que fusiona las
+muletillas), y cada oración recorre el camino huella → caché → LLM por su
+cuenta.
+
+**Clase nueva:**
+- **`SentenceSegmenter`**: `+ segment(text: String): List<String>`.
+  Devuelve las oraciones en orden; nunca devuelve una lista vacía para un
+  texto no vacío. Carga el modelo local de spaCy una sola vez al
+  construirse (al arrancar el backend), con una llamada de calentamiento.
+  Clase concreta, sin interfaz, igual que los demás colaboradores de
+  `NLPServiceImpl` (`GlossAnalyzer`, `SemanticCache`, `LLMClient`).
+
+`NLPServiceImpl` recibe un cuarto colaborador, `segmenter: SentenceSegmenter`.
+La firma `transform(text): List<Segment>` no cambia, así que `Orchestrator`
+y `ValidatorService` no se tocan; solo que ahora la lista puede tener más
+de un `Segment` (uno por oración, en orden). Las reglas internas del
+segmentador (puntuación, marcadores, cláusulas, postproceso) son módulos
+privados del paquete `app/nlp/segmenter/` y no se proponen como clases del
+SDD.
+
+**Qué habría que cambiar en el SDD:**
+1. **Sección 6.3 / Figura 3 (actividades):** en el paso 4, antes de la
+   huella, agregar "el texto se divide en oraciones", y envolver la huella,
+   el caché y el LLM en "para cada oración". El paso 5 pasa a "se arma un
+   segmento por oración, en orden".
+2. **Sección 7.1 / Figura 5 (clases de NLP):** agregar la clase
+   `SentenceSegmenter` con `+ segment(text: String): List<String>`, el
+   atributo `segmenter: SentenceSegmenter` en `NLPServiceImpl` (asociación
+   hacia `SentenceSegmenter`) y la nota de que se apoya en un modelo local
+   de spaCy. En la narrativa: `NLPServiceImpl` primero llama a
+   `segmenter.segment(text)` y luego, por cada oración, hace lo que hoy se
+   describe para el texto completo.
+3. **Sección 7.2 / Figura 7 (secuencia):** nuevo participante
+   `SentenceSegmenter`; nuevo paso `NLPServiceImpl → SentenceSegmenter:
+   segment(text)` que devuelve `List<String>`; los pasos 3–7 (huella,
+   `lookup`, hit/miss, LLM, `store`) quedan dentro de un fragmento
+   `loop [para cada oración]` y reciben `sentence` en vez de `text`. El
+   paso 5 devuelve una `List<Segment>` con un segmento por oración.
+4. **Sección 7.3 (persistencia):** sin cambios de esquema. Solo precisar
+   que `semantic_cache.original_text` guarda una oración, ya no el texto
+   final completo del STT (la narrativa ya dice "la oración tal como
+   llegó", así que el texto queda más exacto que antes).
+5. **Sección 6.2 (vista física):** opcional. Mencionar que el contenedor
+   del backend incluye el modelo de spaCy `es_core_news_md` (≈ +440 MB de
+   memoria, ≈ 0.7 s de carga al arrancar).
+6. **Sección 1 (historial de cambios):** agregar la entrada.
+
+Las secciones 6.1, 8.1, 8.2 y 8.3 no cambian: el segmentador es interno a
+NLPService y no agrega contenedores, sistemas externos ni componentes C4.
+
+**Interruptor (solo en el código, no en el SDD):** en el diseño el
+segmentador es obligatorio. En el código se mantiene temporalmente
+`SENTENCE_SEGMENTER__ENABLED` (por defecto `true`), una opción operativa
+como `DEBUG_TRACE_ENABLED`: permite medir el antes/después (tasa de
+aciertos del caché, llamadas al LLM, precisión del tipo de frase) con la
+misma versión del backend, y apagarlo si falla con transcripciones reales
+mientras la validación con casos nuevos del laboratorio sigue pendiente.
+Desactivado, `NLPServiceImpl` recibe `segmenter=None` y procesa el texto
+completo como antes. Se quita cuando esa validación confirme el método.
+
+**Estado:** confirmado; implementado en código (`app/nlp/segmenter/`),
+pendiente de reflejar en el SDD.
+**Fecha:** 2026-10-02
+
+---
+
+## Envío de cada oración en cuanto está lista
+
+**Dónde:** sección 7.2 (Figura 7, secuencia), clases de orquestación y
+NLP (Figuras 4 y 5), y el contrato WebSocket del `Controller` con
+Android.
+
+**Situación:** con el segmentador, el backend esperaba a traducir todas
+las oraciones y enviaba una sola lista. Si la última iba al LLM (~1.5–3
+s), las anteriores, listas en ~0.2 s, esperaban con ella, y el avatar no
+podía empezar a señar.
+
+**Cambio en el código:**
+- `NLPService` agrega `split(text): List<String>` y
+  `transform_sentence(sentence): Segment`. `transform(text)` se mantiene
+  y ahora se implementa con ambos.
+- `Orchestrator` agrega `translate_stream(text)`, que entrega
+  `(índice, total, ValidatedSegment)` por oración, en orden, en cuanto
+  cada una está traducida y validada. `translate(text)` se mantiene y se
+  implementa con `translate_stream`.
+- El `Controller` envía un mensaje por oración y uno al final:
+  `{"type": "segment", "index", "total", "segment": {...}}` y
+  `{"type": "done"}`. Antes enviaba una lista JSON con todos los
+  segmentos. `total` se conoce tras segmentar, así que el cliente sabe
+  cuántas oraciones esperar desde la primera.
+- Todas las oraciones se traducen a la vez (una tarea por oración) y se
+  envían en el orden en que se dijeron: cada una sale en cuanto está
+  lista y todas las anteriores ya se enviaron. Así una oración del caché
+  no espera a que termine el LLM de la anterior, y varias llamadas al
+  LLM se solapan en lugar de sumarse.
+
+**Qué habría que cambiar en el SDD:**
+1. **Figura 7:** el bucle pasa a un fragmento `par [para cada oración]`
+   que incluye la validación, seguido del envío en orden de un mensaje
+   `Controller → App: segment` por oración; al final,
+   `Controller → App: done`.
+2. **Figuras 4 y 5:** `translate_stream(text)` en `Orchestrator`;
+   `split(text)` y `transform_sentence(sentence)` en `NLPService`.
+3. **Contrato con Android:** los mensajes `segment` y `done` reemplazan
+   la lista única de resultado.
+
+**Estado:** implementado en código, pendiente de reflejar en el SDD y de
+acordar con el cliente Android.
+**Fecha:** 2026-10-02
+
+---
+
+## Las animaciones GLB viven en la app Android, no en el backend
+
+**Dónde:** Vista física 6.2 y C4 de componentes (el backend agrupa un
+"Static GLB Server"), Figura 8 (`catalog.glb_animation_path`), y la
+fase 12 del plan de implementación ("Servidor estático de GLB").
+
+**Situación:** el SDD ubica un servidor estático de archivos GLB dentro
+del contenedor del backend, y el catálogo guarda rutas servidas por él
+(ej. `/static/glb/casa.glb`). Decisión del equipo: las animaciones GLB
+se empaquetan en la app Android. El backend solo indica qué seña
+reproducir (glosa y `available`); la app resuelve la animación con sus
+propios recursos. El servidor estático no se implementó.
+
+**Cambio propuesto:**
+1. Quitar el "Static GLB Server" de la Vista 6.2 y del C4 de
+   componentes del backend, y ubicar los GLB en el contenedor de la app.
+2. Redefinir `catalog.glb_animation_path` como la referencia al recurso
+   dentro de la app (formato por acordar con el equipo Android), o
+   eliminarlo si la app usa la glosa como clave.
+3. Marcar la fase 12 del plan como descartada.
+
+**Estado:** decisión tomada; formato de la referencia al GLB pendiente
+de acordar con el equipo Android; pendiente de reflejar en el SDD.
+**Fecha:** 2026-10-02

@@ -36,6 +36,18 @@ por esto, es esperado.
 Además, la primera vez que el modelo se use (no al instalar, sino al
 correr código que lo invoque por primera vez).
 
+### Nota sobre el modelo de spaCy
+
+`requirements.txt` también instala `spacy` y el modelo `es_core_news_md`
+(como wheel con versión fija), que usa `SentenceSegmenter` para dividir el
+texto final del STT en oraciones. El modelo se carga una sola vez al
+arrancar el backend. Para comprobar que el segmentador sigue cortando igual
+que el laboratorio donde se evaluó:
+
+```bash
+python -m scripts.verify_sentence_segmenter
+```
+
 ## Carpeta `scripts/`
 
 Contiene scripts sueltos para probar manualmente una pieza del backend
