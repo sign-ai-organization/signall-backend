@@ -18,6 +18,13 @@ class SttServiceClientImpl(SttServiceClient):
     async def send_audio(self, chunk: bytes) -> None:
         await self._connection.send(chunk)
 
+    async def send_end(self) -> None:
+        # The STT protocol asks for this as a bare "end" text frame, not JSON
+        # (see sign-ai-stt app/main.py: `text_msg.strip().lower() == "end"`).
+        if self._connection is None:
+            return
+        await self._connection.send("end")
+
     async def receive_transcript(self) -> tuple[str, bool] | None:
         try:
             message = await self._connection.recv()

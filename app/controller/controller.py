@@ -26,6 +26,31 @@ class Controller:
     async def handle_audio_chunk(self, chunk: bytes) -> None:
         await self.stt_client.send_audio(chunk)
 
+    async def handle_text(self, text: str) -> None:
+        """Translate a phrase the client typed instead of spoke.
+
+        Goes through `handle_transcript` with `is_final=True`, so a typed phrase
+        and a spoken one share one pipeline: echo the transcript, translate,
+        send the segments.
+        """
+        await self.handle_transcript(text, is_final=True)
+
+    async def handle_end(self) -> None:
+        """Close the utterance the STT has open.
+
+        The STT ends a segment when it hears silence. A client that stops
+        capturing — the Android mic toggle — never sends that silence, so the
+        segment would stay open and no final transcript would ever arrive.
+        The STT protocol has a frame for exactly this case.
+
+        Failures are logged, not raised: this runs on the session's read path,
+        and letting it throw would take down a session that is otherwise fine.
+        """
+        try:
+            await self.stt_client.send_end()
+        except Exception:
+            logger.exception("could not forward end-of-utterance to the STT service")
+
     async def handle_transcript(self, text: str, is_final: bool) -> None:
         await self.send_transcript(text, is_final)
 
