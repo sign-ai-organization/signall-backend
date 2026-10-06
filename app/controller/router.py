@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 
 from fastapi import APIRouter, WebSocket
@@ -12,6 +13,43 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+TEXT_FRAME = "text"
+END_FRAME = "end"
+
+
+def _parse_client_frame(raw: str) -> tuple[str, str] | None:
+    """Classify a text frame from the client, or None when it is not one.
+
+    The Android client sends `{"type":"text","text":"<phrase>"}` for a phrase
+    typed instead of spoken, and `{"type":"end"}` when the user releases the
+    microphone. Returns `(kind, payload)` where payload is the phrase for
+    `text` and empty for `end`.
+
+    Anything else — malformed JSON, a non-object, an unknown type, an empty
+    phrase — is ignored rather than turned into an error the user cannot act
+    on. The client is free to send whatever it likes; an unknown frame must not
+    end the session.
+    """
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    kind = payload.get("type")
+    if kind == END_FRAME:
+        return (END_FRAME, "")
+    if kind != TEXT_FRAME:
+        return None
+
+    text = payload.get("text")
+    if not isinstance(text, str) or not text.strip():
+        return None
+
+    return (TEXT_FRAME, text.strip())
+
 
 async def _forward_audio(websocket: WebSocket, controller: Controller) -> None:
     while True:
@@ -22,6 +60,21 @@ async def _forward_audio(websocket: WebSocket, controller: Controller) -> None:
         chunk = message.get("bytes")
         if chunk is not None:
             await controller.handle_audio_chunk(chunk)
+            continue
+
+        raw = message.get("text")
+        if raw is None:
+            continue
+
+        frame = _parse_client_frame(raw)
+        if frame is None:
+            continue
+
+        kind, payload = frame
+        if kind == TEXT_FRAME:
+            await controller.handle_text(payload)
+        else:
+            await controller.handle_end()
 
 
 async def _forward_transcripts(controller: Controller, db_keep_alive: DatabaseKeepAlive) -> None:
