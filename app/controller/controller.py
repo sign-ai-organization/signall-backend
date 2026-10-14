@@ -39,6 +39,16 @@ from app.realtime.incremental import IncrementalTranslator, TranscriptUpdate, Tr
 
 logger = logging.getLogger(__name__)
 
+# Modos de captura que pide el cliente con `{"type":"mode","mode":...}`.
+#
+# `realtime` es el comportamiento de siempre: cada fragmento del STT se traduce
+# y se manda en el acto, así que el muñeco firma mientras la persona habla.
+# `dictation` es solo transcripción: el texto vuelve al input y el usuario
+# decide cuándo mandarlo a traducir con el botón Traducir.
+CAPTURE_REALTIME = "realtime"
+CAPTURE_DICTATION = "dictation"
+CAPTURE_MODES = (CAPTURE_REALTIME, CAPTURE_DICTATION)
+
 
 class Controller:
     def __init__(
@@ -68,6 +78,22 @@ class Controller:
         self._queue: asyncio.Queue = asyncio.Queue()
         self._worker: asyncio.Task | None = None
         self._on_final: list[Callable[[], Awaitable[None]]] = []
+
+        # Modo de captura pedido por el cliente. Es el interruptor que decide si
+        # lo que entra por el micrófono además se traduce: en `dictation` el
+        # texto vuelve al input y nada más, y en `realtime` cada fragmento se
+        # firma mientras se habla.
+        self._capture_mode = CAPTURE_REALTIME
+
+        # Modo con el que **empezó** el utterance en curso.
+        #
+        # El cliente manda `end` y después cambia de modo, así que el `final` del
+        # utterance viejo llega cuando el modo de la sesión ya es el nuevo. Sin
+        # este cierre el backend cerraría el dictado como tiempo real (y firmaría
+        # lo que el usuario solo quería escribir) o, al revés, dejaría la última
+        # frase de TR sin firmar. Se fija con la primera transcripción y dura
+        # hasta el `final`: un utterance es de un solo modo, de punta a punta.
+        self._utterance_mode: str | None = None
 
         # Contexto de utterance para las métricas: cuándo empezó a hablar la
         # persona y cuándo se emitió la primera seña. Es el número que hay que
@@ -130,8 +156,50 @@ class Controller:
         A typed phrase is already final by construction, so it takes the
         non-realtime path: there is no growing hypothesis to follow, and holding
         a typed sentence back for a silence timeout would be absurd.
+
+        El modo de captura manda sobre la voz, no sobre el texto. Si el usuario
+        dictó algo, apagó el micrófono y apretó Traducir, el último `mode` que
+        bajó fue `dictation`; si esta función lo respetara, la frase escrita
+        nunca se traduciría. Escribir una frase **es** la orden de traducirla,
+        así que este camino no consulta el modo.
         """
-        await self.handle_transcript(TranscriptUpdate(text=text, final=True))
+        update = TranscriptUpdate(text=text, final=True)
+        await self.send_transcript(update.text, update.final)
+        await self._translate(update)
+
+    def set_mode(self, mode: str) -> None:
+        """Cambia cómo se trata lo que llega por el micrófono.
+
+        Llega como `{"type":"mode","mode":"dictation"|"realtime"}`. Es estado de
+        la sesión, no del utterance: el modo del utterance en curso ya está
+        fijado en `_utterance_mode` y no se toca acá.
+        """
+        if mode not in CAPTURE_MODES:
+            logger.warning("ignoring unknown capture mode %r", mode)
+            return
+        if mode == self._capture_mode:
+            return
+
+        if self._utterance_mode is not None:
+            # No es un error: el cliente manda `end` y después cambia de modo, y
+            # el `final` de ese utterance llega después del cambio. Se cuenta
+            # igual, porque si este número crece es que hay un cliente que
+            # cambia de modo a mitad de una frase y de eso hay que enterarse.
+            metrics.counter("capture_mode_switch_open_utterance_total")
+            logger.info(
+                "capture mode %s -> %s con un utterance abierto: se cierra como %s",
+                self._capture_mode,
+                mode,
+                self._utterance_mode,
+            )
+
+        self._capture_mode = mode
+        metrics.counter(f"capture_mode_{mode}_total")
+        metrics.gauge(
+            "session_capture_dictation",
+            1.0 if mode == CAPTURE_DICTATION else 0.0,
+        )
+        logger.info("capture mode -> %s", mode)
 
     async def handle_end(self) -> None:
         """Close the utterance the STT has open.
@@ -166,12 +234,48 @@ class Controller:
         `words` son lo que permite distinguir "la persona ya terminó de decir
         esta palabra" de "todavía la está formando". Si se descartaran aquí, el
         modo en tiempo real degrada a la heurística gruesa sin avisar.
+
+        Este camino es el de la **voz**: el modo de captura decide si además de
+        transcribir se traduce. El texto escrito va por [handle_text].
         """
-        await self.send_transcript(update.text, update.final)
+        if self._utterance_mode is None:
+            self._utterance_mode = self._capture_mode
+        dictation = self._utterance_mode == CAPTURE_DICTATION
+
+        # El flag viaja en la transcripción y no se deduce del estado del
+        # cliente porque el cliente ya lo cambió: el `end` que manda al apagar el
+        # dictado llega **después** del interruptor, así que el `final` de lo
+        # dictado vuelve cuando la app ya se cree con el micrófono apagado. Sin
+        # esto tomaría esa frase por una de tiempo real, esperaría fragments que
+        # no van a llegar y quedaría en "Traduciendo..." para siempre.
+        await self.send_transcript(update.text, update.final, dictation=dictation)
 
         if not update.text.strip():
             return
 
+        if dictation:
+            # Dictado: la transcripción ya salió arriba y con eso alcanza. No se
+            # toca el LLM ni se manda un `segment`, así que el muñeco no se
+            # mueve: lo que el usuario dictó es texto, hasta que apretó Traducir.
+            #
+            # Un `final` del STT no significa "terminó el dictado" —el STT los
+            # cierra por silencio, y alguien que dicta hace pausas—, así que acá
+            # solo se libera el utterance para el siguiente.
+            if update.final:
+                metrics.counter("dictation_utterances_total")
+                metrics.histogram(
+                    "dictation_utterance_words",
+                    len(update.text.split()),
+                    "Palabras por frase dictada",
+                )
+                self._utterance_mode = None
+                logger.info("dictated: %r", update.text)
+            return
+
+        await self._translate(update)
+
+    async def _translate(self, update: TranscriptUpdate) -> None:
+        """Traduce una transcripción: por fragmentos en tiempo real, o de una."""
         if self._realtime is not None:
             self._start_utterance()
             # Traducir fuera del bucle de lectura es lo que permite que el STT
@@ -202,6 +306,10 @@ class Controller:
         """El camino de frase completa: espera el final y manda todo junto."""
         if not update.final:
             return
+
+        # A partir de acá el utterance está completo: el siguiente vuelve a
+        # tomar el modo que la sesión tenga ahora.
+        self._utterance_mode = None
 
         logger.info("Final transcript: %r -> translating", update.text)
         with start_trace() as trace:
@@ -265,6 +373,7 @@ class Controller:
     async def _finish_utterance(self, final_text: str, last_update_ms: float) -> None:
         assert self._realtime is not None
         self._realtime.reset()
+        self._utterance_mode = None
 
         logger.info("Final transcript: %r", final_text)
         if self.debug_trace_enabled:
@@ -319,8 +428,25 @@ class Controller:
 
     # ---------------------------------------------------------------- salida
 
-    async def send_transcript(self, text: str, is_final: bool) -> None:
-        await self.websocket.send_json({"type": "transcript", "text": text, "final": is_final})
+    async def send_transcript(
+        self,
+        text: str,
+        is_final: bool,
+        dictation: bool = False,
+    ) -> None:
+        """Manda una transcripción.
+
+        `dictation` le dice al cliente de qué modo salió. Es aditivo: un cliente
+        que no lo conoce sigue leyendo `type`, `text` y `final` igual que antes.
+        """
+        await self.websocket.send_json(
+            {
+                "type": "transcript",
+                "text": text,
+                "final": is_final,
+                "dictation": dictation,
+            }
+        )
 
     async def send_segment(self, index: int, total: int, segment: ValidatedSegment, trace: PipelineTrace) -> None:
         logger.info("Sending segment %d/%d: %s", index + 1, total, segment)

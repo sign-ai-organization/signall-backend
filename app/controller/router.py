@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, WebSocket
 
 from app.config.settings import settings
-from app.controller.controller import Controller
+from app.controller.controller import CAPTURE_MODES, Controller
 from app.controller.stt_service_client_impl import SttServiceClientImpl
 from app.metrics import metrics
 from app.persistence.keep_alive import DatabaseKeepAlive
@@ -16,15 +16,17 @@ router = APIRouter()
 
 TEXT_FRAME = "text"
 END_FRAME = "end"
+MODE_FRAME = "mode"
 
 
 def _parse_client_frame(raw: str) -> tuple[str, str] | None:
     """Classify a text frame from the client, or None when it is not one.
 
     The Android client sends `{"type":"text","text":"<phrase>"}` for a phrase
-    typed instead of spoken, and `{"type":"end"}` when the user releases the
-    microphone. Returns `(kind, payload)` where payload is the phrase for
-    `text` and empty for `end`.
+    typed instead of spoken, `{"type":"end"}` when the user releases the
+    microphone, and `{"type":"mode","mode":"dictation"|"realtime"}` to say what
+    to do with the voice. Returns `(kind, payload)` where payload is the phrase
+    for `text`, the mode for `mode` and empty for `end`.
 
     Anything else — malformed JSON, a non-object, an unknown type, an empty
     phrase — is ignored rather than turned into an error the user cannot act
@@ -42,6 +44,11 @@ def _parse_client_frame(raw: str) -> tuple[str, str] | None:
     kind = payload.get("type")
     if kind == END_FRAME:
         return (END_FRAME, "")
+    if kind == MODE_FRAME:
+        mode = payload.get("mode")
+        if mode not in CAPTURE_MODES:
+            return None
+        return (MODE_FRAME, mode)
     if kind != TEXT_FRAME:
         return None
 
@@ -74,6 +81,8 @@ async def _forward_audio(websocket: WebSocket, controller: Controller) -> None:
         kind, payload = frame
         if kind == TEXT_FRAME:
             await controller.handle_text(payload)
+        elif kind == MODE_FRAME:
+            controller.set_mode(payload)
         else:
             await controller.handle_end()
 

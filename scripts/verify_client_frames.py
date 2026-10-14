@@ -1,11 +1,13 @@
 """Verifica los frames de texto que el cliente Android envia al backend.
 
-El backend acepta audio binario, pero el cliente Android ademas manda dos frames
+El backend acepta audio binario, pero el cliente Android ademas manda tres frames
 de texto que antes se descartaban en silencio:
 
 - ``{"type": "text", "text": "<frase>"}`` -- una frase escrita en vez de hablada.
 - ``{"type": "end"}`` -- el usuario solto el microfono, asi que el silencio que
   cierra un segmento del STT nunca va a llegar y hay que cerrarlo a la fuerza.
+- ``{"type": "mode", "mode": "dictation"|"realtime"}`` -- que hacer con la voz:
+  solo transcribir (dictado) o firmar mientras se habla (tiempo real).
 
 Este script no necesita Neon, ni el LLM, ni el servicio STT: el cliente del STT
 y el orquestador se reemplazan por dobles de prueba. Corre con
@@ -15,6 +17,7 @@ y el orquestador se reemplazan por dobles de prueba. Corre con
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 from pathlib import Path
@@ -38,14 +41,16 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.config.settings import settings  # noqa: E402
 from app.controller import router as router_module  # noqa: E402
-from app.controller.controller import Controller  # noqa: E402
-from app.controller.router import END_FRAME, TEXT_FRAME, _parse_client_frame  # noqa: E402
+from app.controller.controller import CAPTURE_DICTATION, CAPTURE_REALTIME, Controller  # noqa: E402
+from app.controller.router import END_FRAME, MODE_FRAME, TEXT_FRAME, _parse_client_frame  # noqa: E402
 from app.domain.models import Gloss, PhraseType, ValidatedSegment  # noqa: E402
 from app.realtime.incremental import IncrementalTranslator, TranscriptUpdate  # noqa: E402
 
 failures: list[str] = []
 
 TYPED_PHRASE = '{"type":"text","text":"hola, como estas"}'
+DICTATE_FRAME = '{"type":"mode","mode":"dictation"}'
+REALTIME_FRAME = '{"type":"mode","mode":"realtime"}'
 # Una frase escrita de dos oraciones produce transcript, un segment por
 # oraciones y done.
 FOUR_MESSAGES = ["transcript", "segment", "segment", "done"]
@@ -72,6 +77,7 @@ REQUIRED_CONTROLLER_METHODS = (
     "handle_text",
     "handle_end",
     "handle_transcript",
+    "set_mode",
     "start_realtime_worker",
     "send_transcript",
     "send_segment",
@@ -88,6 +94,11 @@ print("\n_parse_client_frame")
 check("frase escrita", _parse_client_frame(TYPED_PHRASE), (TEXT_FRAME, "hola, como estas"))
 check("recorta los espacios", _parse_client_frame('{"type":"text","text":"  hola  "}'), (TEXT_FRAME, "hola"))
 check("cierre de microfono", _parse_client_frame('{"type":"end"}'), (END_FRAME, ""))
+check("modo dictado", _parse_client_frame(DICTATE_FRAME), (MODE_FRAME, "dictation"))
+check("modo tiempo real", _parse_client_frame(REALTIME_FRAME), (MODE_FRAME, "realtime"))
+check("ignora modo desconocido", _parse_client_frame('{"type":"mode","mode":"inverso"}'), None)
+check("ignora mode sin mode", _parse_client_frame('{"type":"mode"}'), None)
+check("ignora mode que no es texto", _parse_client_frame('{"type":"mode","mode":7}'), None)
 check("ignora frase vacia", _parse_client_frame('{"type":"text","text":"   "}'), None)
 check("ignora tipo desconocido", _parse_client_frame('{"type":"nope"}'), None)
 check("ignora JSON invalido", _parse_client_frame("no soy json"), None)
@@ -206,6 +217,182 @@ def read_exactly(websocket, count: int) -> list[dict]:
     return [websocket.receive_json() for _ in range(count)]
 
 
+# -- Los modos de captura, sobre el Controller directamente ----------------------
+#
+# Por que no por el socket: el doble del STT entrega sus transcripciones apenas
+# se conecta la sesion, sin esperar ningun frame del cliente, asi que por el
+# socket no hay forma de decir "primero activo el modo, despues Habla". Y el
+# orden es justamente lo que hay que probar -- el cliente manda `end` y cambia de
+# modo antes de que llegue el `final` --, asi que el paso a paso tiene que ser
+# explicito y en este hilo.
+
+
+class FakeWebSocket:
+    """WebSocket doble: guarda lo que el Controller salio a mandar."""
+
+    def __init__(self) -> None:
+        self.sent: list[dict] = []
+
+    async def send_json(self, payload: dict) -> None:
+        self.sent.append(payload)
+
+
+async def run_session(script: list[tuple[str, object]], session_settings) -> list[dict]:
+    """Ejecuta un guion contra el Controller y devuelve lo que salió al cliente.
+
+    El guion es una lista de `("mode", "dictation")`, `("text", "hola")` y
+    `("update", TranscriptUpdate)`, en el orden exacto en que llegan.
+    """
+    websocket = FakeWebSocket()
+    controller = Controller(
+        websocket,
+        FakeOrchestrator(),
+        FakeSttClient("test"),
+        session_settings,
+    )
+    controller.start_realtime_worker()
+    try:
+        for kind, value in script:
+            if kind == "mode":
+                controller.set_mode(value)  # type: ignore[arg-type]
+            elif kind == "text":
+                await controller.handle_text(value)  # type: ignore[arg-type]
+            else:
+                await controller.handle_transcript(value)  # type: ignore[arg-type]
+        # La traduccion corre en una tarea aparte. `_queue.join()` es la unica
+        # forma de esperarla sin adivinar un sleep: vuelve cuando el ultimo
+        # fragmento encolado quedo con su `task_done`, y como hay un solo worker
+        # y la cola es FIFO, eso implica que los anteriores tambien.
+        await controller._queue.join()  # noqa: SLF001
+    finally:
+        await controller.shutdown()
+    return websocket.sent
+
+
+def verify_capture_modes(session_settings) -> None:
+    """El micrófono con dos interruptores: dictado y tiempo real."""
+
+    def kinds(sent: list[dict]) -> list[str]:
+        return [m["type"] for m in sent]
+
+    def segments(sent: list[dict]) -> list[dict]:
+        return [m for m in sent if m["type"] == "segment"]
+
+    print("\nmodo dictado: transcribe y nada mas")
+    sent = asyncio.run(
+        run_session(
+            [
+                ("mode", CAPTURE_DICTATION),
+                ("update", _update("hola")),
+                ("update", _update("hola como")),
+                ("update", _update("hola como estas", final=True)),
+            ],
+            session_settings,
+        ),
+    )
+    check("solo vuelven las transcripciones", kinds(sent), ["transcript", "transcript", "transcript"])
+    check("el final trae la frase entera", sent[-1]["text"], "hola como estas")
+    check("y viene marcado como final", sent[-1]["final"], True)
+    check("el avatar no se movio", len(segments(sent)), 0)
+    check("las tres dicen que son de dictado", [m["dictation"] for m in sent], [True, True, True])
+
+    print("\nmodo dictado: dos frases seguidas (pausa del usuario)")
+    sent = asyncio.run(
+        run_session(
+            [
+                ("mode", CAPTURE_DICTATION),
+                ("update", _update("hola", final=True)),
+                ("update", _update("como estas", final=True)),
+            ],
+            session_settings,
+        ),
+    )
+    check("el silencio del STT no corta el dictado", len(sent), 2)
+    check("y sigue sin firmar", len(segments(sent)), 0)
+
+    print("\nfrase escrita con el microfono en modo dictado")
+    sent = asyncio.run(
+        run_session(
+            [
+                ("mode", CAPTURE_DICTATION),
+                ("update", _update("hola", final=True)),
+                # El usuario apago el microfono y aprieto Traducir.
+                ("text", "hola, como estas"),
+            ],
+            session_settings,
+        ),
+    )
+    check("el texto escrito se traduce igual", kinds(sent), ["transcript", "transcript", "segment", "done"])
+    # Sin word timestamps el traductor incremental separa por palabras, así que
+    # el `source_text` llega sin la puntuación que traía la frase escrita.
+    check("y el fragmento sale de la frase escrita", segments(sent)[0]["source_text"], "hola como estas")
+    # El flag va solo en las transcripciones: lo dynastication de un `segment`
+    # seria redundante, porque un `segment` ya significa "esto se firma".
+    check(
+        "solo la transcripcion de voz viene marcada",
+        [m["dictation"] for m in sent if m["type"] == "transcript"],
+        [True, False],
+    )
+
+    print("\nde dictado a tiempo real con una frase abierta")
+    sent = asyncio.run(
+        run_session(
+            [
+                ("mode", CAPTURE_DICTATION),
+                # El usuario hablo y todavia no hay silencio: el utterance sigue
+                # abierto cuando aprieta el interruptor de TR.
+                ("update", _update("hola")),
+                ("mode", CAPTURE_REALTIME),
+                # El `final` de lo que dictaba llega DESPUES del cambio de modo.
+                ("update", _update("hola", final=True)),
+                # Recién aca empieza un utterance de tiempo real.
+                ("update", _update("hola como estas", final=True)),
+            ],
+            session_settings,
+        ),
+    )
+    check("lo dictado no se firmo aunque se prendiera TR", kinds(sent)[:3], ["transcript"] * 3)
+    # El flag es lo que le dice al cliente que esta frase ya no es suya para
+    # firmar: sin esto tomaria lo dictado por tiempo real y quedaria esperando
+    # fragments que no van a llegar. La parcial y el final de lo dictado siguen
+    # marcados; la transcripción siguiente ya es de tiempo real.
+    check("y el cliente lo puede saber igual", [m["dictation"] for m in sent[:3]], [True, True, False])
+    check("la frase de tiempo real si se firmo", len(segments(sent)), 1)
+    check("y sale de lo nuevo, no de lo dictado", segments(sent)[0]["source_text"], "hola como estas")
+    check("y su transcripcion ya no es dictado", sent[2]["dictation"], False)
+    check("el utterance de tiempo real se cierra con done", kinds(sent)[-1], "done")
+
+    print("\nde tiempo real a dictado")
+    sent = asyncio.run(
+        run_session(
+            [
+                ("mode", CAPTURE_REALTIME),
+                ("update", _update("hola como estas", final=True)),
+                ("mode", CAPTURE_DICTATION),
+                ("update", _update("chau", final=True)),
+            ],
+            session_settings,
+        ),
+    )
+    check("la frase de TR se firmo", [m["source_text"] for m in segments(sent)], ["hola como estas"])
+    check("y lo dictado despues no", kinds(sent)[-1], "transcript")
+    check("con su texto entero", sent[-1]["text"], "chau")
+    check("y avisado como dictado", sent[-1]["dictation"], True)
+
+    print("\nun modo desconocido no cambia nada")
+    sent = asyncio.run(
+        run_session(
+            [
+                ("mode", "inverso"),
+                ("update", _update("hola como estas", final=True)),
+            ],
+            session_settings,
+        ),
+    )
+    check("sigue traduciendo como tiempo real", kinds(sent), ["transcript", "segment", "done"])
+    check("y lo dice", [m["dictation"] for m in sent if m["type"] == "transcript"], [False])
+
+
 def main() -> None:
     # El router construye el cliente del STT con este nombre; sustituirlo ahi
     # alcanza para que la sesion no intente conectarse a un servicio real.
@@ -321,6 +508,8 @@ def main() -> None:
         )
     finally:
         router_module.settings = original_settings
+
+    verify_capture_modes(realtime_settings)
 
     print()
     if failures:
