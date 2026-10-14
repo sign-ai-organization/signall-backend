@@ -464,7 +464,7 @@ tramo del STT se toma de sus últimas mediciones (1.8–2.1 s, de los que
 
 ---
 
-## 9. Traducción en tiempo real (rama `tiempo-real`)
+## 9. Traducción en tiempo real
 
 **Fecha:** 2026-10-14
 **Problema:** todo lo anterior seguía siendo "optimizar una espera". La
@@ -719,7 +719,7 @@ documentación de `docs/android-integration.md` ya no lo pide.
 
 ## Desacoplar la traducción y enviar segmentos al estar listos
 
-**Resuelto el 2026-10-14** (rama `tiempo-real`), ver entrada 9. Lo que
+**Resuelto el 2026-10-14**, ver entrada 9. Lo que
 queda de este ítem: la frase escrita y el "Repetir" siguen yendo por el
 camino de frase completa, que es lo correcto porque no hay hipótesis
 creciente que seguir.
