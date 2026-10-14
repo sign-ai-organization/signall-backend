@@ -31,7 +31,12 @@ class CatalogRepository:
         self.cache: dict[str, CatalogEntry] = {}
 
     async def load_all(self) -> None:
-        rows = await self._pool.fetch("SELECT gloss, glb_animation_path FROM catalog")
+        # Ordered so the catalog's vocabulary is identical on every start. The
+        # LLM prompt embeds it, and a stable list keeps the prompt byte-stable
+        # (any server-side prompt cache depends on it).
+        rows = await self._pool.fetch(
+            "SELECT gloss, glb_animation_path FROM catalog ORDER BY id_sign"
+        )
 
         # Keyed by the folded gloss so an accented emission from the LLM finds
         # the unaccented row. In production `semantic_cache` already holds both
@@ -46,3 +51,12 @@ class CatalogRepository:
 
     def search(self, gloss: str) -> CatalogEntry | None:
         return self.cache.get(normalize_gloss(gloss))
+
+    def vocabulary(self) -> dict[str, str]:
+        """Every catalog gloss as folded key -> display spelling.
+
+        The LLM prompt is built from this so the model can only propose signs
+        the app can actually play, and the prompt's post-hoc repair resolves
+        against the same keys (`COMO ESTAS` resolves an accented `CÓMO ESTÁS`).
+        """
+        return {folded: entry.gloss for folded, entry in self.cache.items()}
