@@ -76,10 +76,32 @@ class Controller:
         self._first_segment_at: float | None = None
         self._segments_sent = 0
 
+        # Audio reenviado al STT en esta sesión. Es el único tramo del sistema
+        # que no produce salida visible, así que necesita su propio contador.
+        self._audio_bytes = 0
+        self._audio_chunks = 0
+
     # ---------------------------------------------------------------- audio
 
     async def handle_audio_chunk(self, chunk: bytes) -> None:
+        """Reenvía un fragmento de audio al STT y mide que realmente esté fluyendo.
+
+        El audio es el único tramo del sistema que no produce salida: si el
+        micrófono del teléfono se rompe, el STT se queda mudo y no hay ningún
+        `segment` que llegue al cliente. Lo único que se ve es este contador, y
+        por eso cuenta bytes además de fragmentos: distingue "el teléfono no
+        manda nada" de "manda el doble de lo que debería".
+        """
         await self.stt_client.send_audio(chunk)
+        self._audio_bytes += len(chunk)
+        self._audio_chunks += 1
+        metrics.counter("audio_bytes_total", len(chunk))
+        metrics.counter("audio_chunks_total")
+        metrics.gauge("session_audio_bytes", self._audio_bytes)
+
+    def audio_stats(self) -> tuple[int, int]:
+        """(bytes, chunks) capturados en esta sesión. Para tests y diagnóstico."""
+        return self._audio_bytes, self._audio_chunks
 
     async def handle_text(self, text: str) -> None:
         """Translate a phrase the client typed instead of spoke.

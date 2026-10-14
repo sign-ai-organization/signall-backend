@@ -464,6 +464,114 @@ tramo del STT se toma de sus últimas mediciones (1.8–2.1 s, de los que
 
 ---
 
+## 9. Traducción en tiempo real (rama `tiempo-real`)
+
+**Fecha:** 2026-10-14
+**Problema:** todo lo anterior seguía siendo "optimizar una espera". La
+app firmaba ~2.4–4.8 s **después** de que la persona dejara de hablar,
+porque el pipeline entero esperaba el `final`.
+
+**Qué cambió:** el backend traduce y manda cada fragmento en cuanto el
+STT confirma que esas palabras ya se dijeron, en vez de esperar el final
+completo. La regla de "qué es cola ya dicha" son los timestamps por
+palabra que ahora manda el STT.
+
+### El pipeline antes y después
+
+| Tramo | Antes | Después |
+|---|---|---|
+| Hangover de silencio | 1500 ms | 600 ms |
+| Inferencia de un parcial | 350–630 ms (medium) | 90–170 ms (small) |
+| Dejar de hablar → final | 1813–2099 ms | 839–958 ms |
+| Caché semántico por lookup | ~200 ms (ida y vuelta a Neon) | ~0.4 ms (en memoria) |
+| Espera por la GPU | picos de 4–8 s | p95 0.8 ms |
+| **Primera seña** | — | **p50 913 ms / p95 1336 ms** |
+
+Medido sobre los 28 fixtures de audio de `sign-ai-stt/fixtures/audio/`,
+reproducidos por el WebSocket real a velocidad 1x con GPU libre
+(RTX 4050, Ollama local con qwen3:4b). 28/28 produjeron al menos una
+seña. Reproducible con:
+
+```bash
+python scripts/verify_realtime_latency.py --all-fixtures
+```
+
+### Dónde se fue el tiempo
+
+Descompuesto así, el tramo de 913 ms hasta la primera seña:
+
+| Etapa | Medido | Por qué |
+|---|---:|---|
+| Onset del VAD | 150 ms | ventana de 150 ms antes de decidir que hubo habla |
+| Intervalo de parcial | ~250–700 ms | el parcial sale cada `PARTIAL_INTERVAL_MS`, más lo que tarda el anterior |
+| Inferencia del parcial | 90–170 ms | modelo `small` |
+| Traducción del fragmento | ~0.4 ms | una palabra suelta del catálogo: un dict |
+
+Es decir: **el trabajo de traducción es prácticamente gratis y la latencia
+es casi toda del lado de la transcripción**. `rt_first_sign_ms` (backend,
+del primer texto del STT a la primera seña) da p50 0.4 ms, lo que
+confirma lo mismo desde el otro lado.
+
+### Tres bugs que solo aparecieron al correr
+
+Los tres daban una seña **equivocada**, no ausente, que es el modo de
+falla que más importa aquí. Documentados porque el razonamiento es lo
+que evita repetirlos:
+
+1. **Vectores sin normalizar comparados con producto punto.** El `<=>`
+   de pgvector normaliza internamente y `SentenceTransformer.encode`
+   no, así que un fragmento corto daba distancia negativa y *todo* era
+   HIT. Cada fragmento respondía HOLA. Ahora `_unit()` normaliza de los
+   dos lados.
+
+2. **Matching por similitud cruzando fragmentos.** El umbral 0.05 está
+   calibrado para frases completas; en fragmentos de una o dos palabras
+   dejó de ser equivalencia y pasó a ser coincidencia accidental.
+   `"me llamo ana vivo en || bogota soy"` caía a <0.05 de
+   `"me llamo ana vivo en || vivo en"` y devolvía VIVIR,DONDE. Los
+   fragmentos usan `exact_only=True`.
+
+3. **`settled_count` contado en un espacio de índices y usado en
+   otro.** Contaba sobre `words` (con rellenos) e indexaba `tokens`
+   (sin ellos): firmaba media palabra de más.
+
+### Caché semántico en memoria
+
+`load_all()` al arrancar: 46 filas en **662 ms**. Con eso un lookup es
+distancia coseno con numpy en vez de ~200 ms de red. El embedding sigue
+en `asyncio.to_thread` porque son 12–25 ms de CPU y bloquear el bucle de
+eventos retrasaba también el audio entrante de las otras sesiones.
+
+La precarga es best-effort a propósito: un caché vacío cuesta una llamada
+al LLM por frase; un arranque que no arranca cuesta la sesión entera.
+
+### Precalentado del LLM
+
+La primera inferencia contra un servidor local carga el modelo: **6.2 s**
+medidos contra 270–440 ms de las siguientes. `LLMClient.warm_up()` lo
+saca de la ruta caliente, en una tarea aparte para no retrasar el
+arranque. Los errores se ignoran: que el servidor esté caído al arrancar
+no debe impedir que el servicio levante.
+
+### Camino corto por catálogo
+
+Una palabra suelta que existe en el catálogo resuelve en ~0.1 ms con un
+dict, sin embedding, sin caché y sin LLM. Casi la mitad de las 50 glosas
+son palabras sueltas escritas igual en español. Es deliberadamente
+literal y de una sola palabra: "vivo" no es `VIVIR`, y adivinar la
+morfología cambiaría una respuesta rápida equivocada por una lenta
+correcta.
+
+### Pendiente de medir
+
+- **Varios clientes a la vez.** Todo se midió con uno solo. Con varios
+  comparten la GPU y el `InferenceScheduler` los serializa, así que el
+  tiempo por cliente sube linealmente.
+- **El caché creciendo.** El tope son 20 000 filas (~30 MB). No se probó
+  qué pasa cuando se llena, solo que deja de crecer y avisa.
+
+---
+
 ## 8. Caché semántico con oraciones cortas
 
 **Fecha:** 2026-10-02
@@ -602,16 +710,19 @@ automáticamente cada final para las pruebas).
 
 ## Cerrar la frase al detener el micrófono
 
-El STT acepta el mensaje de texto `"end"` para transcribir de inmediato
-la frase en curso, pero `_forward_audio` (`app/controller/router.py`)
-solo reenvía mensajes binarios e ignora los de texto. Si la app deja de
-enviar audio a mitad de una frase, nunca llegan los 1.5 s de silencio y
-la frase se pierde. Agregar al protocolo un mensaje de la app (por
-ejemplo `{"type": "end"}`) que el backend reenvíe al STT como `"end"`,
-y documentarlo en `docs/android-integration.md` (hoy indica enviar ~2 s
-de silencio como solución temporal).
+**Resuelto el 2026-10-02**: `_parse_client_frame` acepta
+`{"type":"end"}` y `Controller.handle_end()` lo reenvía al STT como el
+frame `"end"`. La app ya no necesita mandar ~2 s de silencio, y la
+documentación de `docs/android-integration.md` ya no lo pide.
+
+## Catálogo incompleto
 
 ## Desacoplar la traducción y enviar segmentos al estar listos
+
+**Resuelto el 2026-10-14** (rama `tiempo-real`), ver entrada 9. Lo que
+queda de este ítem: la frase escrita y el "Repetir" siguen yendo por el
+camino de frase completa, que es lo correcto porque no hay hipótesis
+creciente que seguir.
 
 **Depende de:** el segmentador.
 
@@ -646,9 +757,13 @@ fechas y lugares) y confirmar el umbral.
 
 ## Catálogo incompleto
 
-La tabla `catalog` en Neon tiene 3 señas de las 50 del corpus, por eso
-casi todas las glosas salen con `available: False`. Cargar el catálogo
-completo antes de la demo.
+**Resuelto el 2026-10-14** (semilla): la tabla `catalog` tiene las 50
+glosas de LSC50 con `glb_animation_path` same-origin (`signs/<id>.glb`).
+
+Lo que sigue incompleto es del lado de la app: **solo 32 de las 50 tienen
+animación exportada**. Las 18 restantes llegan con `available: true` y un
+path que no existe, que es lo que dispara `SignsCatalog.isOwnAssetPath()`
+del lado Android. Exportarlas es el gap más grande de calidad que queda.
 
 ## STT (`sign-ai-stt`)
 
