@@ -27,7 +27,7 @@ import statistics
 import sys
 import time
 import wave
-from collections.abc import AsyncIterator
+from pathlib import Path
 
 import websockets
 
@@ -147,7 +147,7 @@ def _read_wav_pcm16(path: str) -> bytes:
         return wav.readframes(wav.getnframes())
 
 
-async def _replay_audio(url: str, path: str, speed: float, timeout: float) -> Timings:
+async def _replay_audio(url: str, path: str, speed: float, timeout: float, verbose: bool = True) -> Timings:
     """Reproduce un WAV por el WebSocket a velocidad real y cronometra.
 
     El reloj arranca en el primer sample enviado, que es lo que el microfono
@@ -156,7 +156,7 @@ async def _replay_audio(url: str, path: str, speed: float, timeout: float) -> Ti
     """
     pcm = _read_wav_pcm16(path)
     frame_bytes = 960  # 30 ms a 16 kHz PCM16
-    sleep_per_frame = (len(frame_bytes) / 2 / 16000) / max(speed, 0.01)
+    sleep_per_frame = (frame_bytes / 2 / 16000) / max(speed, 0.01)
 
     timings = Timings()
     events: list[tuple[float, str, str]] = []
@@ -173,6 +173,7 @@ async def _replay_audio(url: str, path: str, speed: float, timeout: float) -> Ti
                 if kind == "segment":
                     glosses = ", ".join(g["text"] for g in payload["segment"]["glosses"])
                     events.append((timings.sent_at and _ms(timings.sent_at) or 0, "segment", glosses))
+                    timings.segments.append(payload)
                     if timings.first_segment_ms is None:
                         timings.first_segment_ms = _ms(timings.sent_at or time.monotonic())
                     if timings.first_gloss_ms is None:
@@ -196,18 +197,23 @@ async def _replay_audio(url: str, path: str, speed: float, timeout: float) -> Ti
             await socket.send(pcm[start : start + frame_bytes])
             await asyncio.sleep(sleep_per_frame)
 
-        await socket.send("end")
+        # `{"type":"end"}`, no la cadena suelta "end". El backend clasifica los
+        # frames de texto con json.loads y descarta en silencio lo que no parsea,
+        # así que mandar "end" a secas cierra el socket de una y el utterance
+        # muere sin final. El cliente Android manda el frame con `type`.
+        await socket.send(json.dumps({"type": "end"}))
         try:
             await asyncio.wait_for(receiver, timeout)
         except asyncio.TimeoutError:
             receiver.cancel()
             print("  [timeout] el backend no produjo done", file=sys.stderr)
 
-    print("\n  linea de tiempo (ms desde el primer sample de audio):")
-    for at, kind, detail in events:
-        print(f"    {at:8.0f}  {kind:<10} {detail}")
-    if timings.first_partial_ms is not None:
-        print(f"    {timings.first_partial_ms:8.0f}  1er parcial")
+    if verbose:
+        print("\n  linea de tiempo (ms desde el primer sample de audio):")
+        for at, kind, detail in events:
+            print(f"    {at:8.0f}  {kind:<10} {detail}")
+        if timings.first_partial_ms is not None:
+            print(f"    {timings.first_partial_ms:8.0f}  1er parcial")
     return timings
 
 
@@ -219,6 +225,62 @@ def _percentile(values: list[float], pct: float) -> float:
     return ordered[index]
 
 
+async def _run_fixtures(url: str, fixtures_dir: Path, timeout: float, only: list[str] | None) -> int:
+    """Reproduce todos los fixtures y arma la tabla que importa.
+
+    Una corrida por fixture es suficiente para el perfil de latencia: cada uno ya
+    lleva entre 0.5 y 5.7 s de audio, o sea cientos de muestras de VAD. Lo que
+    se busca no es dispersión estadística sino "¿el número grande está donde
+    espero?".
+    """
+    index_path = fixtures_dir / "index.json"
+    if not index_path.exists():
+        print(
+            f"no está {index_path}. Generá los fixtures con\n"
+            f"  ../sign-ai-stt/.venv-tts/bin/python ../sign-ai-stt/scripts/make_audio_fixtures.py --all",
+            file=sys.stderr,
+        )
+        return 2
+
+    clips = json.loads(index_path.read_text())["clips"]
+    if only:
+        clips = [clip for clip in clips if clip["id"] in only]
+
+    rows: list[tuple[str, str, float, float, float, int]] = []
+    for clip in clips:
+        wav = fixtures_dir / f"{clip['id']}.wav"
+        if not wav.exists():
+            continue
+        timings = await _replay_audio(url, str(wav), 1.0, timeout, verbose=False)
+        first = timings.first_segment_ms
+        rows.append(
+            (
+                clip["id"],
+                clip["text"],
+                first if first is not None else -1.0,
+                timings.first_partial_ms if timings.first_partial_ms is not None else -1.0,
+                timings.done_ms if timings.done_ms is not None else -1.0,
+                len(timings.segments),
+            )
+        )
+
+    print(f"\n{'fixture':<22} {'1er signo':>10} {'1er texto':>10} {'completo':>10} {'signos':>7}  frase")
+    print("-" * 100)
+    for name, text, first, partial, total, count in rows:
+        print(
+            f"{name:<22} {first:9.0f}ms {partial:9.0f}ms {total:9.0f}ms {count:7d}  {text[:34]}"
+        )
+
+    firsts = [row[2] for row in rows if row[2] >= 0]
+    if firsts:
+        print(
+            f"\nPRIMERA SEÑA  p50={statistics.median(firsts):.0f}ms  "
+            f"p95={_percentile(firsts, 95):.0f}ms  max={max(firsts):.0f}ms  "
+            f"(n={len(firsts)}/{len(rows)} fixtures con al menos una seña)"
+        )
+    return 0
+
+
 async def _main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--url", default=DEFAULT_URL)
@@ -226,12 +288,22 @@ async def _main() -> int:
     parser.add_argument("-n", "--runs", type=int, default=1, help="repeticiones por frase")
     parser.add_argument("--timeout", type=float, default=30.0)
     parser.add_argument("--replay-audio", help="WAV mono PCM16 16 kHz para reproducir por el socket")
+    parser.add_argument("--all-fixtures", action="store_true", help="reproducir todo el set de fixtures de audio")
+    parser.add_argument(
+        "--fixtures-dir",
+        default="../sign-ai-stt/fixtures/audio",
+        help="directorio con los WAV y su index.json",
+    )
+    parser.add_argument("--only", action="append", help="id de fixture a medir con --all-fixtures")
     parser.add_argument("--speed", type=float, default=1.0, help="multiplicador de velocidad del replay")
     args = parser.parse_args()
 
     if args.replay_audio:
         await _replay_audio(args.url, args.replay_audio, args.speed, args.timeout)
         return 0
+
+    if args.all_fixtures:
+        return await _run_fixtures(args.url, Path(args.fixtures_dir), args.timeout, args.only)
 
     phrases = args.phrase or PHRASES
     rows: dict[str, list[Timings]] = {}

@@ -44,14 +44,46 @@ class NLPServiceImpl(NLPService):
         with trace_sentence(sentence):
             return await self._transform_sentence(sentence)
 
+    async def transform_with_context(self, text: str, context: str) -> Segment:
+        """Translate `text` with `context` as read-only background.
+
+        The cache key becomes the pair, so a contextual answer never satisfies a
+        context-free lookup and vice versa. That matters: "estudiante" alone
+        cached as NIÑO would then be served for every future bare "estudiante",
+        even the ones that follow a different sentence.
+
+        The lookup is `exact_only`: for fragmentos de una o dos palabras el
+        matching por similitud deja de ser equivalencia y pasa a ser coincidencia
+        accidental. Ver `SemanticCache.lookup`.
+        """
+        with trace_sentence(text):
+            fingerprint = self.analyzer.analyze(text)
+
+            if not context:
+                return self._build_segment(fingerprint, await self._glosses(text, exact_only=True))
+
+            key = f"{context} || {text}"
+            glosses = await self.cache.lookup(key, fingerprint, exact_only=True)
+            if glosses is None:
+                logger.info("SemanticCache MISS for %r (with context) -> calling LLM", text)
+                set_trace_source("llm")
+                with trace_step("llm"):
+                    glosses = await self.llm_client.transform(text, context=context)
+                self._store_in_background(key, fingerprint, glosses)
+            else:
+                logger.info("SemanticCache HIT for %r (with context)", text)
+                set_trace_source("cache")
+
+            return self._build_segment(fingerprint, glosses)
+
     async def wait_for_pending_stores(self) -> None:
         await asyncio.gather(*self._pending_stores, return_exceptions=True)
 
     async def _transform_sentence(self, sentence: str) -> Segment:
-        glosses = await self._glosses(sentence)
+        glosses = await self._glosses(sentence, exact_only=False)
         return self._build_segment(self.analyzer.analyze(sentence), glosses)
 
-    async def _glosses(self, sentence: str) -> list[str]:
+    async def _glosses(self, sentence: str, exact_only: bool = False) -> list[str]:
         """Glosas para una frase, por el camino más corto disponible.
 
         El orden importa y va de más barato a más caro:
@@ -74,7 +106,7 @@ class NLPServiceImpl(NLPService):
         with trace_step("fingerprint"):
             fingerprint = self.analyzer.analyze(sentence)
 
-        glosses = await self.cache.lookup(sentence, fingerprint)
+        glosses = await self.cache.lookup(sentence, fingerprint, exact_only=exact_only)
         if glosses is None:
             logger.info("SemanticCache MISS for %r -> calling LLM", sentence)
             set_trace_source("llm")

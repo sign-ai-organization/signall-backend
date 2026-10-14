@@ -1,3 +1,6 @@
+import asyncio
+import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -20,6 +23,7 @@ from app.validation.catalog_repository import CatalogRepository
 from app.validation.validator_service_impl import ValidatorServiceImpl
 
 configure_logging(settings.log_level)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -49,21 +53,23 @@ async def lifespan(app: FastAPI):
     )
     await semantic_cache.load_all()
 
+    llm_client = LLMClient(
+        settings.llm_api_key,
+        settings.llm_model,
+        settings.llm_temperature,
+        settings.llm_timeout_ms,
+        settings.llm_base_url,
+        # The catalog's glosses go into the prompt as a closed vocabulary, so
+        # the model cannot answer with a sign that has no animation. See the
+        # long comment at the top of app/nlp/llm_client.py for why the old
+        # "one gloss = one word" prompt broke this.
+        catalog_repository.vocabulary(),
+    )
+
     nlp_service = NLPServiceImpl(
         GlossAnalyzer(),
         semantic_cache,
-        LLMClient(
-            settings.llm_api_key,
-            settings.llm_model,
-            settings.llm_temperature,
-            settings.llm_timeout_ms,
-            settings.llm_base_url,
-            # The catalog's glosses go into the prompt as a closed vocabulary, so
-            # the model cannot answer with a sign that has no animation. See the
-            # long comment at the top of app/nlp/llm_client.py for why the old
-            # "one gloss = one word" prompt broke this.
-            catalog_repository.vocabulary(),
-        ),
+        llm_client,
         SentenceSegmenter(settings.sentence_segmenter) if settings.sentence_segmenter.enabled else None,
         # Gives the real-time path a ~0.1 ms way to turn "hola" into HOLA without
         # an embedding, a cache lookup or an LLM call.
@@ -77,11 +83,27 @@ async def lifespan(app: FastAPI):
     metrics.gauge("cache_rows", semantic_cache.row_count)
     metrics.gauge("catalog_glosses", len(catalog_repository.cache))
     metrics.gauge("realtime_enabled", 1 if settings.realtime_enabled else 0)
+
+    # El precalentado corre aparte del arranque: son varios segundos y ninguna
+    # sesión debería tener que esperarlos. Para cuando llegue la primera
+    # conexión ya está hecho.
+    warmup_task = asyncio.create_task(_warm_up_llm(llm_client)) if settings.llm_warmup_enabled else None
+
     yield
 
+    if warmup_task is not None:
+        warmup_task.cancel()
     await nlp_service.wait_for_pending_stores()
     await db_keep_alive.stop()
     await pool.close()
+
+
+async def _warm_up_llm(llm_client: LLMClient) -> None:
+    started = time.monotonic()
+    await llm_client.warm_up()
+    elapsed_ms = (time.monotonic() - started) * 1000
+    logger.info("LLM warm-up took %.0f ms", elapsed_ms)
+    metrics.histogram("llm_warmup_ms", elapsed_ms, "Carga del modelo de lenguaje al arrancar")
 
 
 app = FastAPI(lifespan=lifespan)

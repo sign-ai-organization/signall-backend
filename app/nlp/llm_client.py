@@ -158,14 +158,48 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
             timeout=timeout_ms / 1000,
         )
 
-    async def transform(self, text: str) -> list[str]:
-        response = await self._chat.ainvoke(
-            [
-                ("system", self._prompt),
-                ("human", text),
-            ]
-        )
+    async def transform(self, text: str, context: str = "") -> list[str]:
+        """Glosses for `text`.
+
+        `context` is what was already translated earlier in the same utterance.
+        It is **not** translated again; it is there so a fragment that is not a
+        sentence on its own still gets a sensible answer. "estudiante" alone got
+        the model to answer NIÑO; "me llamo ana / estudiante" gets ESTUDIANTE
+        out of vocabulary rather than a wrong sign the avatar would play.
+
+        Context is only sent when there is some. That keeps the first fragment of
+        an utterance — the one the user notices first — on the plain, cacheable
+        path, and it is the only fragment that reliably is a phrase.
+        """
+        messages = [("system", self._prompt)]
+        if context:
+            messages.append(
+                (
+                    "human",
+                    f"Contexto ya traducido (NO lo repitas en la respuesta): {context}\n"
+                    f"Traduce solo esto: {text}",
+                )
+            )
+        else:
+            messages.append(("human", text))
+
+        response = await self._chat.ainvoke(messages)
         return self._repair_glosses(self._parse_glosses(response.content))
+
+    async def warm_up(self) -> None:
+        """Una llamada de relleno para que la primera frase real no pague el arranque.
+
+        Con un servidor local, la primera inferencia carga el modelo en memoria:
+        medido, 6.2 s contra los 270-440 ms de las siguientes. Sin esto, la
+        primera frase de la sesión paga seis segundos y el resto anda bien, que
+        es la peor forma de fallar para una demo. Los errores se ignoran a
+        propósito: que el servidor esté caído al arrancar no debe impedir que el
+        servicio levante, y la primera frase real lo reportará como sí.
+        """
+        try:
+            await self.transform("hola")
+        except Exception:  # noqa: BLE001 - el precalentado es opcional
+            logger.warning("LLM warm-up failed; the first real phrase will pay the model load", exc_info=True)
 
     def _parse_glosses(self, content: str) -> list[str]:
         separator = "," if "," in content else None

@@ -42,15 +42,24 @@ class Orchestrator:
         """
         return IncrementalTranslator(self.translate_fragment, **kwargs)
 
-    async def translate_fragment(self, text: str) -> ValidatedSegment:
+    async def translate_fragment(self, text: str, context: str = "") -> ValidatedSegment:
         """Traduce y valida un fragmento, sin segmentar por oraciones.
 
         A diferencia de `translate_stream`, aquí no hay division de oraciones:
         el fragmento ya viene delimitado por la lógica incremental, y volver a
         partirlo con el segmentador produciría un `total` que no significa nada
         en un flujo donde el total se desconoce hasta el final.
+
+        `context` es lo ya traducido del mismo utterance; ver
+        `NLPService.transform_with_context`.
         """
         with trace_step("fragment.nlp"):
-            segment = await self.nlp_service.transform_sentence(text)
+            # Siempre por `transform_with_context`, incluso sin contexto: esa
+            # ruta usa coincidencia literal en el caché, que es lo único
+            # defendible para un fragmento de una o dos palabras. Reusar
+            # `transform_sentence` dejaría el primer fragmento del utterance
+            # subjecto al matching por similitud, que con textos cortos produce
+            # signs equivocados.
+            segment = await self.nlp_service.transform_with_context(text, context)
         with trace_step("fragment.validation"):
             return self.validator_service.validate([segment])[0]

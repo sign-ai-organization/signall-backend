@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     # extra_hosts: ["host.docker.internal:host-gateway"].
     llm_base_url: str = ""
 
+    # Mandar una frase de relleno al LLM al arrancar. Con un servidor local la
+    # primera inferencia carga el modelo: medido 6.2 s contra 270-440 ms de las
+    # siguientes. Sin esto la primera frase de la sesión paga ese costo y solo
+    # esa, que es la peor forma de fallar. 0 lo desactiva.
+    llm_warmup_enabled: bool = True
+
     # Max cosine distance (pgvector <=>) between embeddings to count as a
     # semantic cache HIT. Lower = stricter match required.
     semantic_cache_similarity_threshold: float = 0.05

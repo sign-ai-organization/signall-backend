@@ -139,7 +139,7 @@ class FakeOrchestrator:
         # ni LLM. Lo que se prueba aca es el protocolo, no la traducción.
         return IncrementalTranslator(self.translate_fragment, **kwargs)
 
-    async def translate_fragment(self, text: str) -> ValidatedSegment:
+    async def translate_fragment(self, text: str, context: str = "") -> ValidatedSegment:
         return ValidatedSegment(
             type=PhraseType.AFFIRMATIVE,
             glosses=[Gloss(text=word.upper(), available=True) for word in text.split()],

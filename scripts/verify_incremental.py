@@ -67,7 +67,7 @@ async def main() -> int:
     # ---------------------------------------------------------------- caso 1
     print("\n1. Solo se traduce la cola nueva")
     calls: list[str] = []
-    translator = IncrementalTranslator(lambda text: _record(calls, text))
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context))
     translator._settle_margin_ms = 180
     translator._batch_words = 1
 
@@ -103,7 +103,7 @@ async def main() -> int:
     # ---------------------------------------------------------------- caso 2
     print("\n2. Una corrección del STT sobre texto ya firmado no rompe nada")
     calls.clear()
-    translator = IncrementalTranslator(lambda text: _record(calls, text))
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context))
     translator._settle_margin_ms = 180
     translator._batch_words = 1
 
@@ -122,7 +122,7 @@ async def main() -> int:
     # ---------------------------------------------------------------- caso 3
     print("\n3. La última palabra espera a que deje de formarse")
     calls.clear()
-    translator = IncrementalTranslator(lambda text: _record(calls, text))
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context))
     translator._settle_margin_ms = 180
     translator._batch_words = 1
 
@@ -140,7 +140,7 @@ async def main() -> int:
     # ---------------------------------------------------------------- caso 4
     print("\n4. Sin timestamps se firman las palabras menos la última")
     calls.clear()
-    translator = IncrementalTranslator(lambda text: _record(calls, text))
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context))
     translator._settle_margin_ms = 180
     translator._batch_words = 1
 
@@ -156,7 +156,7 @@ async def main() -> int:
     # ---------------------------------------------------------------- caso 5
     print("\n5. El agrupamiento evita una traducción por sílaba")
     calls.clear()
-    translator = IncrementalTranslator(lambda text: _record(calls, text))
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context))
     translator._settle_margin_ms = 180
     translator._batch_words = 3
 
@@ -187,7 +187,7 @@ async def main() -> int:
     # ---------------------------------------------------------------- caso 6
     print("\n6. Ruido que no cambia nada")
     calls.clear()
-    translator = IncrementalTranslator(lambda text: _record(calls, text))
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context))
     translator._settle_margin_ms = 180
     translator._batch_words = 1
 
@@ -197,7 +197,7 @@ async def main() -> int:
     passed &= await check("la puntuación no dispara traducción", calls == ["hola"], f"llamadas={calls}")
 
     calls.clear()
-    translator = IncrementalTranslator(lambda text: _record(calls, text))
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context))
     translator._settle_margin_ms = 180
     translator._batch_words = 1
     await translator.update(await transcript("eh hola como"))
@@ -214,7 +214,7 @@ async def main() -> int:
     # ---------------------------------------------------------------- caso 7
     print("\n7. Freno de seguridad de fragmentos")
     calls.clear()
-    translator = IncrementalTranslator(lambda text: _record(calls, text), max_segments=3)
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context), max_segments=3)
     translator._settle_margin_ms = 180
     translator._batch_words = 1
 
@@ -230,11 +230,73 @@ async def main() -> int:
     passed &= await check("should_emit corta en el tope", not translator.should_emit(3))
     passed &= await check("should_emit deja pasar antes del tope", translator.should_emit(2))
 
+    # ---------------------------------------------------------------- caso 8
+    print("\n8. El contexto acumula lo ya firmado")
+    contexts: list[str] = []
+    translator = IncrementalTranslator(
+        lambda text, context="": _capture(contexts, text, context),
+        settle_margin_ms=180,
+        batch_words=1,
+    )
+
+    await translator.update(await transcript("hola"))
+    await translator.update(await transcript("hola como"))
+    await translator.update(await transcript("hola como estas"))
+    await translator.update(await transcript("hola como estas bien", final=True))
+
+    passed &= await check("el primer fragmento no lleva contexto", contexts[0] == "", "")
+    # Tres fragmentos en total (u2, u3, u4). El primero no lleva contexto; los
+    # otros dos reciben lo firmado hasta ese momento.
+    passed &= await check(
+        "los siguientes sí, y es lo ya firmado",
+        contexts[1:] == ["hola", "hola como"],
+        f"contextos={contexts[1:]}",
+    )
+    passed &= await check(
+        "el contexto no incluye el fragmento en curso",
+        all("bien" not in context for context in contexts[1:]),
+    )
+
+    # ---------------------------------------------------------------- caso 9
+    print("\n9. Un fragmento que es solo gramática no se firma")
+    calls.clear()
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context), settle_margin_ms=180)
+
+    # "me" a secas hizo que el modelo respondiera YO, que no es lo que significa.
+    # El primer update deja "me" firme y "vivo" formándose; el segundo lo cierra.
+    await translator.update(await transcript("me vivo"))
+    passed &= await check('"me" no produce una seña', calls == [], f"llamadas={calls}")
+    await translator.update(await transcript("me vivo", final=True))
+    passed &= await check("el resto de la frase sí", calls == ["vivo"], f"llamadas={calls}")
+    passed &= await check(
+        "el fragmento omitido igual queda en el contexto",
+        translator._state.context == "me vivo",
+        f"contexto={translator._state.context!r}",
+    )
+
+    calls.clear()
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context), settle_margin_ms=180)
+    # Un fragmento mixto no se parte: "vivo en" conserva el "en".
+    await translator.update(await transcript("vivo en", final=True))
+    passed &= await check("un fragmento mixto no se descompone", calls == ["vivo en"], f"llamadas={calls}")
+
+    calls.clear()
+    translator = IncrementalTranslator(lambda text, context="": _record(calls, text, context), settle_margin_ms=180)
+    # "como" y "mas" son glosas del catálogo: filtrarlas rompería "como estas"
+    # y "mas o menos".
+    await translator.update(await transcript("como estas", final=True))
+    passed &= await check("las glosas del catálogo no se filtran", calls == ["como estas"], f"llamadas={calls}")
+
     print("\n" + ("todo ok" if passed else "HAY FALLAS"))
     return 0 if passed else 1
 
 
-async def _record(calls: list[str], text: str) -> ValidatedSegment:
+async def _capture(contexts: list[str], text: str, context: str = "") -> ValidatedSegment:
+    contexts.append(context)
+    return fake_translate(text)
+
+
+async def _record(calls: list[str], text: str, context: str = "") -> ValidatedSegment:
     calls.append(text)
     return fake_translate(text)
 

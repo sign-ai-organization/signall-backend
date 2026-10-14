@@ -58,6 +58,43 @@ def _is_kept(word: str) -> bool:
     return bool(word) and word not in _FILLERS
 
 
+# Palabras-functional-words que no tienen glosa propia en LSC50 ni forman parte de
+# una glosa frasal. La lista es **deliberadamente corta**: solo entra lo que
+# claramente no aporta una seña.
+#
+# Lo que NO entra es igual de importante. "como", "donde", "cuando", "que" y "mas"
+# son glosas del catálogo (COMO, DONDE, CUANDO, QUE) o parte de una frasal (MAS O
+# MENOS), así que filtrarlas rompería frases que hoy funcionan. Quitar la "o" de
+# "más o menos" deja "más menos", que es justo el error que el prompt de glosas
+# frasales vino a arreglar.
+#
+# Y el filtro es de todo-o-nada: solo se descarta un fragmento cuando **todas**
+# sus palabras son funcionales. Un fragmento mixto ("vivo en") se traduce entero,
+# porque partirlo exigiría morphology que acá no hay.
+_FUNCTION_WORDS = frozenset(
+    {
+        # artículos
+        "el", "la", "los", "las", "un", "una", "unos", "unas",
+        # preposiciones
+        "a", "al", "de", "del", "con", "en", "por", "para", "sin", "sobre", "entre",
+        # conjunciones
+        "y", "o", "u", "e", "ni", "pero",
+        # pronombres objeto
+        "me", "te", "se", "nos", "os", "lo", "le", "les",
+        # auxiliares y verbos sin glosa en LSC50
+        "es", "son", "soy", "eres", "esta", "estamos", "estan", "he", "ha", "hay",
+        "fue", "era", "fui",
+        # adverbios sin carga
+        "muy", "tambien", "ya", "ahora", "hoy", "aqui", "alli",
+    }
+)
+
+
+def _is_all_function_words(words: list[str]) -> bool:
+    """Si el fragmento no tiene nada que firmar."""
+    return bool(words) and all(word in _FUNCTION_WORDS for word in words)
+
+
 @dataclass(frozen=True)
 class TranscriptUpdate:
     """Una actualización de la transcripción que llega del STT."""
@@ -100,6 +137,11 @@ class _CommitState:
     """
 
     words: list[str] = field(default_factory=list)
+    # Todo lo firmado hasta ahora, en el texto del STT. Se le pasa al LLM como
+    # contexto de solo lectura: sin él, un fragmento suelto ("estudiante") se
+    # responde como si fuera la frase entera, y "me llamo ana / estudiante"
+    # terminaba firmando NIÑO.
+    context: str = ""
     segments_sent: int = 0
     settled_count: int = 0
     last_final_text: str | None = None
@@ -120,9 +162,9 @@ class IncrementalTranslator:
         batch_words: int = 2,
         max_segments: int = 32,
     ) -> None:
-        # `translate_text` es un callable asíncrono texto -> ValidatedSegment.
-        # Se inyecta para no atar esta clase al Orchestrator y para que la
-        # prueba pueda usar una función de mentira.
+        # `translate_text` es un callable asíncrono (texto, contexto) ->
+        # ValidatedSegment. Se inyecta para no atar esta clase al Orchestrator y
+        # para que la prueba pueda usar una función de mentira.
         self._translate_text = translate_text
         self._settle_margin_ms = settle_margin_ms
         self._batch_words = batch_words
@@ -172,9 +214,19 @@ class IncrementalTranslator:
             # sílaba, que es más lento que lo que ahorra.
             return []
 
+        if _is_all_function_words(tail):
+            # "me" a secas llegó a producir YO y "en" a producir DONDE: al modelo
+            # un fragmento que es solo gramática no le queda nada a lo que
+            # aferrarse y se agarra de la glosa más cercana. Las palabras se
+            # marcan como vistas igual, así el contexto del siguiente fragmento
+            # las incluye y no se vuelven a mirar.
+            logger.info("fragmento %r es solo palabras funcionales: se omite", _detokenize(tail))
+            self._commit(tokens, settled)
+            return []
+
         source = _detokenize(tail)
         with trace_step("realtime.incremental"):
-            segment = await self._translate_text(source)
+            segment = await self._translate_text(source, self._state.context)
 
         chunk = TranslationChunk(
             index=self._state.segments_sent,
@@ -183,8 +235,7 @@ class IncrementalTranslator:
             provisional=not update.final,
             word_count=len(tail),
         )
-        self._state.words = tokens[:settled]
-        self._state.settled_count = settled
+        self._commit(tokens, settled)
         self._state.segments_sent += 1
 
         logger.info(
@@ -195,6 +246,18 @@ class IncrementalTranslator:
             chunk.provisional,
         )
         return [chunk]
+
+    def _commit(self, tokens: list[str], settled: int) -> None:
+        """Marca las palabras hasta `settled` como ya decididas.
+
+        Append-only a propósito: una palabra firmada no se vuelve a mirar, ni
+        siquiera si el STT después la corrige. Des-firmar una seña que ya se está
+        animando en pantalla no es posible, y volver a firmarla sería peor que
+        esperar un instante con el texto viejo.
+        """
+        self._state.words = tokens[:settled]
+        self._state.settled_count = settled
+        self._state.context = _detokenize(self._state.words)
 
     def _settled_count(self, update: TranscriptUpdate, tokens: list[str]) -> int:
         """Cuántas palabras de `tokens` se pueden considerar definitivas.

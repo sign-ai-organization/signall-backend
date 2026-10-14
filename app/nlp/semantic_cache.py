@@ -40,6 +40,13 @@ class _PhraseTypeIndex:
     Se particiona por tipo porque la consulta original filtraba por
     `phrase_type`: mezclar tipos haría que "cómo estás" (pregunta) encontrara
     cerca "bien" (afirmativo) solo por parecido léxico.
+
+    Todos los vectores se guardan **normalizados a norma 1**. No es opcional:
+    la consulta anterior usaba el operador `<=>` de pgvector, que normaliza por
+    su cuenta, y `SentenceTransformer.encode` devuelve vectores sin normalizar.
+    Sin normalizar acá, el producto punto de un fragmento corto puede dar
+    mayor que 1, la distancia sale negativa y *todo* resulta HIT. Se traduce en
+    que el avatar firmaba HOLA para cada frase.
     """
 
     __slots__ = ("vectors", "glosses", "exact")
@@ -52,29 +59,38 @@ class _PhraseTypeIndex:
         self.exact: dict[str, int] = {}
 
     def add(self, normalized: str, vector: np.ndarray, glosses: list[str]) -> None:
+        unit = _unit(vector)
         if normalized in self.exact:
             row = self.exact[normalized]
             self.glosses[row] = glosses
-            self.vectors[row] = vector
+            self.vectors[row] = unit
             return
 
         row = len(self.glosses)
         self.exact[normalized] = row
         self.glosses.append(glosses)
         if self.vectors.size == 0:
-            self.vectors = vector.reshape(1, -1)
+            self.vectors = unit.reshape(1, -1)
         else:
-            self.vectors = np.vstack([self.vectors, vector])
+            self.vectors = np.vstack([self.vectors, unit])
 
     def nearest(self, vector: np.ndarray) -> tuple[list[str], float] | None:
         if not self.glosses:
             return None
 
-        # Los embeddings de sentence-transformers ya vienen normalizados, así que
-        # el producto punto es la similitud del coseno y la distancia 1 - punto.
-        similarity = self.vectors @ vector
+        # Con ambos lados normalizados, el producto punto es la similitud del
+        # coseno y la distancia es 1 - producto, igual que el `<=>` de pgvector.
+        similarity = self.vectors @ _unit(vector)
         best = int(np.argmax(similarity))
         return self.glosses[best], float(1.0 - similarity[best])
+
+
+def _unit(vector: np.ndarray) -> np.ndarray:
+    """Devuelve el vector con norma 1. Un vector nulo se deja como está."""
+    norm = float(np.linalg.norm(vector))
+    if norm <= 1e-12:
+        return vector.astype(np.float32)
+    return (vector / norm).astype(np.float32)
 
 
 class SemanticCache:
@@ -145,8 +161,28 @@ class SemanticCache:
     def row_count(self) -> int:
         return self._rows
 
-    async def lookup(self, text: str, fingerprint: Fingerprint) -> list[str] | None:
-        """Glosas para `text`, o None si hay que preguntarle al LLM."""
+    async def lookup(
+        self,
+        text: str,
+        fingerprint: Fingerprint,
+        exact_only: bool = False,
+    ) -> list[str] | None:
+        """Glosas para `text`, o None si hay que preguntarle al LLM.
+
+        `exact_only` desactiva el matching por similitud y deja solo la coincidencia
+        literal de texto. Los fragmentos del modo en tiempo real lo necesitan:
+
+        El umbral de 0.05 está calibrado para frases completas, donde "cómo
+        estás" y "¿cómo estás?" sí son la misma seña. Aplicado a fragmentos de
+        una o dos palabras deja de ser una equivalencia y pasa a ser una
+        coincidencia accidental. Medido: "me llamo ana vivo en || bogotá soy"
+        caía a menos de 0.05 de "me llamo ana vivo en || vivo en" y devolvía
+        VIVIR,DONDE para un fragmento que no tenía nada que ver. Y del mismo modo
+        "me llamo bob" habría recuperado NOMBRE,NIÑA de "me llamo ana", que es
+        justo el error que el caché semántico debe evitar, no causar.
+
+        Para fragmentos, literal es la única equivalencia defendible.
+        """
         normalized = normalize(text)
         category = fingerprint.category.value
 
@@ -157,6 +193,8 @@ class SemanticCache:
                     row = index.exact.get(normalized)
                     if row is not None:
                         return list(index.glosses[row])
+                if exact_only:
+                    return None
 
             with trace_step("cache.embed"):
                 embedding = await self._embed_async(normalized)
