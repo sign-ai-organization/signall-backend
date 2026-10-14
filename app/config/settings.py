@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     llm_model: str
     llm_temperature: float = 0.0
     llm_timeout_ms: int = 10000
+    # Base URL of any OpenAI-compatible chat endpoint. Empty means OpenAI itself.
+    # Set it to run the same prompt against a local model server, e.g.
+    # http://host.docker.internal:11434/v1 for Ollama. From inside Docker on
+    # Linux the service also needs
+    # extra_hosts: ["host.docker.internal:host-gateway"].
+    llm_base_url: str = ""
 
     # Max cosine distance (pgvector <=>) between embeddings to count as a
     # semantic cache HIT. Lower = stricter match required.

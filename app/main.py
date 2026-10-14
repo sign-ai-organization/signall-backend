@@ -50,6 +50,12 @@ async def lifespan(app: FastAPI):
             settings.llm_model,
             settings.llm_temperature,
             settings.llm_timeout_ms,
+            settings.llm_base_url,
+            # The catalog's glosses go into the prompt as a closed vocabulary, so
+            # the model cannot answer with a sign that has no animation. See the
+            # long comment at the top of app/nlp/llm_client.py for why the old
+            # "one gloss = one word" prompt broke this.
+            catalog_repository.vocabulary(),
         ),
         SentenceSegmenter(settings.sentence_segmenter) if settings.sentence_segmenter.enabled else None,
     )

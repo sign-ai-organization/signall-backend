@@ -70,8 +70,35 @@ el usuario. Es él quien decide cuándo y cómo aplicar el cambio al SDD.
 - **`CatalogRepository` carga todo el catálogo en memoria al arrancar**
   (`loadAll()`). `ValidatorService` nunca hace consultas a PostgreSQL durante
   la inferencia, solo contra el mapa en memoria.
+- **El prompt de glosas usa el catálogo como vocabulario cerrado.** LSC50 tiene
+  glosas **frasales** (`COMO ESTAS`, `BUENOS DIAS`, `MAS O MENOS`), así que la
+  regla de "una glosa = una palabra" partía las frases en palabras sueltas que no
+  existían en el catálogo y el avatar caía a la seña por defecto. El razonamiento
+  completo está en el comentario de `app/nlp/llm_client.py`.
 - **No se usa el patrón Gateway dentro del monolito.** El flujo es
   Controller → Orchestrator, sin una capa de gateway intermedia.
+
+## Trampas operationales
+
+- **Cambiar el prompt NO invalida `semantic_cache`.** Las glosas viejas siguen
+  en Neon y salen por `SemanticCache HIT`, así que el prompt nuevo no se ejecuta
+  y parece que el arreglo no sirvió. Después de tocar el prompt o el modelo:
+
+  ```sql
+  DELETE FROM semantic_cache;
+  ```
+
+  Es un caché derivado, se reconstruye solo con la primera frase de cada una.
+- **El proveedor del LLM es configurable, no fijo.** `LLM_BASE_URL` vacío =
+  OpenAI. Apuntándolo a un servidor local (Ollama, LM Studio, vLLM) corre el
+  mismo prompt sin API key ni costo. Desde Docker en Linux el servicio
+  necesita `extra_hosts: ["host.docker.internal:host-gateway"]` (ya está en
+  `docker-compose.yml`) y el servidor local tiene que escuchar fuera de
+  `127.0.0.1` (Ollama: `OLLAMA_HOST=0.0.0.0:11434`).
+- **Cambiar de modelo puede no cambiar nada.** Con el prompt de glosas frasales
+  ambos modelos (`gpt-4o-mini` y `qwen3:4b-instruct`) siguen partiendo algunas
+  frases, y por eso `_repair_glosses` existe: el prompt solo no alcanza.
+
 
 ## Convenciones de código
 
