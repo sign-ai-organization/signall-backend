@@ -22,6 +22,7 @@ aparte y el bucle de lectura sigue drenando el STT.
 """
 
 import asyncio
+import audioop
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -80,6 +81,7 @@ class Controller:
         # que no produce salida visible, así que necesita su propio contador.
         self._audio_bytes = 0
         self._audio_chunks = 0
+        self._audio_rms_total = 0.0
 
     # ---------------------------------------------------------------- audio
 
@@ -88,9 +90,21 @@ class Controller:
 
         El audio es el único tramo del sistema que no produce salida: si el
         micrófono del teléfono se rompe, el STT se queda mudo y no hay ningún
-        `segment` que llegue al cliente. Lo único que se ve es este contador, y
-        por eso cuenta bytes además de fragmentos: distingue "el teléfono no
-        manda nada" de "manda el doble de lo que debería".
+        `segment` que llegue. Lo único que se ve es este contador, y por eso
+        cuenta bytes además de fragmentos: distingue "el teléfono no manda
+        nada" de "manda el doble de lo que debería".
+
+        El nivel importa tanto como el volumen. Bytes que llegan pero son
+        silencio tienen exactamente el mismo síntoma que un STT roto —la
+        transcripción nunca aparece— y `audio_rms` es lo que separa los dos.
+        En la práctica un nivel bajo tiene tres causas distintas que se
+        distinguen mirando `audio_rms` junto con `audio_bytes_total`:
+
+        - micrófono tapado o permissions mal resueltas;
+        - volumen del sistema en cero;
+        - el `AudioSource.VOICE_RECOGNITION` del Android cancelando el eco del
+          altavoz, que es justo lo que hace bien y lo que impide probar el
+          micrófono con el audio del propio teléfono.
         """
         await self.stt_client.send_audio(chunk)
         self._audio_bytes += len(chunk)
@@ -99,9 +113,16 @@ class Controller:
         metrics.counter("audio_chunks_total")
         metrics.gauge("session_audio_bytes", self._audio_bytes)
 
+        rms = _pcm16_rms(chunk)
+        # Media móvil: un chunk es 30 ms y llegaran muchos por segundo, así que
+        # la media entera mide el nivel sostenido, que es lo que interesa.
+        self._audio_rms_total += rms
+        metrics.gauge("session_audio_rms", self._audio_rms_total / self._audio_chunks)
+        metrics.histogram("audio_rms", rms, "Nivel RMS por fragmento de audio entrante")
+
     def audio_stats(self) -> tuple[int, int]:
-        """(bytes, chunks) capturados en esta sesión. Para tests y diagnóstico."""
-        return self._audio_bytes, self._audio_chunks
+        """(bytes, rms promedio) capturados en esta sesión. Para tests y diagnóstico."""
+        return self._audio_bytes, self._audio_rms_total / max(1, self._audio_chunks)
 
     async def handle_text(self, text: str) -> None:
         """Translate a phrase the client typed instead of spoke.
@@ -380,3 +401,22 @@ class Controller:
             except asyncio.CancelledError:
                 pass
             self._worker = None
+
+
+def _pcm16_rms(chunk: bytes) -> float:
+    """RMS de un fragmento PCM16LE, en escala 0..1.
+
+    Se calcula con `audioop` de la stdlib y no con numpy: es un `int` por
+    muestra y corre en un fragmento de 480 muestras cada 30 ms por sesión, en
+    el bucle de eventos. `audioop` es C puro y no suma una dependencia.
+
+    Se recorta a un número par de bytes porque un chunk de red puede cortar una
+    muestra por la mitad, y `audioop` lanza `ValueError` con eso.
+    """
+    usable = len(chunk) - (len(chunk) % 2)
+    if usable <= 0:
+        return 0.0
+    try:
+        return audioop.rms(chunk[:usable], 2) / 32768.0
+    except ValueError:
+        return 0.0

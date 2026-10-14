@@ -38,6 +38,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.config.settings import settings  # noqa: E402
 from app.controller import router as router_module  # noqa: E402
+from app.controller.controller import Controller  # noqa: E402
 from app.controller.router import END_FRAME, TEXT_FRAME, _parse_client_frame  # noqa: E402
 from app.domain.models import Gloss, PhraseType, ValidatedSegment  # noqa: E402
 from app.realtime.incremental import IncrementalTranslator, TranscriptUpdate  # noqa: E402
@@ -60,6 +61,28 @@ def check(name: str, got, expected) -> None:
 
 
 # -- El clasificador de frames ------------------------------------------------
+
+print("\nEstructura del Controller")
+# Un `def` a nivel de módulo pegado en medio del cuerpo de una clase termina la
+# clase en silencio: Python no avisa, el módulo importa bien, y el síntoma es un
+# AttributeError en el router recién cuando entra la primera conexión. Pasó de
+# verdad al agregar el RMS del audio, así que la guarda queda.
+REQUIRED_CONTROLLER_METHODS = (
+    "handle_audio_chunk",
+    "handle_text",
+    "handle_end",
+    "handle_transcript",
+    "start_realtime_worker",
+    "send_transcript",
+    "send_segment",
+    "send_realtime_chunk",
+    "send_error",
+    "try_send_error",
+    "shutdown",
+)
+missing = [name for name in REQUIRED_CONTROLLER_METHODS if not hasattr(Controller, name)]
+check("el Controller tiene todo lo que el router le llama", missing, [])
+check("start_realtime_worker existe", hasattr(Controller, "start_realtime_worker"), True)
 
 print("\n_parse_client_frame")
 check("frase escrita", _parse_client_frame(TYPED_PHRASE), (TEXT_FRAME, "hola, como estas"))
