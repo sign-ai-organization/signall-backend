@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
 
 from app.config.logging import configure_logging
 from app.config.settings import settings
 from app.controller.router import router as controller_router
+from app.metrics import metrics
 from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.gloss_analyzer import GlossAnalyzer
 from app.nlp.llm_client import LLMClient
@@ -38,13 +40,18 @@ async def lifespan(app: FastAPI):
     catalog_repository = CatalogRepository(pool)
     await catalog_repository.load_all()
 
+    semantic_cache = SemanticCache(
+        pool,
+        EmbeddingModel(),
+        settings.semantic_cache_similarity_threshold,
+        preload=settings.semantic_cache_preload,
+        max_rows=settings.semantic_cache_max_rows,
+    )
+    await semantic_cache.load_all()
+
     nlp_service = NLPServiceImpl(
         GlossAnalyzer(),
-        SemanticCache(
-            pool,
-            EmbeddingModel(),
-            settings.semantic_cache_similarity_threshold,
-        ),
+        semantic_cache,
         LLMClient(
             settings.llm_api_key,
             settings.llm_model,
@@ -58,11 +65,18 @@ async def lifespan(app: FastAPI):
             catalog_repository.vocabulary(),
         ),
         SentenceSegmenter(settings.sentence_segmenter) if settings.sentence_segmenter.enabled else None,
+        # Gives the real-time path a ~0.1 ms way to turn "hola" into HOLA without
+        # an embedding, a cache lookup or an LLM call.
+        catalog_repository,
     )
     validator_service = ValidatorServiceImpl(catalog_repository)
 
     app.state.orchestrator = Orchestrator(nlp_service, validator_service)
     app.state.db_keep_alive = db_keep_alive
+    app.state.semantic_cache = semantic_cache
+    metrics.gauge("cache_rows", semantic_cache.row_count)
+    metrics.gauge("catalog_glosses", len(catalog_repository.cache))
+    metrics.gauge("realtime_enabled", 1 if settings.realtime_enabled else 0)
     yield
 
     await nlp_service.wait_for_pending_stores()
@@ -75,5 +89,46 @@ app.include_router(controller_router)
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> dict[str, object]:
+    cache = getattr(app.state, "semantic_cache", None)
+    return {
+        "status": "ok",
+        "realtime": settings.realtime_enabled,
+        "cache_loaded": bool(cache and cache.is_loaded),
+        "cache_rows": cache.row_count if cache else 0,
+    }
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+def prometheus_metrics() -> str:
+    """Métricas en formato de exposición de Prometheus.
+
+    Lo que hay que mirar primero para responder "¿esto se siente en tiempo
+    real?":
+
+        rt_first_sign_ms_p95   primer texto -> primera seña
+        rt_utterance_ms_p95    primer texto -> última seña
+        rt_chunk_delay_ms_p95  cada fragmento por separado
+    """
+    return metrics.render()
+
+
+@app.get("/metrics.json")
+def metrics_json() -> dict[str, object]:
+    cache = getattr(app.state, "semantic_cache", None)
+    return {
+        **metrics.snapshot(),
+        "config": {
+            "realtime_enabled": settings.realtime_enabled,
+            "settle_margin_ms": settings.realtime_settle_margin_ms,
+            "batch_words": settings.realtime_batch_words,
+            "llm_model": settings.llm_model,
+            "llm_base_url": settings.llm_base_url,
+            "semantic_cache_preload": settings.semantic_cache_preload,
+            "semantic_cache_threshold": settings.semantic_cache_similarity_threshold,
+        },
+        "cache": {
+            "loaded": bool(cache and cache.is_loaded),
+            "rows": cache.row_count if cache else 0,
+        },
+    }

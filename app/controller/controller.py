@@ -1,11 +1,40 @@
+"""Traducción por sesión: el WebSocket del cliente Android y el del STT.
+
+Dos modos, mismo código de salida:
+
+- **Por frase** (el de antes): se espera el `final` del STT y se manda la
+  traducción completa en un lote.
+- **Tiempo real**: cada actualización del STT que trae palabras ya terminadas
+  produce un fragmento que se manda en el acto, sin esperar al final.
+
+El punto donde estaba la latencia
+---------------------------------
+
+La versión anterior hacía esto, dentro del bucle que lee del STT:
+
+    text, is_final = await stt_client.receive_transcript()
+    await self.handle_transcript(text, is_final)   # <- traduce aquí adentro
+
+Mientras la traducción corría, **no se leía el siguiente mensaje del STT**. Con
+el LLM en medio, eso significa que un `final` podía quedar atrás en el socket
+mientras el avatar seguía esperando por él. Ahora la traducción va en una tarea
+aparte y el bucle de lectura sigue drenando el STT.
+"""
+
+import asyncio
 import logging
+import time
+from collections.abc import Awaitable, Callable
 
 from fastapi import WebSocket
 
-from app.domain.models import ValidatedSegment
+from app.config.settings import Settings
 from app.controller.stt_service_client import SttServiceClient
+from app.domain.models import ValidatedSegment
+from app.metrics import metrics, metrics_timer
 from app.observability.pipeline_trace import PipelineTrace, start_trace, trace_step
 from app.orchestrator.orchestrator import Orchestrator
+from app.realtime.incremental import IncrementalTranslator, TranscriptUpdate, TranslationChunk
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +45,38 @@ class Controller:
         websocket: WebSocket,
         orchestrator: Orchestrator,
         stt_client: SttServiceClient,
+        settings: Settings,
         debug_trace_enabled: bool = False,
     ) -> None:
         self.websocket = websocket
         self.orchestrator = orchestrator
         self.stt_client = stt_client
+        self.settings = settings
         self.debug_trace_enabled = debug_trace_enabled
+
+        self._realtime: IncrementalTranslator | None = None
+        if settings.realtime_enabled:
+            self._realtime = orchestrator.incremental_translator(
+                settle_margin_ms=settings.realtime_settle_margin_ms,
+                batch_words=settings.realtime_batch_words,
+                max_segments=settings.realtime_max_segments,
+            )
+
+        # Traducciones en vuelo. El bucle de lectura del STT las encola y sigue:
+        # si esperara adentro, un final se atrasaría detrás de un LLM en curso.
+        self._queue: asyncio.Queue = asyncio.Queue()
+        self._worker: asyncio.Task | None = None
+        self._on_final: list[Callable[[], Awaitable[None]]] = []
+
+        # Contexto de utterance para las métricas: cuándo empezó a hablar la
+        # persona y cuándo se emitió la primera seña. Es el número que hay que
+        # mirar para saber si el producto se siente en tiempo real. Todo esto es
+        # por sesión: dos clientes hablando a la vez no se pisan.
+        self._utterance_started_at: float | None = None
+        self._first_segment_at: float | None = None
+        self._segments_sent = 0
+
+    # ---------------------------------------------------------------- audio
 
     async def handle_audio_chunk(self, chunk: bytes) -> None:
         await self.stt_client.send_audio(chunk)
@@ -29,11 +84,11 @@ class Controller:
     async def handle_text(self, text: str) -> None:
         """Translate a phrase the client typed instead of spoke.
 
-        Goes through `handle_transcript` with `is_final=True`, so a typed phrase
-        and a spoken one share one pipeline: echo the transcript, translate,
-        send the segments.
+        A typed phrase is already final by construction, so it takes the
+        non-realtime path: there is no growing hypothesis to follow, and holding
+        a typed sentence back for a silence timeout would be absurd.
         """
-        await self.handle_transcript(text, is_final=True)
+        await self.handle_transcript(TranscriptUpdate(text=text, final=True))
 
     async def handle_end(self) -> None:
         """Close the utterance the STT has open.
@@ -51,28 +106,175 @@ class Controller:
         except Exception:
             logger.exception("could not forward end-of-utterance to the STT service")
 
-    async def handle_transcript(self, text: str, is_final: bool) -> None:
-        await self.send_transcript(text, is_final)
+    def on_final_sent(self, callback: Callable[[], Awaitable[None]]) -> None:
+        """Registra un callback que corre cuando terminó el utterance en curso.
 
-        if not is_final or not text.strip():
+        Lo usa el router para marcar actividad en la base de datos, que es una
+        operación lenta y no puede quedar en la línea de tiempo del cliente.
+        """
+        self._on_final.append(callback)
+
+    # --------------------------------------------------------- transcripciones
+
+    async def handle_transcript(self, update: TranscriptUpdate) -> None:
+        """Recibe una actualización del STT y decide qué hacer con ella.
+
+        Se pasa el `TranscriptUpdate` entero y no solo el texto porque los
+        `words` son lo que permite distinguir "la persona ya terminó de decir
+        esta palabra" de "todavía la está formando". Si se descartaran aquí, el
+        modo en tiempo real degrada a la heurística gruesa sin avisar.
+        """
+        await self.send_transcript(update.text, update.final)
+
+        if not update.text.strip():
             return
 
-        logger.info("Final transcript: %r -> translating", text)
+        if self._realtime is not None:
+            self._start_utterance()
+            # Traducir fuera del bucle de lectura es lo que permite que el STT
+            # siga hablando mientras el LLM piensa.
+            await self._queue.put(update)
+            if update.final:
+                await self._drain()
+            return
+
+        await self._translate_whole_phrase(update)
+
+    def _start_utterance(self) -> None:
+        if self._utterance_started_at is None:
+            self._utterance_started_at = time.monotonic()
+            self._first_segment_at = None
+            metrics.counter("stt_utterances_total")
+
+    async def _drain(self) -> None:
+        """Espera a que se vacíe la cola de traducciones.
+
+        Solo se llama en el `final`: es el punto donde el backend ya no puede
+        recibir más texto de esta frase y el `done` debe ir después del último
+        fragmento.
+        """
+        await self._queue.join()
+
+    async def _translate_whole_phrase(self, update: TranscriptUpdate) -> None:
+        """El camino de frase completa: espera el final y manda todo junto."""
+        if not update.final:
+            return
+
+        logger.info("Final transcript: %r -> translating", update.text)
         with start_trace() as trace:
             try:
                 with trace_step("total"):
-                    async for index, total, segment in self.orchestrator.translate_stream(text):
+                    async for index, total, segment in self.orchestrator.translate_stream(update.text):
                         await self.send_segment(index, total, segment, trace)
             except Exception:
-                logger.exception("orchestrator.translate_stream failed for %r", text)
-                logger.info("Pipeline trace for %r: %s", text, trace.to_dict())
+                logger.exception("orchestrator.translate_stream failed for %r", update.text)
+                logger.info("Pipeline trace for %r: %s", update.text, trace.to_dict())
                 await self.send_error("No se pudo traducir el texto.")
                 return
 
-        logger.info("Pipeline trace for %r: %s", text, trace.to_dict())
+        logger.info("Pipeline trace for %r: %s", update.text, trace.to_dict())
         if self.debug_trace_enabled:
             await self.websocket.send_json({"type": "trace", "steps_ms": trace.to_dict()["steps_ms"]})
         await self.websocket.send_json({"type": "done"})
+
+    # ------------------------------------------------------------- tiempo real
+
+    def start_realtime_worker(self) -> None:
+        if self._realtime is None or self._worker is not None:
+            return
+        self._worker = asyncio.create_task(self._drain_loop(), name="translate-worker")
+
+    async def _drain_loop(self) -> None:
+        """Traduce en segundo plano mientras el bucle de lectura sigue libre."""
+        while True:
+            update: TranscriptUpdate = await self._queue.get()
+            if update is None:  # pragma: no cover - centinela de cierre
+                self._queue.task_done()
+                return
+
+            try:
+                with start_trace() as trace:
+                    await self._handle_realtime_update(update, trace)
+            except Exception:
+                logger.exception("realtime translation failed for %r", update.text)
+                await self.try_send_error("No se pudo traducir el texto.")
+            finally:
+                self._queue.task_done()
+
+    async def _handle_realtime_update(self, update: TranscriptUpdate, trace: PipelineTrace) -> None:
+        assert self._realtime is not None
+
+        with trace_step("total"):
+            with metrics_timer(
+                "rt_update_ms", "De una actualización del STT a los fragmentos enviados"
+            ) as timer:
+                chunks = await self._realtime.update(update)
+
+        for chunk in chunks:
+            if not self._realtime.should_emit(chunk.index):
+                logger.warning("fragment %d suppressed by the per-utterance cap", chunk.index)
+                continue
+            await self.send_realtime_chunk(chunk, trace)
+
+        if update.final:
+            await self._finish_utterance(update.text, timer.elapsed_ms)
+
+    async def _finish_utterance(self, final_text: str, last_update_ms: float) -> None:
+        assert self._realtime is not None
+        self._realtime.reset()
+
+        logger.info("Final transcript: %r", final_text)
+        if self.debug_trace_enabled:
+            await self.websocket.send_json({"type": "trace", "steps_ms": {}})
+        await self.websocket.send_json({"type": "done"})
+
+        for callback in self._on_final:
+            try:
+                await callback()
+            except Exception:
+                logger.exception("post-final callback failed")
+
+        self._record_utterance_timings(final_text, last_update_ms)
+
+    def _record_utterance_timings(self, final_text: str, last_update_ms: float) -> None:
+        """Cierra las métricas del utterance y las publica.
+
+        `rt_utterance_ms` es la latencia de extremo a extremo que percibe el
+        usuario: desde que llegó el primer fragmento de texto hasta que se envió
+        la última seña. Es el número que define si esto es tiempo real o una
+        demostración rápida.
+        """
+        if self._utterance_started_at is None:
+            return
+
+        total_ms = (time.monotonic() - self._utterance_started_at) * 1000
+        first_ms = (
+            (self._first_segment_at - self._utterance_started_at) * 1000
+            if self._first_segment_at is not None
+            else -1.0
+        )
+
+        metrics.counter("rt_utterances_total")
+        metrics.counter("rt_glosses_total", self._segments_sent)
+        metrics.histogram("rt_utterance_ms", total_ms, "Ultima seña enviada menos primer texto recibido")
+        metrics.histogram("rt_first_sign_ms", first_ms, "Primera seña enviada menos primer texto recibido")
+        metrics.histogram("rt_last_update_ms", last_update_ms, "Ultimo fragmento del STT a su traduccion")
+        metrics.gauge("rt_utterance_segments", self._segments_sent)
+        metrics.gauge("rt_utterance_in_progress", 0)
+
+        logger.info(
+            "utterance done: texto=%r fragmentos=%d primera_seña=%.0fms total=%.0fms",
+            final_text,
+            self._segments_sent,
+            first_ms,
+            total_ms,
+        )
+
+        self._utterance_started_at = None
+        self._first_segment_at = None
+        self._segments_sent = 0
+
+    # ---------------------------------------------------------------- salida
 
     async def send_transcript(self, text: str, is_final: bool) -> None:
         await self.websocket.send_json({"type": "transcript", "text": text, "final": is_final})
@@ -85,6 +287,74 @@ class Controller:
             {"type": "segment", "index": index, "total": total, "segment": segment.model_dump(mode="json")}
         )
 
+    async def send_realtime_chunk(self, chunk: TranslationChunk, trace: PipelineTrace) -> None:
+        """Manda un fragmento en el acto.
+
+        `stream: true` es lo que le dice al cliente que lo fiddle ahora y no
+        espere a un `total` que en un utterance abierto no existe. `total: 0` es
+        la señal explícita de "todavía no se sabe cuántas son", para que un
+        cliente que no conoce `stream` no se quede esperando un final imposible.
+
+        El campo nuevo es aditivo: un cliente que ignore lo que no conoce sigue
+        recibiendo `segment` con la misma forma de siempre.
+        """
+        if self._first_segment_at is None:
+            self._first_segment_at = time.monotonic()
+            metrics.gauge("rt_utterance_in_progress", 1)
+        self._segments_sent += 1
+
+        elapsed_ms = (
+            (self._first_segment_at - self._utterance_started_at) * 1000
+            if self._utterance_started_at is not None
+            else 0.0
+        )
+        metrics.counter("rt_chunks_total", labels={"provisional": "1" if chunk.provisional else "0"})
+        metrics.histogram("rt_chunk_delay_ms", elapsed_ms, "Fragmento enviado menos primer texto recibido")
+
+        logger.info(
+            "Sending realtime fragment %d: %s (%s)",
+            chunk.index,
+            [gloss.text for gloss in chunk.segment.glosses],
+            "provisional" if chunk.provisional else "final",
+        )
+        if self.debug_trace_enabled:
+            await self.websocket.send_json(
+                {
+                    "type": "sentence_trace",
+                    "index": chunk.index,
+                    "text": chunk.source_text,
+                    "source": "realtime",
+                    "steps_ms": {},
+                }
+            )
+        await self.websocket.send_json(
+            {
+                "type": "segment",
+                "index": chunk.index,
+                "total": 0,
+                "stream": True,
+                "provisional": chunk.provisional,
+                "source_text": chunk.source_text,
+                "segment": chunk.segment.model_dump(mode="json"),
+            }
+        )
+
     async def send_error(self, message: str) -> None:
         logger.info("Sending error: %s", message)
         await self.websocket.send_json({"type": "error", "message": message})
+
+    async def try_send_error(self, message: str) -> None:
+        """Envía un error sin tumbar la sesión si el propio envío falla."""
+        try:
+            await self.send_error(message)
+        except Exception:
+            logger.exception("could not notify the client about the error")
+
+    async def shutdown(self) -> None:
+        if self._worker is not None:
+            self._worker.cancel()
+            try:
+                await self._worker
+            except asyncio.CancelledError:
+                pass
+            self._worker = None

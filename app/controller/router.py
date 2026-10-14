@@ -7,6 +7,7 @@ from fastapi import APIRouter, WebSocket
 from app.config.settings import settings
 from app.controller.controller import Controller
 from app.controller.stt_service_client_impl import SttServiceClientImpl
+from app.metrics import metrics
 from app.persistence.keep_alive import DatabaseKeepAlive
 
 logger = logging.getLogger(__name__)
@@ -78,15 +79,21 @@ async def _forward_audio(websocket: WebSocket, controller: Controller) -> None:
 
 
 async def _forward_transcripts(controller: Controller, db_keep_alive: DatabaseKeepAlive) -> None:
+    """Lee del STT y encola, sin traducir en esta línea.
+
+    Traducir acá adentro era el cuello de botella: mientras un LLM pensaba, este
+    bucle no sacaba el siguiente mensaje del socket del STT, así que un `final`
+    podía quedar esperando en la cola del socket mientras el avatar seguía
+    esperando por él. Ahora `_forward_transcripts` solo encola y sigue leyendo.
+    """
     while True:
-        result = await controller.stt_client.receive_transcript()
-        if result is None:
+        update = await controller.stt_client.receive_transcript()
+        if update is None:
             break
 
-        text, is_final = result
-        if is_final:
+        if update.final:
             db_keep_alive.mark_activity()
-        await controller.handle_transcript(text, is_final)
+        await controller.handle_transcript(update)
 
 
 @router.websocket("/ws/translate")
@@ -101,14 +108,20 @@ async def translation_session(websocket: WebSocket) -> None:
         websocket,
         websocket.app.state.orchestrator,
         stt_client,
+        settings,
         debug_trace_enabled=settings.debug_trace_enabled,
     )
+    controller.start_realtime_worker()
+
+    metrics.gauge("sessions_active", metrics.counter_value("sessions_active") + 1)
+    metrics.counter("sessions_total")
 
     try:
         await stt_client.connect()
     except Exception:
         logger.exception("Could not connect to the STT service")
-        await _try_send_error(controller, "El servicio de transcripción no está disponible.")
+        await controller.send_error("El servicio de transcripción no está disponible.")
+        metrics.gauge("sessions_active", max(0.0, metrics.counter_value("sessions_active") - 1))
         return
 
     try:
@@ -118,13 +131,8 @@ async def translation_session(websocket: WebSocket) -> None:
         )
     except Exception:
         logger.exception("Translation session failed")
-        await _try_send_error(controller, "Ocurrió un error inesperado durante la sesión.")
+        await controller.try_send_error("Ocurrió un error inesperado durante la sesión.")
     finally:
+        await controller.shutdown()
         await stt_client.close()
-
-
-async def _try_send_error(controller: Controller, message: str) -> None:
-    try:
-        await controller.send_error(message)
-    except Exception:
-        logger.exception("Could not notify the client about the error")
+        metrics.gauge("sessions_active", max(0.0, metrics.counter_value("sessions_active") - 1))

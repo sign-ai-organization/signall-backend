@@ -1,10 +1,14 @@
 import asyncio
+import logging
 from typing import AsyncIterator
 
 from app.domain.models import ValidatedSegment
 from app.nlp.nlp_service import NLPService
 from app.observability.pipeline_trace import trace_step
+from app.realtime.incremental import IncrementalTranslator
 from app.validation.validator_service import ValidatorService
+
+logger = logging.getLogger(__name__)
 
 
 class Orchestrator:
@@ -29,7 +33,24 @@ class Orchestrator:
                 elif not task.cancelled():
                     task.exception()
 
-    async def _translate_sentence(self, sentence: str) -> ValidatedSegment:
-        segment = await self.nlp_service.transform_sentence(sentence)
-        with trace_step("validation"):
+    def incremental_translator(self, **kwargs: int) -> IncrementalTranslator:
+        """Un `IncrementalTranslator` ligado a la traducción de una oración.
+
+        Se construye por sesión WebSocket, no por proceso: su estado (qué
+        palabras ya se firmaron) es de la conversación que está teniendo esa
+        conexión. Compartirlo haría que dos clientes se pisen las decisiones.
+        """
+        return IncrementalTranslator(self.translate_fragment, **kwargs)
+
+    async def translate_fragment(self, text: str) -> ValidatedSegment:
+        """Traduce y valida un fragmento, sin segmentar por oraciones.
+
+        A diferencia de `translate_stream`, aquí no hay division de oraciones:
+        el fragmento ya viene delimitado por la lógica incremental, y volver a
+        partirlo con el segmentador produciría un `total` que no significa nada
+        en un flujo donde el total se desconoce hasta el final.
+        """
+        with trace_step("fragment.nlp"):
+            segment = await self.nlp_service.transform_sentence(text)
+        with trace_step("fragment.validation"):
             return self.validator_service.validate([segment])[0]

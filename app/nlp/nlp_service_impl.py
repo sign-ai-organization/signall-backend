@@ -10,6 +10,7 @@ from app.nlp.nlp_service import NLPService
 from app.nlp.segmenter import SentenceSegmenter
 from app.nlp.semantic_cache import SemanticCache
 from app.observability.pipeline_trace import set_trace_source, trace_sentence, trace_step
+from app.validation.catalog_repository import CatalogRepository
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +22,16 @@ class NLPServiceImpl(NLPService):
         cache: SemanticCache,
         llm_client: LLMClient,
         segmenter: SentenceSegmenter | None,
+        catalog: CatalogRepository | None = None,
     ) -> None:
         self.analyzer = analyzer
         self.cache = cache
         self.llm_client = llm_client
         # None = segmenter disabled: the whole text is translated as one sentence.
         self.segmenter = segmenter
+        # None disables the catalog fast path; the pipeline still works without it,
+        # just paying an embedding and an LLM call where a dict lookup would do.
+        self.catalog = catalog
         self._pending_stores: set[asyncio.Task] = set()
 
     async def transform(self, text: str) -> list[Segment]:
@@ -43,6 +48,29 @@ class NLPServiceImpl(NLPService):
         await asyncio.gather(*self._pending_stores, return_exceptions=True)
 
     async def _transform_sentence(self, sentence: str) -> Segment:
+        glosses = await self._glosses(sentence)
+        return self._build_segment(self.analyzer.analyze(sentence), glosses)
+
+    async def _glosses(self, sentence: str) -> list[str]:
+        """Glosas para una frase, por el camino más corto disponible.
+
+        El orden importa y va de más barato a más caro:
+
+        1. **Catálogo**, si la frase es una sola palabra y existe tal cual. Son
+           ~0.1 ms y un dict. El tiempo real manda fragmentos de una o dos
+           palabras, y casi la mitad de las 50 glosas son palabras sueltas
+           escritas igual en español. Esto evita el embedding (12-25 ms de CPU),
+           la búsqueda de similitud y, si no hay HIT, la llamada al LLM.
+        2. **Caché semántico**, que en tiempo real está en memoria. Un HIT con
+           prefijo exacto ni siquiera calcula el embedding.
+        3. **LLM**, y el resultado se guarda en segundo plano para el siguiente.
+        """
+        direct = self.catalog.search_word(sentence) if self.catalog is not None else None
+        if direct is not None:
+            set_trace_source("catalog")
+            logger.info("Catalog fast path for %r -> %s", sentence, direct.gloss)
+            return [direct.gloss]
+
         with trace_step("fingerprint"):
             fingerprint = self.analyzer.analyze(sentence)
 
@@ -57,7 +85,7 @@ class NLPServiceImpl(NLPService):
             logger.info("SemanticCache HIT for %r", sentence)
             set_trace_source("cache")
 
-        return self._build_segment(fingerprint, glosses)
+        return glosses
 
     def _store_in_background(self, text: str, fingerprint: Fingerprint, glosses: list[str]) -> None:
         # Storing is not part of answering the user, so it runs after the
