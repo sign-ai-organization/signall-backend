@@ -37,9 +37,25 @@ class Settings(BaseSettings):
     # extra_hosts: ["host.docker.internal:host-gateway"].
     llm_base_url: str = ""
 
+    # Mandar una frase de relleno al LLM al arrancar. Con un servidor local la
+    # primera inferencia carga el modelo: medido 6.2 s contra 270-440 ms de las
+    # siguientes. Sin esto la primera frase de la sesión paga ese costo y solo
+    # esa, que es la peor forma de fallar. 0 lo desactiva.
+    llm_warmup_enabled: bool = True
+
     # Max cosine distance (pgvector <=>) between embeddings to count as a
     # semantic cache HIT. Lower = stricter match required.
     semantic_cache_similarity_threshold: float = 0.05
+
+    # Cargar el semantic_cache completo en memoria al arrancar. Con la base
+    # Neon a ~100 ms por viaje, un HIT por red costaba más que el LLM que
+    # estaba evitando. Es un caché derivado: se reconstruye solo.
+    semantic_cache_preload: bool = True
+
+    # Tope de filas en el caché en memoria. El caché crece con lo que la gente
+    # dice; si sepas que va a crecer mucho, esto lo frena en vez de dejar que
+    # el proceso se coma la RAM.
+    semantic_cache_max_rows: int = 20000
 
     # Default matches the "stt" service name in docker-compose.yml.
     stt_ws_url: str = "ws://stt:8000/ws/transcribe"

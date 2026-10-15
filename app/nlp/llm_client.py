@@ -167,6 +167,22 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
         )
         return self._repair_glosses(self._parse_glosses(response.content))
 
+    async def warm_up(self) -> None:
+        """One filler call, so the first real phrase does not pay for the load.
+
+        With a local server the first inference pulls the model into memory:
+        measured, 6.2 s against the 270-440 ms of the ones after it. Without
+        this, the first phrase of the session pays six seconds and the rest run
+        fine, which is the worst way to fail for a demo. Errors are ignored on
+        purpose: the model server being down at start-up must not keep the
+        service from starting, and the first real phrase will report it as what
+        it is.
+        """
+        try:
+            await self.transform("hola")
+        except Exception:  # noqa: BLE001 - the warm-up is optional
+            logger.warning("LLM warm-up failed; the first real phrase will pay the model load", exc_info=True)
+
     def _parse_glosses(self, content: str) -> list[str]:
         separator = "," if "," in content else None
         return [gloss.strip().upper() for gloss in content.split(separator) if gloss.strip()]
