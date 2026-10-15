@@ -43,7 +43,8 @@ PHRASE_TEXT = "hola, como estas"
 TYPED_PHRASE = '{"type":"text","text":"hola, como estas"}'
 # Una frase escrita de dos oraciones produce transcript, un segment por
 # oraciones y done.
-FOUR_MESSAGES = ["transcript", "segment", "segment", "done"]
+# El eco de la frase escrita **no** se manda. Ver `Controller.handle_text`.
+THREE_MESSAGES = ["segment", "segment", "done"]
 
 
 def check(name: str, got, expected) -> None:
@@ -148,9 +149,10 @@ def read_exactly(websocket, count: int) -> list[dict]:
 
     La sesion vive hasta que el cliente la cierra, asi que no se puede leer
     "hasta que termine": hay que saber cuantos van a llegar. Para una frase
-    escrita son cuatro, y esa misma respuesta sirve como senal de avance: cuando
-    llega, los frames anteriores --audio y `end`-- ya se procesaron, porque
-    viajan por el mismo socket en orden.
+    escrita son tres --una `segment` por oracion y un `done`--, y esa misma
+    respuesta sirve como senal de avance: cuando llega, los frames anteriores
+    --audio y `end`-- ya se procesaron, porque viajan por el mismo socket en
+    orden.
     """
     return [websocket.receive_json() for _ in range(count)]
 
@@ -164,11 +166,13 @@ def main() -> None:
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
             ws.send_text(TYPED_PHRASE)
-            messages = read_exactly(ws, 4)
-    check("responde transcript, 2 segment y done", [m.get("type") for m in messages], FOUR_MESSAGES)
-    check("la frase es la que se mando", messages[0].get("text"), "hola, como estas")
-    check("el primer segment es 0 de 2", [messages[1].get("index"), messages[1].get("total")], [0, 2])
-    check("el segundo segment es 1 de 2", [messages[2].get("index"), messages[2].get("total")], [1, 2])
+            messages = read_exactly(ws, 3)
+    check("responde 2 segment y done, sin eco", [m.get("type") for m in messages], THREE_MESSAGES)
+    # Que no haya eco es la parte importante: un `transcript` con `final: true`
+    # aqui seria indistinguible de la voz, y el cliente en vivo lo tomaria por
+    # una frase nueva del microfono y la volveria a mandar.
+    check("el primer segment es 0 de 2", [messages[0].get("index"), messages[0].get("total")], [0, 2])
+    check("el segundo segment es 1 de 2", [messages[1].get("index"), messages[1].get("total")], [1, 2])
     check("no se mandaron frames de end", FakeSttClient.end_calls, 0)
 
     print("\nsesion: audio y cierre de microfono")
@@ -182,14 +186,14 @@ def main() -> None:
             # La frase escrita va al final a proposito: cuando responde, los
             # frames anteriores ya pasaron por el socket.
             ws.send_text(TYPED_PHRASE)
-            messages = read_exactly(ws, 4)
+            messages = read_exactly(ws, 3)
     check(
         "el audio llega crudo al STT",
         FakeSttClient.sent_audio,
         [b"\x01\x02" * 480, b"\x03\x04" * 480],
     )
     check("'end' se reenvia al STT", FakeSttClient.end_calls, 1)
-    check("y la sesion sigue traduciendo", [m.get("type") for m in messages], FOUR_MESSAGES)
+    check("y la sesion sigue traduciendo", [m.get("type") for m in messages], THREE_MESSAGES)
 
     print("\nsesion: frame desconocido no tumba la sesion")
     with TestClient(build_app()) as client:
@@ -198,8 +202,8 @@ def main() -> None:
             ws.send_text('{"type":"desconocido"}')
             ws.send_text('{"type":"text","text":"   "}')
             ws.send_text(TYPED_PHRASE)
-            messages = read_exactly(ws, 4)
-    check("la sesion sigue viva", [m.get("type") for m in messages], FOUR_MESSAGES)
+            messages = read_exactly(ws, 3)
+    check("la sesion sigue viva", [m.get("type") for m in messages], THREE_MESSAGES)
 
     print("\nsesion: la voz se muestra pero no se traduce sola")
     # El invariante central: el unico disparador de traduccion es el frame `text`
@@ -216,9 +220,9 @@ def main() -> None:
             check("nada se firmo solo", FakeOrchestrator.calls, [])
             # Recién ahora, con la frase ya en la barra del cliente, se manda.
             ws.send_text(TYPED_PHRASE)
-            tail = read_exactly(ws, 4)
+            tail = read_exactly(ws, 3)
     check("y la frase del cliente si se tradujo", FakeOrchestrator.calls, [PHRASE_TEXT])
-    check("con sus oraciones", [m.get("type") for m in tail], FOUR_MESSAGES)
+    check("con sus oraciones", [m.get("type") for m in tail], THREE_MESSAGES)
 
     print("\nsesion: un final vacio es respuesta, no perdida")
     # Apagar el microfono manda `end`; el STT responde con un final vacio cuando
@@ -235,8 +239,8 @@ def main() -> None:
             check("nada se intento traducir solo", FakeOrchestrator.calls, [])
             # La frase escrita al final demuestra que la sesion sigue viva.
             ws.send_text(TYPED_PHRASE)
-            tail = read_exactly(ws, 4)
-    check("y el cliente puede seguir mandando", [m.get("type") for m in tail], FOUR_MESSAGES)
+            tail = read_exactly(ws, 3)
+    check("y el cliente puede seguir mandando", [m.get("type") for m in tail], THREE_MESSAGES)
 
     print("\nsesion: el frame `mode` ya no existe")
     # La app de la rama de tiempo real mandaba `{"type":"mode",...}`. Esta
@@ -248,8 +252,8 @@ def main() -> None:
             ws.send_text('{"type":"mode","mode":"dictation"}')
             ws.send_text('{"type":"mode","mode":"realtime"}')
             ws.send_text(TYPED_PHRASE)
-            messages = read_exactly(ws, 4)
-    check("no cambia nada", [m.get("type") for m in messages], FOUR_MESSAGES)
+            messages = read_exactly(ws, 3)
+    check("no cambia nada", [m.get("type") for m in messages], THREE_MESSAGES)
     check("y solo se tradujo lo que se mando", FakeOrchestrator.calls, [PHRASE_TEXT])
 
     print()

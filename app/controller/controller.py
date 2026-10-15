@@ -129,12 +129,20 @@ class Controller:
         `text` is a phrase to translate. It goes through
         `Orchestrator.translate_stream`, which splits it into sentences and
         yields them in order with a real `index` and `total`.
+
+        **No echoed transcript.** A `transcript` frame means one thing only: the
+        STT transcribed audio. Echoing the phrase back as a `final` transcript
+        used to be harmless because the backend decided what to translate, but
+        now the client does —it re-sends each closed phrase by itself in live
+        mode— and an echo is indistinguishable from a voice transcript. The client
+        took its own phrase for something the STT had heard, sent it again, and
+        the two sides translated the same phrase a few hundred times a minute.
+        The client already has the text: it is the one that sent it.
         """
         self._phrase_started_at = time.monotonic()
         self._first_segment_at = None
         self._sentences_sent = 0
         self._glosses_sent = 0
-        await self.send_transcript(text, True)
 
         logger.info("Phrase received: %r -> translating", text)
         with start_trace() as trace:
