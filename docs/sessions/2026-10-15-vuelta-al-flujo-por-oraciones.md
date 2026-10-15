@@ -112,16 +112,40 @@ Es una fuga de recursos **preexistente en `main`**, no la introduce este
 cambio, y tocarlo cambia el ciclo de vida de la sesión. Queda anotado para que
 lo decida el owner.
 
-## Lo que falta del lado del owner
+## Autorización de commit para esta rama
 
-1. **Commit.** Nada commiteado: `CLAUDE.md` lo prohíbe y la instrucción fue
-   preguntar. Los cambios están en el working tree de `flujo-oraciones`.
-2. **Vaciar `semantic_cache`** (decisión §5 punto 6). Son 618 filas y 201 tienen
-   el `||` del camino por palabras. Es una escritura en Neon: necesita un "sí".
-   **No se hizo.**
-3. **Remedir `rt_first_sign_ms`** con las 28 frases de `fixtures/audio/`. La
+El 15 de octubre el owner autorizó commitear **sin pedir permiso** en la rama
+`flujo-oraciones` de los tres repos, mientras el trabajo siga siendo local y en
+esa rama. Choca con dos reglas escritas, así que vale dejarlasAspuestas:
+
+- `CLAUDE.md`: "nunca hacer `git commit` ni `git push` sin que lo pida el owner".
+- `AGENTS.md` del repo de Android: "nada de commits en los hermanos sin que el
+  owner lo pida (PR contra `develop`)".
+
+La excepción es acotada a este trabajo y a esa rama. `main` no se toca, y
+cualquier otro cambio en este repo sigue la regla de `CLAUDE.md`: se sugiere el
+mensaje y lo manda el owner.
+
+## Lo que se hizo después
+
+- `semantic_cache` vaciada en Neon: 619 filas borradas (618 de la tabla más una
+  que credo la frase de prueba), 201 con el `||` del camino por palabras.
+  `catalog` intacta con las 50 glosas.
+- Cuatro commits en `flujo-oraciones`:
+  `db1fa69` (cherry-pick de `ac013d4`), `294efae` (el cambio de contrato),
+  `39210a1` (métricas y caché en memoria), `9cd2199` (migración 003 y docs).
+
+## Lo que queda pendiente
+
+1. **Remedir `rt_first_sign_ms`** con las 28 frases de `fixtures/audio/`. La
    cifra de 913 ms p50 / 1336 ms p95 es del camino por palabras y **no es
-   comparable** con la de ahora.
-4. **El frame `mode` se ignora**, no rompe: una app vieja que lo mande sigue
-   funcionando, pero sus frases dictadas se firmarán solas. Hay que actualizar
-   la app antes de probar contra este backend.
+   comparable** con la de ahora: con oraciones la primera seña se firma al
+   terminar la primera oración y no a mitad de camino, así que el número sube
+   por construcción y no por una regresión.
+2. **El frame `mode` se ignora**, no rompe: una app vieja que lo mande sigue
+   funcionando, pero sus frases dictadas se firmarán solas. Hay que actualizar la
+   app antes de probar contra este backend.
+3. **`sessions_active` se queda en 1** después de que el cliente cierre (el
+   `gather` espera las dos tareas y `_forward_transcripts` sigue bloqueada en el
+   STT, así que el `finally` no corre). Preexistente en `main`, no lo introduce
+   este cambio y tocarlo cambia el ciclo de vida de la sesión.
