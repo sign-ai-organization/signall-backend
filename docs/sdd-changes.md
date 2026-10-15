@@ -277,3 +277,75 @@ propios recursos. El servidor estático no se implementó.
 **Estado:** decisión tomada; formato de la referencia al GLB pendiente
 de acordar con el equipo Android; pendiente de reflejar en el SDD.
 **Fecha:** 2026-10-02
+---
+
+## Vuelta al flujo documentado: la unidad de traducción es la oración
+
+**Dónde:** Vista de procesos 6.3 (nodo "Divide el texto final en oraciones"),
+secuencia 7.2 (`split(text)` → `segment(text)` → por oración), Vista de
+componentes 6.1 (`Split(text): sentences`) y este contrato
+(`docs/android-integration.md` §3.1).
+
+**Situación:** entre el 13 y el 14 de octubre se implementó en la rama
+`develop` un camino que **traducía por fragmentos mientras la persona todavía
+hablaba**: `app/realtime/incremental.py` decidía con *timestamps por palabra*
+qué palabras ya estaban "firmadas" y mandaba un `segment` por cada una, con
+`total: 0` y `stream: true`. Eso no aparece en ningún diagrama del SDD ni en
+los requisitos. Cuatro documentos del repo de documentos dicen lo contrario:
+la unidad es la oración, y el envío al módulo de lenguaje lo decide la persona
+(RF-STT-03) o la pausa (modo en vivo), nunca una palabra a medio formar.
+
+**Qué se implementó mientras tanto:** el backend quedó en `flujo-oraciones`,
+que sale de `origin/main`, donde el flujo documentado ya estaba entero
+(`Orchestrator.translate_stream` con `_translate_sentence`, `index` y `total`
+reales, un `Controller` de 90 líneas). Se conservó de `develop` lo que no es
+del camino por palabras:
+
+- El prompt con el catálogo como vocabulario cerrado y `_repair_glosses` /
+  `_merge_fragments` (`ac013d4`). Con oración sigue siendo necesario: es lo que
+  evita que "cómo estás" vuelva como `TÚ, ESTAR, CÓMO`, y las tres glosas son
+  irreproducibles.
+- El caché semántico en memoria y las métricas, renombradas (§ abajo).
+- `docs/performance.md`, `docs/android-integration.md` y las verificaciones.
+
+**Cambio en el contrato, que es lo único que un diagrama no puede mostrar:**
+
+Antes, un `final` del STT disparaba la traducción. Ahora **solo se traduce lo
+que el cliente manda como `{"type":"text"}`**; las transcripciones se reenvían
+para mostrarse y nada más. Con eso el backend cumple RF-STT-03 por
+construcción —no existe forma de que una frase dictada llegue al módulo de
+lenguaje sin que la app la mande— y el frame `mode` y el flag `dictation`, que
+existían solo para distinguir los modos de captura, dejan de ser necesarios.
+Los tres modos de captura quedan como decisión de la app: dictado (espera
+confirmación), en vivo (reenvía sola al cerrarse la frase) y en vivo con el
+micrófono siempre prendido (`◢◢ TR`).
+
+**Por qué el SDD no cambia:** los diagramas 6.3, 7.2 y 6.1 no dibujan quién
+invoca `split(text)`; dibujan el trabajo que se hace desde ahí. Lo único que
+cambia es de dónde llega el texto, y eso ya estaba documentado como decisión
+de la app en RF-STT-03 y en `trazabilidad.md` §"Modos de envío".
+
+**Métricas renombradas.** Los nombres `rt_utterance_*` y `rt_chunk_*`
+describían fragmentos. Ahora:
+
+| Antes | Ahora | Qué mide |
+|---|---|---|
+| `rt_utterance_ms` | `rt_phrase_total_ms` | última oración enviada − frase recibida |
+| `rt_chunk_delay_ms` | `rt_sentence_delay_ms` | cada oración por separado |
+| `rt_chunks_total` | `rt_sentences_total` | oraciones enviadas |
+| `rt_utterances_total` | `rt_phrases_total` | frases traducidas |
+| `rt_utterance_segments` | `rt_phrase_sentences` | oraciones por frase |
+| `rt_first_sign_ms` | `rt_first_sign_ms` (igual) | primera oración enviada − frase recibida |
+
+`rt_first_sign_ms` conserva el nombre a propósito: es la latencia de titular y
+el número que los documentos del proyecto citan como línea base. Además su
+punto de partida pasó a ser el envío del cliente, que es la "confirmación de
+envío del usuario" de RNF-DES-01.
+
+**Pendiente:** remedir `rt_first_sign_ms` con las 28 frases de
+`fixtures/audio/` (ver `sign-ai-docs/auditoria-flujo-2026-10-15.md` §7). La
+cifra publicada de 913 ms p50 / 1336 ms p95 era del camino por palabras y con
+oraciones **no es comparable**: ahora se mide al terminar la primera oración y
+no a mitad de camino.
+
+**Fecha:** 2026-10-15

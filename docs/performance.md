@@ -660,3 +660,34 @@ completo antes de la demo.
   corto. Si se repite, ajustar `SPEECH_ONSET_WINDOW_MS`.
 - **Varias sesiones a la vez:** todo se probó con un solo cliente; con
   varios, comparten la misma GPU.
+
+---
+
+## Vuelta al flujo por oraciones (2026-10-15)
+
+**Qué cambió:** el camino por fragmentos (`app/realtime/`, `stream: true`,
+`total: 0`) se desarmó y la unidad de traducción volvió a ser la oración. La
+traducción solo se dispara con un `{"type":"text"}` del cliente; las
+transcripciones del STT se reenvían para mostrarse y nada más. El detalle del
+contrato está en `docs/sdd-changes.md` y en `docs/android-integration.md` §3.1.
+
+**Las métricas renombradas** porque `rt_utterance_*` y `rt_chunk_*` describían
+fragmentos. Ahora son `rt_phrase_total_ms`, `rt_sentence_delay_ms`,
+`rt_sentences_total`, `rt_phrases_total` y `rt_phrase_sentences`.
+`rt_first_sign_ms` conserva el nombre y ahora se mide **desde el envío del
+cliente**, que es la confirmación del usuario de RNF-DES-01.
+
+**Lo que hay que remedir antes de comparar:** la cifra de 913 ms p50 / 1336 ms
+p95 que circula en `tools/TIEMPO-REAL.md` y en las sesiones es del camino por
+palabras. No se puede comparar con la de ahora: con oraciones la primera
+oración se firma al **terminarla**, no a mitad de camino, así que el número
+sube por construcción y por una razón que no es una regresión. Repetir las 28
+frases de `fixtures/audio/` con `tools/verificar-tiempo-real.sh` y recién
+después hablar de mejora o de lo contrario.
+
+**Pendiente de esta entrada:**
+
+- Repetir la medición de las 28 frases con la pila completa.
+- Contrastar `rt_sentence_delay_ms` con la traza por oración
+  (`PipelineTrace`, `DEBUG_TRACE_ENABLED=true`): el histograma dice cuándo
+  salió cada oración pero no por qué se demoró esa.
