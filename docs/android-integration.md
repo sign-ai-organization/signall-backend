@@ -99,6 +99,37 @@ En Android, `AudioRecord` con `AudioFormat.ENCODING_PCM_16BIT`,
 No hay que avisar cuándo termina una frase: el sistema lo detecta por
 el silencio (~1.5 s) y responde solo.
 
+### 3.1 Traducir es mandar un `text`: el audio nunca se traduce solo
+
+El backend tiene dos entradas y **una sola de las dos se traduce**:
+
+| Frame | Qué hace el backend |
+|---|---|
+| Audio binario | Lo reenvía al STT tal cual y te devuelve cada transcripción. **No traduce nada.** |
+| `{"type":"text","text":"..."}` | Divide la frase en oraciones y devuelve un `segment` por oración. |
+| `{"type":"end"}` | Le avisa al STT que cierre el utterance abierto. No traduce. |
+
+Que el `final` del STT no dispare traducción es lo que hace que **RF-STT-03**
+se cumpla por construcción: no hay forma de que una frase dictada llegue al
+módulo de lenguaje sin que la app la haya mandado. Por eso los tres modos de
+captura son decisión de la app y no hay que avisarle nada al backend:
+
+- **Dictado**: la app deja la frase en la barra y la manda como `text` cuando
+  el usuario confirma.
+- **En vivo**: la app reenvía cada frase que cierra, sola, sin que el usuario
+  toque nada.
+- **En vivo con el micrófono siempre prendido** (`◢◢ TR`): igual que el
+  anterior, sin apagar el micrófono entre frases.
+
+El texto viaja dos veces en el camino de voz (primero llega como audio y sale
+como transcripción, después la app lo manda como `text`), y ese es el precio de
+que el backend no sepa en qué modo está. Alrededor de un milisegundo por frase
+en local, al lado de los cientos de milisegundos del LLM.
+
+**No existe un frame `mode`.** La versión anterior de este contrato tenía uno
+para distinguir dictado de tiempo real; ya no está. Un cliente viejo que lo
+mande no rompe nada: el frame se ignora como cualquier `type` desconocido.
+
 ---
 
 ## 4. Mensajes que envía el backend (backend → app)
@@ -114,15 +145,34 @@ Todos son JSON de texto. Se distinguen por el campo `type`.
 - `final: false`: transcripción parcial; llega varias veces mientras la
   persona habla, cada una reemplaza a la anterior. Es el texto que se
   muestra en la barra de transcripción en vivo (RF-STT-02).
-- `final: true`: la frase terminó; es el texto definitivo. Puede venir
-  vacío (`""`): ignorarlo.
+- `final: true`: la frase terminó; es el texto definitivo.
+
+**Una transcripción nunca dispara una traducción.** Ver §3.1.
+
+### El `final` vacío es una respuesta, no una pérdida
+
+Un `final` puede venir con `text: ""`. Es lo que pasa cuando el STT cierra la
+frase sobre audio que su filtro de descarte no encontró (*ruido*, `no_speech`,
+`logprob`): la frase se cerró y no tenía palabras. **El STT responde siempre al
+`end` del cliente, también en vacío**; si no, el cliente que preguntó queda
+esperando una transcripción que ya no va a llegar.
+
+Atendé el `final` vacío cerrando la frase: cancelá cualquier espera de
+transcripción y mandá lo que tengas en el buffer de dictado. Si no hay nada,
+mostrale al usuario "No se escuchó nada" y volvé a `Idle`. Ignorarlo deja la
+app colgada hasta su timeout, y el timeout reporta como fallida una frase que
+nunca existió.
+
+Ojo con el texto del usuario: un `final` vacío **no** debe vaciar el campo de
+entrada. Si el usuario tenía algo escrito a mano antes de prender el micrófono
+y no llegó a decir nada, ese texto se sigue escribiendo.
 
 ### `segment`: una oración traducida, lista para el avatar
 
-Tras cada `transcript` final, el backend divide el texto en oraciones y
-envía **una por mensaje, en orden, en cuanto cada una está lista**. No
-hay que esperar a las demás: el avatar puede empezar a señar la primera
-mientras se traducen las siguientes.
+Cuando el cliente manda una frase con `{"type":"text"}`, el backend la divide
+en oraciones y envía **una por mensaje, en orden, en cuanto cada una está
+lista**. No hay que esperar a las demás: el avatar puede empezar a señar la
+primera mientras se traducen las siguientes.
 
 ```json
 {

@@ -7,6 +7,7 @@ from fastapi import APIRouter, WebSocket
 from app.config.settings import settings
 from app.controller.controller import Controller
 from app.controller.stt_service_client_impl import SttServiceClientImpl
+from app.metrics import metrics
 from app.persistence.keep_alive import DatabaseKeepAlive
 
 logger = logging.getLogger(__name__)
@@ -104,11 +105,15 @@ async def translation_session(websocket: WebSocket) -> None:
         debug_trace_enabled=settings.debug_trace_enabled,
     )
 
+    metrics.gauge("sessions_active", metrics.counter_value("sessions_active") + 1)
+    metrics.counter("sessions_total")
+
     try:
         await stt_client.connect()
     except Exception:
         logger.exception("Could not connect to the STT service")
         await _try_send_error(controller, "El servicio de transcripción no está disponible.")
+        metrics.gauge("sessions_active", max(0.0, metrics.counter_value("sessions_active") - 1))
         return
 
     try:
@@ -121,6 +126,7 @@ async def translation_session(websocket: WebSocket) -> None:
         await _try_send_error(controller, "Ocurrió un error inesperado durante la sesión.")
     finally:
         await stt_client.close()
+        metrics.gauge("sessions_active", max(0.0, metrics.counter_value("sessions_active") - 1))
 
 
 async def _try_send_error(controller: Controller, message: str) -> None:

@@ -39,6 +39,7 @@ from app.domain.models import Gloss, PhraseType, ValidatedSegment  # noqa: E402
 
 failures: list[str] = []
 
+PHRASE_TEXT = "hola, como estas"
 TYPED_PHRASE = '{"type":"text","text":"hola, como estas"}'
 # Una frase escrita de dos oraciones produce transcript, un segment por
 # oraciones y done.
@@ -80,6 +81,9 @@ class FakeSttClient:
 
     sent_audio: list[bytes] = []
     end_calls = 0
+    # Transcripciones que el doble emite al abrirse la sesion. Vacio = el ciclo
+    # se cierra de una, como en las pruebas que no tienen STT.
+    incoming: list[tuple[str, bool]] = []
 
     def __init__(self, url: str) -> None:
         self.url = url
@@ -97,7 +101,9 @@ class FakeSttClient:
         # None cierra el ciclo de transcripcion. El otro lado del gather
         # (_forward_audio) sigue leyendo, asi que la sesion queda abierta
         # hasta que el cliente la cierra, que es el comportamiento real.
-        return None
+        if not FakeSttClient.incoming:
+            return None
+        return FakeSttClient.incoming.pop(0)
 
     async def close(self) -> None:
         return None
@@ -119,7 +125,12 @@ def fake_segment() -> ValidatedSegment:
 
 
 class FakeOrchestrator:
+    # Que frases llegaron a traducirse. Es el invariante central del flujo por
+    # oraciones: solo lo que el cliente mando como `text` puede aparecer aca.
+    calls: list[str] = []
+
     async def translate_stream(self, text: str):
+        FakeOrchestrator.calls.append(text)
         yield 0, 2, fake_segment()
         yield 1, 2, fake_segment()
 
@@ -189,6 +200,57 @@ def main() -> None:
             ws.send_text(TYPED_PHRASE)
             messages = read_exactly(ws, 4)
     check("la sesion sigue viva", [m.get("type") for m in messages], FOUR_MESSAGES)
+
+    print("\nsesion: la voz se muestra pero no se traduce sola")
+    # El invariante central: el unico disparador de traduccion es el frame `text`
+    # del cliente. Sin esto, una frase dictada se firmaria antes de que el
+    # usuario confirme, que es justo lo que RF-STT-03 prohibe.
+    FakeOrchestrator.calls = []
+    FakeSttClient.incoming = [("hola, como estas", True)]
+    with TestClient(build_app()) as client:
+        with client.websocket_connect("/ws/translate") as ws:
+            messages = read_exactly(ws, 1)
+            check("el final de voz se reenvia", [m.get("type") for m in messages], ["transcript"])
+            check("con su texto", messages[0].get("text"), "hola, como estas")
+            check("y marcado como final", messages[0].get("final"), True)
+            check("nada se firmo solo", FakeOrchestrator.calls, [])
+            # Recién ahora, con la frase ya en la barra del cliente, se manda.
+            ws.send_text(TYPED_PHRASE)
+            tail = read_exactly(ws, 4)
+    check("y la frase del cliente si se tradujo", FakeOrchestrator.calls, [PHRASE_TEXT])
+    check("con sus oraciones", [m.get("type") for m in tail], FOUR_MESSAGES)
+
+    print("\nsesion: un final vacio es respuesta, no perdida")
+    # Apagar el microfono manda `end`; el STT responde con un final vacio cuando
+    # su filtro de descarte no encontro palabras. Sin reenviarlo, el cliente se
+    # come su timeout y reporta como fallida una frase que nunca existio.
+    FakeOrchestrator.calls = []
+    FakeSttClient.incoming = [("hola", False), ("", True)]
+    with TestClient(build_app()) as client:
+        with client.websocket_connect("/ws/translate") as ws:
+            messages = read_exactly(ws, 2)
+            check("el parcial y el final vacio llegan", [m.get("type") for m in messages], ["transcript", "transcript"])
+            check("el final va vacio", messages[1].get("text"), "")
+            check("y como final", messages[1].get("final"), True)
+            check("nada se intento traducir solo", FakeOrchestrator.calls, [])
+            # La frase escrita al final demuestra que la sesion sigue viva.
+            ws.send_text(TYPED_PHRASE)
+            tail = read_exactly(ws, 4)
+    check("y el cliente puede seguir mandando", [m.get("type") for m in tail], FOUR_MESSAGES)
+
+    print("\nsesion: el frame `mode` ya no existe")
+    # La app de la rama de tiempo real mandaba `{"type":"mode",...}`. Esta
+    # version ya no lo conoce y lo ignora como cualquier frame desconocido: lo
+    # que decide que se traduzca es que mande la frase como `text`.
+    FakeOrchestrator.calls = []
+    with TestClient(build_app()) as client:
+        with client.websocket_connect("/ws/translate") as ws:
+            ws.send_text('{"type":"mode","mode":"dictation"}')
+            ws.send_text('{"type":"mode","mode":"realtime"}')
+            ws.send_text(TYPED_PHRASE)
+            messages = read_exactly(ws, 4)
+    check("no cambia nada", [m.get("type") for m in messages], FOUR_MESSAGES)
+    check("y solo se tradujo lo que se mando", FakeOrchestrator.calls, [PHRASE_TEXT])
 
     print()
     if failures:
