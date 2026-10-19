@@ -3,6 +3,7 @@ import contextvars
 import logging
 
 from app.domain.models import Segment
+from app.metrics import metrics_timer
 from app.nlp.gloss_analyzer import GlossAnalyzer
 from app.nlp.llm_client import LLMClient
 from app.nlp.models import Fingerprint
@@ -46,7 +47,14 @@ class NLPServiceImpl(NLPService):
         with trace_step("fingerprint"):
             fingerprint = self.analyzer.analyze(sentence)
 
-        glosses = await self.cache.lookup(sentence, fingerprint)
+        # The cache lookup is its own metric because it is the difference between
+        # "the model is slow" and "we never asked the model": a warm run skips
+        # `llm_ms` entirely and the only thing it shows is a lookup of a few
+        # milliseconds. Read on its own, `llm_ms` looks like an improvement when
+        # it is actually the cache doing the work (see `tools/medir-primera-sena.py`).
+        with metrics_timer("cache_lookup_ms", "Consulta a la cache semantica"):
+            glosses = await self.cache.lookup(sentence, fingerprint)
+
         if glosses is None:
             logger.info("SemanticCache MISS for %r -> calling LLM", sentence)
             set_trace_source("llm")

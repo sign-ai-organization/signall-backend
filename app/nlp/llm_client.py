@@ -2,6 +2,7 @@ import logging
 
 from langchain_openai import ChatOpenAI
 
+from app.metrics import metrics_timer
 from app.validation.catalog_repository import normalize_gloss
 
 logger = logging.getLogger(__name__)
@@ -159,12 +160,24 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
         )
 
     async def transform(self, text: str) -> list[str]:
-        response = await self._chat.ainvoke(
-            [
-                ("system", self._prompt),
-                ("human", text),
-            ]
-        )
+        # `rt_first_sign_ms` says when the first sentence went out and
+        # `rt_sentence_delay_ms` repeats that clock for every sentence, but
+        # neither says *why* one of them was late. Until this metric existed the
+        # only trace of the model call was `PipelineTrace`, which needs
+        # `DEBUG_TRACE_ENABLED=true` and a log to read, so the number that
+        # decides whether this feels real time had no measurement of the stage
+        # that actually costs it.
+        with metrics_timer(
+            "llm_ms",
+            "Inference del modelo de lenguaje para una oracion",
+            {"model": self.model},
+        ):
+            response = await self._chat.ainvoke(
+                [
+                    ("system", self._prompt),
+                    ("human", text),
+                ]
+            )
         return self._repair_glosses(self._parse_glosses(response.content))
 
     async def warm_up(self) -> None:
