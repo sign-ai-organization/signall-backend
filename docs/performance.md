@@ -680,14 +680,25 @@ cliente**, que es la confirmación del usuario de RNF-DES-01.
 **Lo que hay que remedir antes de comparar:** la cifra de 913 ms p50 / 1336 ms
 p95 que circula en `tools/TIEMPO-REAL.md` y en las sesiones es del camino por
 palabras. No se puede comparar con la de ahora: con oraciones la primera
-oración se firma al **terminarla**, no a mitad de camino, así que el número
+oración se representa al **terminarla**, no a mitad de camino, así que el número
 sube por construcción y por una razón que no es una regresión. Repetir las 28
 frases de `fixtures/audio/` con `tools/verificar-tiempo-real.sh` y recién
 después hablar de mejora o de lo contrario.
 
 **Pendiente de esta entrada:**
 
-- Repetir la medición de las 28 frases con la pila completa.
-- Contrastar `rt_sentence_delay_ms` con la traza por oración
-  (`PipelineTrace`, `DEBUG_TRACE_ENABLED=true`): el histograma dice cuándo
-  salió cada oración pero no por qué se demoró esa.
+- Repetir la medición de las 28 frases con la pila completa. **Ojo:** desde el
+  2026-10-16 el control de latencia de `tools/verificar-tiempo-real.sh` declara
+  **no medible** cualquier corrida hecha con `semantic_cache` llena, porque con
+  la caché caliente el p95 sale de 5 ms y pasa cualquier presupuesto sin haber
+  medido el pipeline. Para medir en frío: `DELETE FROM semantic_cache;` y
+  reiniciar el backend.
+- ~~Contrastar `rt_sentence_delay_ms` con la traza por oración~~ — **hecho el
+  2026-10-16.** El "por qué se demoró" ya no depende de leer un log con
+  `DEBUG_TRACE_ENABLED=true`: hay tres histogramas en `/metrics` que lo dicen.
+  `llm_ms{model}` es la llamada al modelo de lenguaje (medido con
+  `qwen3:4b-instruct` en Ollama local: p50 442 ms, max 881 ms) y
+  `cache_lookup_ms` la consulta a la caché semántica (p50 48 ms, que no es lo
+  que se asumía: una fila de la caché no es gratis). `rt_read_loop_busy_ms` es
+  el trabajo por frame del bucle de lectura del socket, que es el cuarto actor
+  y el que estaba trabando el micrófono.

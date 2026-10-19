@@ -289,7 +289,7 @@ componentes 6.1 (`Split(text): sentences`) y este contrato
 **Situación:** entre el 13 y el 14 de octubre se implementó en la rama
 `develop` un camino que **traducía por fragmentos mientras la persona todavía
 hablaba**: `app/realtime/incremental.py` decidía con *timestamps por palabra*
-qué palabras ya estaban "firmadas" y mandaba un `segment` por cada una, con
+qué palabras ya estaban "representadas" y mandaba un `segment` por cada una, con
 `total: 0` y `stream: true`. Eso no aparece en ningún diagrama del SDD ni en
 los requisitos. Cuatro documentos del repo de documentos dicen lo contrario:
 la unidad es la oración, y el envío al módulo de lenguaje lo decide la persona
@@ -349,3 +349,106 @@ oraciones **no es comparable**: ahora se mide al terminar la primera oración y
 no a mitad de camino.
 
 **Fecha:** 2026-10-15
+
+---
+
+## 2026-10-16 — La traducción sale del bucle de lectura, y el socket con el STT se suelta al cerrar
+
+Dos cambios en el mismo archivo (`app/controller/router.py`), medidos antes y
+después. Ninguno cambia el contrato con la app.
+
+### 1. `handle_text` va a su propia tarea, una a la vez
+
+**Qué dice cada fuente:**
+
+| Documento | Dice |
+|---|---|
+| `docs/performance.md:618-623` | "Desacoplar la traducción de la lectura del STT. Hoy `_forward_transcripts` espera a que termine cada traducción antes de leer el siguiente mensaje del STT. **Lanzar cada traducción como tarea** y garantizar que los resultados se envíen al cliente en el orden de las frases." |
+| `docs/performance.md:331-334` | lo nombra como requisito |
+| `docs/requirements.md:163` (RF-INT-SW-04) y `:536` (RNF-REL-01) | no bloquear el hilo principal |
+| `app/controller/controller.py:29-36` (docstring) | "The translation now happens on its own task and the read loop keeps draining the STT" — **ya lo afirmaba y no era cierto** |
+
+**Qué se implementó:** `_PhraseTranslator` corre cada frase en su propia tarea
+y un `asyncio.Lock` las serializa. El bucle de lectura nunca espera a una
+traducción.
+
+**Por qué una a la vez y no todas en paralelo:** el cliente ya prohíbe dos
+frases en vuelo (`MainScreenState.requestTranslation` y `sendLivePhrase`
+rechazan si hay una en curso), así que el intercalado no puede ocurrir. Y si
+ocurriera, el `index` de las oraciones dejaría de corresponder al orden en que
+llegaron y el avatar representaría la frase al revés. Ningún documento exige
+traducir frases en paralelo.
+
+**Medido** (`tools/verificar-bloqueo-lectura.py`, audio a 1x con un muestreador
+independiente del bucle de recepción):
+
+| | antes | después |
+|---|---|---|
+| retraso del audio durante la traducción | 991 ms (y 8438 ms en la primera corrida) | **0 ms** |
+| `rt_read_loop_busy_ms` p50 / max | 0,155 ms / **931 ms** | 0,151 ms / **0,595 ms** |
+
+La métrica es nueva: `rt_read_loop_busy_ms` es el trabajo por frame del bucle
+de lectura, sin contar la espera. Es la que convierte el arreglo en algo que se
+puede afirmar —sin ella, "ya no se traba" sería una anecdote de una corrida.
+
+### 2. El socket con el STT se cierra al terminar la sesión
+
+**Qué estaba mal:** `asyncio.gather(_forward_audio(...), _forward_transcripts(...))`
+esperaba a las dos. `_forward_audio` termina cuando el cliente se va;
+`_forward_transcripts` bloquea en `receive()` esperando un mensaje del STT que
+no llega nunca. El `gather` no volvía, así que el `finally` que cierra el
+socket con el STT no corría.
+
+**Medido** (`tools/verificar-conexiones-stt.py`, contando sockets establecidos
+con el puerto del STT desde el host):
+
+| | antes | después |
+|---|---|---|
+| 5 sesiones | +10 conexiones colgando | 0 |
+| 10 sesiones | +18 conexiones colgando | 0 |
+
+**Qué se implementó:** `asyncio.wait(..., return_when=FIRST_COMPLETED)`: la
+sesión termina con la primera de las dos mitas y la otra se cancela. Antes de
+cerrar se cancelan también las traducciones en vuelo.
+
+**Nota de ciclo de vida:** `docs/sessions/2026-10-15-vuelta-al-flujo-por-oraciones.md:105-113`
+advertía que tocar el cierre de sesión es decisión del owner. Queda tomada
+(opción B: arreglarlo junto con lo otro, porque toca el mismo archivo).
+
+### 3. `sessions_active` decía siempre 1
+
+No es un cambio de comportamiento sino de una métrica que mentía: leía su
+propio valor con `counter_value()`, que mira el mapa de contadores y siempre
+devuelve 0, así que el gauge era `0 + 1`. Ahora existe `gauge_value()`. La
+misma clase de error estaba en el STT, en `stt_sessions_active` y
+`ConcurrencyGauge`, y se corrigió de los dos lados.
+
+### 4. `llm_ms` y `cache_lookup_ms` como métricas de verdad
+
+**Qué decía el pendiente:** `docs/performance.md:688-693` — "contrastar
+`rt_sentence_delay_ms` con la traza por oración: el histograma dice cuándo salió
+cada oración pero no por qué se demoró esa".
+
+**Qué estaba mal:** el tiempo del modelo solo existía como paso de
+`PipelineTrace`, que necesita `DEBUG_TRACE_ENABLED=true` y un log para
+leerse. Ahora son histogramas de `/metrics`: `llm_ms{model}` mide la llamada al
+modelo y `cache_lookup_ms` la consulta a la caché semántica.
+
+Las dos juntas porque por separado se prestan a confusión: una corrida con
+caché caliente no muestra `llm_ms` en absoluto, y su p50 de `rt_first_sign_ms`
+sale de 2 dígitos. Medido con `qwen3:4b-instruct` en Ollama local: `llm_ms`
+p50 442 ms / max 881 ms, `cache_lookup_ms` p50 48 ms.
+
+### 5. `silence_timeout_ms` en el `/health` del backend
+
+El STT ya lo publica en su `/health`. La app nunca habla con el STT, así que
+para mostrarlo en el overlay de depurar (decisión D-6 del cliente) el valor tiene
+que pasar por acá: una tarea relee el `/health` del STT cada
+`STT_CONFIG_POLL_SECONDS` (30 s por defecto, configurable) y lo publica en el
+`/health` y el `/metrics.json` de este servicio.
+
+**Es aditivo:** un campo más en un endpoint que ya existía. El protocolo del
+WebSocket con la app no cambia, así que `docs/android-integration.md` no necesita
+cambios por esto.
+
+**Fecha:** 2026-10-16

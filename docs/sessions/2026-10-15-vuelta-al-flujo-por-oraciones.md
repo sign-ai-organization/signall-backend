@@ -139,11 +139,11 @@ mensaje y lo manda el owner.
 
 1. **Remedir `rt_first_sign_ms`** con las 28 frases de `fixtures/audio/`. La
    cifra de 913 ms p50 / 1336 ms p95 es del camino por palabras y **no es
-   comparable** con la de ahora: con oraciones la primera seña se firma al
+   comparable** con la de ahora: con oraciones la primera seña se representa al
    terminar la primera oración y no a mitad de camino, así que el número sube
    por construcción y no por una regresión.
 2. **El frame `mode` se ignora**, no rompe: una app vieja que lo mande sigue
-   funcionando, pero sus frases dictadas se firmarán solas. Hay que actualizar la
+   funcionando, pero sus frases dictadas se representarán solas. Hay que actualizar la
    app antes de probar contra este backend.
 3. **`sessions_active` se queda en 1** después de que el cliente cierre (el
    `gather` espera las dos tareas y `_forward_transcripts` sigue bloqueada en el

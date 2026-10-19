@@ -95,7 +95,7 @@ para partir la frase en trozos traducibles— **desaparece**: la unidad es la
 oración, así que la clave es una oración limpia, la misma en los dos modos.
 
 También viene `db1fa69` (cherry-pick de `ac013d4`, que estaba en `develop`): el
-LLM partía glosas nominales en palabras sueltas que no se pueden firmar.
+LLM partía glosas nominales en palabras sueltas que no se pueden representar.
 
 `semantic_cache` se vació en Neon (619 filas, 201 con `||`). Es caché derivada y
 se reconstruye sola con la primera frase de cada entrada. `catalog` quedó intacta
@@ -142,6 +142,39 @@ tools/verificar-tiempo-real.sh contrato
 tools/medir-primera-sena.py
 tools/medir-retraso.py
 ```
+---
+
+## 2026-10-16 — El bucle de lectura deja de traducir, y el socket con el STT se suelta
+
+El detalle y las citas están en `docs/sdd-changes.md`. Resumen de lo medido:
+
+| | antes | después |
+|---|---|---|
+| retraso del audio durante la traducción | 991 ms | **0 ms** |
+| `rt_read_loop_busy_ms` (p50 / max) | 0,155 / **931** ms | 0,151 / **0,595** ms |
+| conexiones al STT que quedan colgadas (10 sesiones) | +18 | **0** |
+
+También se arregló `scripts/verify_orchestrator.py`, que construía el `LLMClient`
+sin `settings.llm_base_url` y por lo tanto llamaba a la API de OpenAI de verdad
+(404 `model not found` con `qwen3:4b-instruct`). Y `verify_client_frames.py` fijó
+dos regresiones nuevas del cierre de sesión: que cerrar el cliente cierre el socket
+con el STT una vez, y que si el STT se cae la sesión también termine.
+
+Herramientas nuevas, que son las pruebas de regresión de cada punto:
+
+- `tools/verificar-bloqueo-lectura.py` (vive en `sign-ai-android/tools`) —
+  falla si el bucle de lectura se traba más de 500 ms.
+- `tools/verificar-conexiones-stt.py` — falla si alguna sesión deja su socket
+  con el STT abierto.
+
+Tres métricas nuevas: `rt_read_loop_busy_ms` (trabajo por frame del bucle de
+lectura), `llm_ms{model}` (la llamada al modelo, que antes solo se veía en el
+log con `DEBUG_TRACE_ENABLED`) y `cache_lookup_ms`. Más `gauge_value()` en el
+registro, porque `sessions_active` leía su propio valor del mapa de contadores
+y por eso decía siempre 1.
+
+`/health` ahora incluye `silence_timeout_ms`, copiado del STT cada 30 s, para
+que la app lo muestre en su overlay de depurar.
 
 ---
 
