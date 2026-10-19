@@ -137,6 +137,17 @@ class MetricsRegistry:
         with self._lock:
             return self._counters.get(self._key(name, labels), 0.0)
 
+    def gauge_value(self, name: str, labels: dict[str, str] | None = None) -> float:
+        """Current value of a gauge.
+
+        Counters and gauges live in separate maps, so reading one with
+        `counter_value` always answers 0. That made every gauge that did
+        `gauge(name, counter_value(name) + 1)` —`sessions_active`— report 1 no
+        matter how many sessions were open: it never saw its own previous value.
+        """
+        with self._lock:
+            return self._gauges.get(self._key(name, labels), 0.0)
+
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             return {

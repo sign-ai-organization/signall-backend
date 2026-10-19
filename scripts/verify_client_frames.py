@@ -15,6 +15,7 @@ y el orquestador se reemplazan por dobles de prueba. Corre con
 
 from __future__ import annotations
 
+import asyncio
 import os
 import sys
 
@@ -82,12 +83,19 @@ class FakeSttClient:
 
     sent_audio: list[bytes] = []
     end_calls = 0
+    close_calls = 0
     # Transcripciones que el doble emite al abrirse la sesion. Vacio = el ciclo
     # se cierra de una, como en las pruebas que no tienen STT.
     incoming: list[tuple[str, bool]] = []
+    # Si el STT se cae: `receive_transcript` responde `None`, que es como el
+    # cliente real responde cuando la conexion se cerro.
+    stt_closed = False
 
     def __init__(self, url: str) -> None:
         self.url = url
+        # Evento por instancia: cada sesion tiene su propio cliente. Se espera
+        # para poder Cancelar el `await` cuando el router cancela la tarea.
+        self._cerrado = asyncio.Event()
 
     async def connect(self) -> None:
         return None
@@ -99,15 +107,26 @@ class FakeSttClient:
         FakeSttClient.end_calls += 1
 
     async def receive_transcript(self):
-        # None cierra el ciclo de transcripcion. El otro lado del gather
-        # (_forward_audio) sigue leyendo, asi que la sesion queda abierta
-        # hasta que el cliente la cierra, que es el comportamiento real.
+        """Bloquea como el cliente real hasta que hay algo o se cae la conexión.
+
+        El cliente de verdad hace `await self._connection.recv()`, que no
+        devuelve hasta que el STT manda algo o cierra la conexión. Este doble
+        tenía `return None` cuando no había nada en la cola, y eso confundía
+        "todavía no hay transcripción" con "el STT se fue": con el `gather` viejo
+        no se notaba, porque la otra mitad de la sesión seguía leyendo. Desde que
+        la sesión termina con la primera de las dos (decisión D-3, 2026-10-16),
+        confundirlas cortaba la sesión antes de que el cliente mandara nada.
+        """
+        if FakeSttClient.stt_closed:
+            return None
         if not FakeSttClient.incoming:
+            await self._cerrado.wait()
             return None
         return FakeSttClient.incoming.pop(0)
 
     async def close(self) -> None:
-        return None
+        FakeSttClient.close_calls += 1
+        self._cerrado.set()
 
 
 class FakeKeepAlive:
@@ -207,7 +226,7 @@ def main() -> None:
 
     print("\nsesion: la voz se muestra pero no se traduce sola")
     # El invariante central: el unico disparador de traduccion es el frame `text`
-    # del cliente. Sin esto, una frase dictada se firmaria antes de que el
+    # del cliente. Sin esto, una frase dictada se representaria antes de que el
     # usuario confirme, que es justo lo que RF-STT-03 prohibe.
     FakeOrchestrator.calls = []
     FakeSttClient.incoming = [("hola, como estas", True)]
@@ -217,7 +236,7 @@ def main() -> None:
             check("el final de voz se reenvia", [m.get("type") for m in messages], ["transcript"])
             check("con su texto", messages[0].get("text"), "hola, como estas")
             check("y marcado como final", messages[0].get("final"), True)
-            check("nada se firmo solo", FakeOrchestrator.calls, [])
+            check("nada se represento solo", FakeOrchestrator.calls, [])
             # Recién ahora, con la frase ya en la barra del cliente, se manda.
             ws.send_text(TYPED_PHRASE)
             tail = read_exactly(ws, 3)
@@ -255,6 +274,34 @@ def main() -> None:
             messages = read_exactly(ws, 3)
     check("no cambia nada", [m.get("type") for m in messages], THREE_MESSAGES)
     check("y solo se tradujo lo que se mando", FakeOrchestrator.calls, [PHRASE_TEXT])
+
+    print("\nsesion: al cerrarse el cliente, se cierra el socket con el STT")
+    # Regresión de D-3 (2026-10-16). La sesión terminaba cuando terminaba
+    # `_forward_audio`, pero el `gather` esperaba además a `_forward_transcripts`,
+    # que bloquea en `recv()` esperando un mensaje del STT que no llega nunca: el
+    # `finally` que cerraba el socket no coría y cada sesión dejaba su conexión
+    # abierta para siempre. Medido: 10 sesiones, 18 conexiones que no volvieron.
+    FakeSttClient.close_calls = 0
+    with TestClient(build_app()) as client:
+        with client.websocket_connect("/ws/translate") as ws:
+            ws.send_text(TYPED_PHRASE)
+            read_exactly(ws, 3)
+    check("el socket con el STT se cierra una vez", FakeSttClient.close_calls, 1)
+
+    print("\nsesion: si el STT se cae, la sesión termina")
+    # El otro camino de cierre: `_forward_transcripts` recibe `None` porque la
+    # conexión con el STT se cerró. La sesión no puede seguir sin transcripción,
+    # así que termina también.
+    FakeSttClient.stt_closed = True
+    FakeSttClient.close_calls = 0
+    with TestClient(build_app()) as client:
+        with client.websocket_connect("/ws/translate") as ws:
+            # El socket del cliente queda abierto, pero la sesión ya terminó:
+            # manda un frame y no hay nadie escuchando del otro lado.
+            ws.send_text(TYPED_PHRASE)
+            read_exactly(ws, 0)
+    check("el socket con el STT se cierra igual", FakeSttClient.close_calls, 1)
+    FakeSttClient.stt_closed = False
 
     print()
     if failures:
