@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     # Default matches the "stt" service name in docker-compose.yml.
     stt_ws_url: str = "ws://stt:8000/ws/transcribe"
 
+    # How often to re-read the STT's /health to mirror its runtime configuration
+    # (today `silence_timeout_ms`) into our own /health. The Android app needs
+    # that value for its debug overlay and cannot ask the STT directly, so it has
+    # to travel through this service. 0 disables the poll.
+    stt_config_poll_seconds: float = 30.0
+
     # Nested: override as SENTENCE_SEGMENTER__<FIELD>, e.g. SENTENCE_SEGMENTER__ENABLED=false.
     sentence_segmenter: SentenceSegmenterSettings = SentenceSegmenterSettings()
 

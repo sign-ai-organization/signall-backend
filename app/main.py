@@ -1,6 +1,8 @@
 import asyncio
+import json
 import logging
 import time
+import urllib.request
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -87,10 +89,18 @@ async def lifespan(app: FastAPI):
     # is already done.
     warmup_task = asyncio.create_task(_warm_up_llm(llm_client)) if settings.llm_warmup_enabled else None
 
+    # The STT's own configuration, mirrored so the Android app can read it.
+    app.state.stt_config: dict[str, int] = {}
+    stt_config_task = (
+        asyncio.create_task(_watch_stt_config(app)) if settings.stt_config_poll_seconds > 0 else None
+    )
+
     yield
 
     if warmup_task is not None:
         warmup_task.cancel()
+    if stt_config_task is not None:
+        stt_config_task.cancel()
     await nlp_service.wait_for_pending_stores()
     await db_keep_alive.stop()
     await pool.close()
@@ -104,6 +114,53 @@ async def _warm_up_llm(llm_client: LLMClient) -> None:
     metrics.histogram("llm_warmup_ms", elapsed_ms, "Carga del modelo de lenguaje al arrancar")
 
 
+def _http_origin(ws_url: str) -> str:
+    """`ws://host:port/path` → `http://host:port`."""
+    scheme = "https" if ws_url.startswith("wss://") else "http"
+    return f"{scheme}://{ws_url.split('://', 1)[1].split('/', 1)[0]}"
+
+
+def _read_stt_silence_timeout_ms(http_origin: str) -> int | None:
+    """`SILENCE_TIMEOUT_MS` from the STT's /health, or None when it can't be read.
+
+    Standard library only: this polls a local JSON endpoint and a new
+    dependency for one number would not earn its place. Runs in a thread
+    because it blocks.
+    """
+    try:
+        with urllib.request.urlopen(f"{http_origin}/health", timeout=3) as response:
+            value = json.loads(response.read()).get("silence_timeout_ms")
+        return int(value) if value is not None else None
+    except Exception:  # noqa: BLE001 - an unreachable STT is not this service's problem
+        logger.debug("Could not read the STT /health", exc_info=True)
+        return None
+
+
+async def _watch_stt_config(app: FastAPI) -> None:
+    """Keep the STT's runtime configuration readable from our own /health.
+
+    `SILENCE_TIMEOUT_MS` decides when a phrase closes: it is the second biggest
+    block of end-to-end latency, and it lives in the STT's environment, where
+    nothing here can see it. The Android app needs it for its debug overlay —
+    a test run should not depend on somebody remembering to write it down — and
+    the app never talks to the STT, so the value has to come through here.
+
+    It is re-read on an interval rather than once at start-up because the STT
+    takes its configuration from the environment: a run has to show the value in
+    force, not the one that happened to be in force when this service started.
+    """
+    http_origin = _http_origin(settings.stt_ws_url)
+    while True:
+        silence_timeout_ms = await asyncio.to_thread(_read_stt_silence_timeout_ms, http_origin)
+        if silence_timeout_ms is not None:
+            changed = app.state.stt_config.get("silence_timeout_ms") != silence_timeout_ms
+            app.state.stt_config["silence_timeout_ms"] = silence_timeout_ms
+            metrics.gauge("stt_silence_timeout_ms", silence_timeout_ms)
+            if changed:
+                logger.info("STT SILENCE_TIMEOUT_MS is %d ms", silence_timeout_ms)
+        await asyncio.sleep(settings.stt_config_poll_seconds)
+
+
 app = FastAPI(lifespan=lifespan)
 app.include_router(controller_router)
 
@@ -115,6 +172,9 @@ def health() -> dict[str, object]:
         "status": "ok",
         "cache_loaded": bool(cache and cache.is_loaded),
         "cache_rows": cache.row_count if cache else 0,
+        # Mirrored from the STT so the Android debug overlay can show it: the app
+        # does not talk to the STT (see `_watch_stt_config`).
+        **getattr(app.state, "stt_config", {}),
     }
 
 
@@ -148,4 +208,5 @@ def metrics_json() -> dict[str, object]:
             "loaded": bool(cache and cache.is_loaded),
             "rows": cache.row_count if cache else 0,
         },
+        "stt": getattr(app.state, "stt_config", {}),
     }
