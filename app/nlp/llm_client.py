@@ -132,6 +132,10 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
     does not scale and the validator already marks a sign that is not in the
     catalog as unavailable.
 
+    `timeout_ms` is the ceiling of a single call and `max_retries` how many
+    times a failed call is tried again. Together they keep the answer inside
+    the window the Android client waits for a phrase before it gives up on its
+    own.
     """
 
     def __init__(
@@ -140,12 +144,14 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
         model: str,
         temperature: float,
         timeout_ms: int,
+        max_retries: int = 1,
         base_url: str = "",
         vocabulary: dict[str, str] | None = None,
     ) -> None:
         self.model = model
         self.temperature = temperature
         self.timeout_ms = timeout_ms
+        self.max_retries = max_retries
         self.vocabulary = vocabulary or {}
         # The prompt is a constant: it does not depend on the catalog. D-7
         # (owner, 2026-10-16) took the closed vocabulary out of it, so there is
@@ -163,6 +169,7 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
             model=model,
             temperature=temperature,
             timeout=timeout_ms / 1000,
+            max_retries=max_retries,
         )
 
     async def transform(self, text: str) -> list[str]:

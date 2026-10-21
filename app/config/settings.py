@@ -29,7 +29,12 @@ class Settings(BaseSettings):
     llm_api_key: str
     llm_model: str
     llm_temperature: float = 0.0
-    llm_timeout_ms: int = 10000
+    llm_timeout_ms: int = 5000
+    # How many times a failed call to the model is tried again. One retry
+    # absorbs a momentary network cut, and with the ceiling above the worst
+    # case is about 10 s: under the 15 s the Android client waits before it
+    # declares the phrase failed on its own.
+    llm_max_retries: int = 1
     # Base URL of any OpenAI-compatible chat endpoint. Empty means OpenAI itself.
     # Set it to run the same prompt against a local model server, e.g.
     # http://host.docker.internal:11434/v1 for Ollama. From inside Docker on

@@ -61,6 +61,7 @@ async def lifespan(app: FastAPI):
         settings.llm_model,
         settings.llm_temperature,
         settings.llm_timeout_ms,
+        settings.llm_max_retries,
         settings.llm_base_url,
         # The catalog's glosses, for the post-hoc repair: an answer can never
         # reference a sign the app is unable to play. See the long comment at

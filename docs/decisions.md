@@ -54,7 +54,7 @@ necesidad real. Se eligió la variante multilingüe sobre `all-MiniLM-L6-v2`
 ## 6.1 — Proveedor, modelo y parámetros del LLM externo
 
 **Subfase:** 6.1 — Configuración del LLMClient.
-**Decisión:** Proveedor OpenAI, modelo `gpt-4o-mini`, `temperature=0`, `timeoutMs=10000`.
+**Decisión:** Proveedor OpenAI, modelo `gpt-4o-mini`, `temperature=0`.
 Interfaz vía **LangChain** (`langchain` + `langchain-openai`), no el SDK
 de OpenAI directo.
 **Por qué:** se evaluó explícitamente LangChain vs. SDK directo — para
@@ -64,10 +64,14 @@ la API key de OpenAI usada hoy es personal y temporal (solo para
 pruebas); hay una posibilidad de cambiar de proveedor más adelante
 (costos, calidad, o disponibilidad de la key), y LangChain permite ese
 cambio sin reescribir `LLMClient` (solo cambia el chat model
-subyacente). El timeout de 10s es un techo de seguridad, no la latencia
-esperada (`gpt-4o-mini` normalmente responde en 1-3s para este tipo de
-prompt corto).
+subyacente).
 **Fecha:** 2026-09-09
+
+> **Actualizado el 2026-10-21.** El timeout ya no es 10 s: son **5 s con un
+> reintento**, por la decisión del owner del 2026-10-18 (§6.3 del contraste).
+> El motivo es el reloj de 15 s de la app: con tres intentos de 10 s, el
+> backend era el último en avisar de una frase que la app ya había cerrado.
+> Con 5 s y un reintento, el peor caso son ~10 s. Ver `docs/performance.md`.
 
 ---
 
