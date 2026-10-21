@@ -20,6 +20,16 @@ class Settings(BaseSettings):
     # 0 = never close idle pooled connections; the keep-alive below decides
     # when the database may go idle instead.
     db_pool_max_inactive_connection_lifetime_seconds: float = 0
+    # Ceiling of a single query. A query that hangs takes the phrase with it,
+    # and the Android client gives up on its own after 15 s: the backend is the
+    # one that has to report the failure first.
+    db_command_timeout_seconds: float = 5.0
+    # How many times a failed query is tried again. One retry covers a database
+    # that is resuming from scale-to-zero; with the ceiling above, the worst
+    # case is about 10 s, still under the client's 15 s.
+    db_max_retries: int = 1
+    # Wait between two attempts of the same query.
+    db_retry_delay_seconds: float = 0.5
 
     # Neon suspends compute after 5 min idle (fixed on the Free plan). While
     # there was activity (session opened / final transcript) within the idle

@@ -19,7 +19,7 @@ from app.nlp.nlp_service_impl import NLPServiceImpl
 from app.nlp.segmenter import SentenceSegmenter
 from app.nlp.semantic_cache import SemanticCache
 from app.orchestrator.orchestrator import Orchestrator
-from app.persistence.database import create_pool
+from app.persistence.database import RetryPolicy, open_pool
 from app.persistence.keep_alive import DatabaseKeepAlive
 from app.validation.catalog_repository import CatalogRepository
 from app.validation.validator_service_impl import ValidatorServiceImpl
@@ -31,11 +31,14 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    pool = await create_pool(
+    retry_policy = RetryPolicy(settings.db_max_retries, settings.db_retry_delay_seconds)
+    pool = await open_pool(
         settings.database_url,
         settings.db_pool_min_size,
         settings.db_pool_max_size,
         settings.db_pool_max_inactive_connection_lifetime_seconds,
+        command_timeout_seconds=settings.db_command_timeout_seconds,
+        policy=retry_policy,
     )
     db_keep_alive = DatabaseKeepAlive(
         pool,
@@ -44,8 +47,15 @@ async def lifespan(app: FastAPI):
     )
     db_keep_alive.start()
 
-    catalog_repository = CatalogRepository(pool)
-    await catalog_repository.load_all()
+    catalog_repository = CatalogRepository(pool, retry_policy)
+    try:
+        await catalog_repository.load_all()
+    except Exception:
+        # A database that is down at this exact moment must not take the service
+        # down with it: the container would stay dead and the Android client,
+        # which reconnects on its own, would never reach it again. Without the
+        # catalog every sign comes out as unavailable, but the service answers.
+        logger.exception("Could not load the catalog; starting without it")
 
     semantic_cache = SemanticCache(
         pool,
@@ -53,6 +63,7 @@ async def lifespan(app: FastAPI):
         settings.semantic_cache_similarity_threshold,
         preload=settings.semantic_cache_preload,
         max_rows=settings.semantic_cache_max_rows,
+        retry_policy=retry_policy,
     )
     await semantic_cache.load_all()
 
@@ -109,7 +120,8 @@ async def lifespan(app: FastAPI):
         stt_config_task.cancel()
     await nlp_service.wait_for_pending_stores()
     await db_keep_alive.stop()
-    await pool.close()
+    if pool is not None:
+        await pool.close()
 
 
 async def _warm_up_llm(llm_client: LLMClient) -> None:

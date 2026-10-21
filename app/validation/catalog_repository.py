@@ -1,6 +1,10 @@
-import asyncpg
+import logging
 
+import asyncpg
 from app.domain.models import CatalogEntry
+from app.persistence.database import RetryPolicy, run_with_retry
+
+logger = logging.getLogger(__name__)
 
 # Accented vowels -> unaccented, on purpose an explicit table instead of
 # `unicodedata.normalize("NFD", ...)`: that decomposition splits the tilde off
@@ -26,13 +30,29 @@ def normalize_gloss(gloss: str) -> str:
 
 
 class CatalogRepository:
-    def __init__(self, pool: asyncpg.Pool) -> None:
+    def __init__(self, pool: asyncpg.Pool | None, retry_policy: RetryPolicy | None = None) -> None:
+        # None means the database was unreachable at start-up. The catalog stays
+        # empty and every sign comes out as unavailable; the service still runs.
         self._pool = pool
+        self._retry_policy = retry_policy or RetryPolicy()
         self.cache: dict[str, CatalogEntry] = {}
 
     async def load_all(self) -> None:
-        rows = await self._pool.fetch(
-            "SELECT gloss, glb_animation_path FROM catalog ORDER BY id_sign"
+        """Load the catalog into memory.
+
+        Ordered so the catalog is identical on every start.
+        """
+        pool = self._pool
+        if pool is None:
+            logger.warning("No database pool: the catalog stays empty")
+            return
+
+        rows = await run_with_retry(
+            lambda: pool.fetch(
+                "SELECT gloss, glb_animation_path FROM catalog ORDER BY id_sign"
+            ),
+            self._retry_policy,
+            "could not load the catalog",
         )
 
         # Keyed by the folded gloss so an accented emission from the LLM finds

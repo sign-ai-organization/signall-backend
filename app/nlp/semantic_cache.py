@@ -27,6 +27,7 @@ from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.models import Fingerprint
 from app.nlp.text_normalizer import normalize
 from app.observability.pipeline_trace import trace_step
+from app.persistence.database import RetryPolicy, run_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -96,17 +97,21 @@ class _PhraseTypeIndex:
 class SemanticCache:
     def __init__(
         self,
-        pool: asyncpg.Pool,
+        pool: asyncpg.Pool | None,
         embedding_model: EmbeddingModel,
         similarity_threshold: float,
         preload: bool = True,
         max_rows: int = 20000,
+        retry_policy: RetryPolicy | None = None,
     ) -> None:
+        # None means the database was unreachable at start-up: the cache then
+        # lives only in memory and nothing is persisted.
         self._pool = pool
         self._embedding_model = embedding_model
         self._similarity_threshold = similarity_threshold
         self._preload = preload
         self._max_rows = max_rows
+        self._retry_policy = retry_policy or RetryPolicy()
         self._indexes: dict[str, _PhraseTypeIndex] = {}
         self._lock = asyncio.Lock()
         self._rows = 0
@@ -123,14 +128,23 @@ class SemanticCache:
             logger.info("SemanticCache preload disabled; lookups go to Neon")
             return
 
+        pool = self._pool
+        if pool is None:
+            logger.warning("No database pool: the semantic cache starts empty and is not persisted")
+            return
+
         started = asyncio.get_running_loop().time()
         try:
-            rows = await self._pool.fetch(
-                """
-                SELECT original_text, phrase_type, glosses, embedding::text AS embedding
-                FROM semantic_cache
-                ORDER BY id
-                """
+            rows = await run_with_retry(
+                lambda: pool.fetch(
+                    """
+                    SELECT original_text, phrase_type, glosses, embedding::text AS embedding
+                    FROM semantic_cache
+                    ORDER BY id
+                    """
+                ),
+                self._retry_policy,
+                "could not preload the semantic cache",
             )
         except Exception:
             logger.exception("could not preload semantic_cache; falling back to per-lookup queries")
@@ -192,6 +206,10 @@ class SemanticCache:
                     return list(glosses)
             return None
 
+        if self._pool is None:
+            # No database: nothing to look up. The phrase goes to the model.
+            return None
+
         return await self._lookup_neon(normalized, category)
 
     async def store(self, text: str, fingerprint: Fingerprint, glosses: list[str]) -> None:
@@ -216,8 +234,45 @@ class SemanticCache:
 
         secondary_signals = [signal.value for signal in fingerprint.secondary_signals]
 
+        pool = self._pool
+        if pool is None:
+            logger.warning("No database pool: the answer for %r is not persisted", text)
+            return
+
+        await run_with_retry(
+            lambda: self._write_to_neon(
+                pool,
+                text,
+                category,
+                embedding,
+                glosses,
+                secondary_signals,
+                fingerprint.has_collision,
+            ),
+            self._retry_policy,
+            f"could not store the cache row for {text!r}",
+        )
+
+    async def _write_to_neon(
+        self,
+        pool: asyncpg.Pool,
+        text: str,
+        category: str,
+        embedding: list[float],
+        glosses: list[str],
+        secondary_signals: list[str],
+        had_collision: bool,
+    ) -> None:
+        """Write one row, replacing the one the same phrase already has.
+
+        The write is an UPSERT on `(original_text, phrase_type)`: the same
+        phrase translated again replaces the old answer instead of piling a
+        second copy of it next to it, which is what the plain INSERT used to
+        do. The table has a unique index over that pair to conflict against
+        (migration 004).
+        """
         with trace_step("store.acquire"):
-            conn = await self._pool.acquire()
+            conn = await pool.acquire()
         try:
             with trace_step("store.query"):
                 await conn.execute(
@@ -230,11 +285,11 @@ class SemanticCache:
                     category,
                     glosses,
                     secondary_signals,
-                    fingerprint.has_collision,
+                    had_collision,
                 )
         finally:
             with trace_step("store.release"):
-                await self._pool.release(conn)
+                await pool.release(conn)
 
     async def _embed_async(self, text: str) -> list[float]:
         """Embed off the event loop.
@@ -250,11 +305,31 @@ class SemanticCache:
         with trace_step("cache.embed"):
             embedding = await self._embed_async(normalized)
 
+        pool = self._pool
+        if pool is None:
+            return None
+
+        row = await run_with_retry(
+            lambda: self._fetch_nearest(pool, embedding, category),
+            self._retry_policy,
+            "could not look the phrase up in the semantic cache",
+        )
+
+        if row is None or row["distance"] > self._similarity_threshold:
+            return None
+        return list(row["glosses"])
+
+    async def _fetch_nearest(
+        self,
+        pool: asyncpg.Pool,
+        embedding: list[float],
+        category: str,
+    ) -> asyncpg.Record | None:
         with trace_step("cache.acquire"):
-            conn = await self._pool.acquire()
+            conn = await pool.acquire()
         try:
             with trace_step("cache.query"):
-                row = await conn.fetchrow(
+                return await conn.fetchrow(
                     """
                     SELECT glosses, embedding <=> $1::vector AS distance
                     FROM semantic_cache
@@ -267,8 +342,4 @@ class SemanticCache:
                 )
         finally:
             with trace_step("cache.release"):
-                await self._pool.release(conn)
-
-        if row is None or row["distance"] > self._similarity_threshold:
-            return None
-        return list(row["glosses"])
+                await pool.release(conn)
