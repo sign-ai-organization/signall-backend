@@ -531,3 +531,88 @@ diagramas y la narrativa, pero la lista de firmas se quedó atrás.
 **Estado:** documentado; **no se aplicó**, por la regla de que los cambios
 del SDD se anotan en este archivo y los aplica el owner.
 **Fecha:** 2026-10-21
+
+---
+
+## El identificador de turno y el `done` del error (2026-10-21)
+
+Los nueve cambios de código que faltaban (el §10.3 del contraste) se
+implementaron el 2026-10-21. Dos de ellos tocan el SDD, y ninguno toca un
+diagrama.
+
+### 1. `handleText` recibe el identificador de turno
+
+**Qué dice cada fuente:**
+
+| Fuente | Dice |
+|---|---|
+| `docs/sdd.md:166` y la Figura 4 (clases de orquestación) | `+ handleText(text: String): void` |
+| `docs/sdd.md:180` (narrativa) | "expose tres métodos de entrada: `handleAudioChunk(chunk)` […] `handleText(text)` […] y `handleEnd()`" |
+| El código (`app/controller/controller.py`) | `handle_text(text: str, turn: Any = None)` |
+
+**Por qué cambia:** el cliente manda un identificador de turno en el frame
+`text` (§3.2 de `docs/android-integration.md`) y el backend lo copia, sin
+interpretarlo, en los frames `segment`, `done` y `error`. El Controller tiene
+que saber cuál es para poder ponerlo.
+
+**Qué habría que cambiar:** `docs/sdd.md:166` y `:180`, y la lista de
+firmas del §7.1: `handleText(text: String, turn: Integer): void`. El
+identificador es **opaco**: el backend no lo parsea, no lo compara y no lo
+genera, así que en el SDD conviene decir "el identificador que manda el
+cliente" y no "un entero".
+
+**Estado:** documentado; **no se aplicó**, por la regla del repo. El
+contrato con la app sí está actualizado, en `docs/android-integration.md`
+§3.2 y §4.
+**Fecha:** 2026-10-21
+
+### 2. `Gloss` lleva la categoría semántica del catálogo
+
+**Qué dice cada fuente:**
+
+| Fuente | Dice |
+|---|---|
+| La Figura 8 (persistencia, `docs/sdd.md` §7.3) | La tabla `catalog` tiene la columna `semantic_category` |
+| `docs/sdd.md:192-210` (la lista de clases de la §7.1) | `Gloss(text, available, glbPath)` |
+| El código (`app/domain/models.py`) | `Gloss(text, available, glb_path, semantic_category)` |
+
+**Por qué cambia:** la decisión del owner para el punto 11 del contraste fue
+**leer** la columna, para que el código quede de acuerdo con el diagrama y no
+al revés. `CatalogRepository.load_all()` la lee, `CatalogEntry` la guarda y
+`ValidatorServiceImpl` la pasa a cada `Gloss`, que es lo que viaja en el
+frame `segment`.
+
+**Qué habría que cambiar:** `docs/sdd.md:192-210`: `Gloss(text, available,
+glbPath, semanticCategory)`. Y la Figura 8, que ya la tiene: por eso el
+diagrama no se toca.
+
+**Nota:** el `segment` lleva un campo más (`semantic_category` en cada
+glosa). Es **aditivo**: el parser de la app ignora lo que no conoce, así que
+un cliente viejo no se rompe. La app no lo usa todavía.
+
+**Estado:** documentado; **no se aplicó**, por la regla del repo.
+**Fecha:** 2026-10-21
+
+### 3. El `done` también se manda cuando la traducción falla
+
+**Qué dice cada fuente:**
+
+| Fuente | Dice |
+|---|---|
+| La Figura 7.2 (secuencia), paso 23 | `Controller → Android Client: el frame done, cuando ya salió la última oración` |
+| `docs/sdd.md:290` (narrativa) | "Cuando ya salió la última, Controller envía el aviso de fin de la traducción" |
+| El código | El `done` se manda en los dos caminos: el que salió bien y el que falló |
+
+**Por qué cambia:** el `done` es la señal de "terminé", y el turno se cierra
+también cuando la frase falla. Antes el backend mandaba el `error` y nada
+más, y la app esperaba su propio reloj de 15 s para reportar como fallida una
+frase que ya había fallado (punto 39 del contraste).
+
+**Qué habría que cambiar:** nada. La Figura 7.2 ya tiene el paso 23 al
+final del bucle, y el `error` no es un paso del flujo funcional: el SDD
+documenta el camino que funciona. Lo que sí hay que escribir es que el `done`
+cierra el turno **también en el camino del error**, y eso está en
+`docs/android-integration.md` §4.
+
+**Estado:** documentado; **no se aplicó**, por la regla del repo.
+**Fecha:** 2026-10-21

@@ -1369,6 +1369,24 @@ todavía no existe.
 
 ### 10.3 Los cambios de código que faltan
 
+> **Actualizado el 2026-10-21 (tarde): los nueve puntos de esta tabla están
+> implementados**, con un `scripts/verify_*.py` para cada comportamiento nuevo
+> (`verify_llm_prompt`, `verify_llm_timeout`, `verify_database_resilience`,
+> `verify_turn_id`, `verify_done_on_error`, `verify_catalog_semantic_category`,
+> `verify_cache_upsert`, `verify_static_analysis` y
+> `verify_dependencies_pinned`). La columna "Estado real verificado" de
+> abajo queda como la foto de antes del cambio: dice lo que se encontró. Lo
+> que se hizo, con las decisiones de fondo que lo Accompañan, está en
+> `docs/sdd-changes.md` (2026-10-21) y en `docs/android-integration.md`
+> §3.2 y §4, que son el contrato con la app.
+>
+> **Lo que sigue en pie:** la migración `004` (índice único de
+> `semantic_cache`) hay que aplicarla en Neon **antes** de desplegar el
+> código que escribe con `UPSERT`; sin ella, cada guardado del caché falla
+> (y el pipeline sigue funcionando: el error queda en el log y la frase se
+> responde igual). Y lo de §10.3.2 sigue sin implementarse: **validar el
+> audio** que llega por el canal y **sacar el texto de los logs**.
+
 Cada punto es un cambio del backend. **Ninguno está hecho**: se verificó uno por uno en
 `app/`, `requirements.txt` y `tools/`, y se reverificó el 2026-10-21 con el código ya en
 `main`.
