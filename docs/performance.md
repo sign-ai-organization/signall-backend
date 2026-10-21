@@ -464,114 +464,6 @@ tramo del STT se toma de sus últimas mediciones (1.8–2.1 s, de los que
 
 ---
 
-## 9. Traducción en tiempo real
-
-**Fecha:** 2026-10-14
-**Problema:** todo lo anterior seguía siendo "optimizar una espera". La
-app firmaba ~2.4–4.8 s **después** de que la persona dejara de hablar,
-porque el pipeline entero esperaba el `final`.
-
-**Qué cambió:** el backend traduce y manda cada fragmento en cuanto el
-STT confirma que esas palabras ya se dijeron, en vez de esperar el final
-completo. La regla de "qué es cola ya dicha" son los timestamps por
-palabra que ahora manda el STT.
-
-### El pipeline antes y después
-
-| Tramo | Antes | Después |
-|---|---|---|
-| Hangover de silencio | 1500 ms | 600 ms |
-| Inferencia de un parcial | 350–630 ms (medium) | 90–170 ms (small) |
-| Dejar de hablar → final | 1813–2099 ms | 839–958 ms |
-| Caché semántico por lookup | ~200 ms (ida y vuelta a Neon) | ~0.4 ms (en memoria) |
-| Espera por la GPU | picos de 4–8 s | p95 0.8 ms |
-| **Primera seña** | — | **p50 913 ms / p95 1336 ms** |
-
-Medido sobre los 28 fixtures de audio de `sign-ai-stt/fixtures/audio/`,
-reproducidos por el WebSocket real a velocidad 1x con GPU libre
-(RTX 4050, Ollama local con qwen3:4b). 28/28 produjeron al menos una
-seña. Reproducible con:
-
-```bash
-python scripts/verify_realtime_latency.py --all-fixtures
-```
-
-### Dónde se fue el tiempo
-
-Descompuesto así, el tramo de 913 ms hasta la primera seña:
-
-| Etapa | Medido | Por qué |
-|---|---:|---|
-| Onset del VAD | 150 ms | ventana de 150 ms antes de decidir que hubo habla |
-| Intervalo de parcial | ~250–700 ms | el parcial sale cada `PARTIAL_INTERVAL_MS`, más lo que tarda el anterior |
-| Inferencia del parcial | 90–170 ms | modelo `small` |
-| Traducción del fragmento | ~0.4 ms | una palabra suelta del catálogo: un dict |
-
-Es decir: **el trabajo de traducción es prácticamente gratis y la latencia
-es casi toda del lado de la transcripción**. `rt_first_sign_ms` (backend,
-del primer texto del STT a la primera seña) da p50 0.4 ms, lo que
-confirma lo mismo desde el otro lado.
-
-### Tres bugs que solo aparecieron al correr
-
-Los tres daban una seña **equivocada**, no ausente, que es el modo de
-falla que más importa aquí. Documentados porque el razonamiento es lo
-que evita repetirlos:
-
-1. **Vectores sin normalizar comparados con producto punto.** El `<=>`
-   de pgvector normaliza internamente y `SentenceTransformer.encode`
-   no, así que un fragmento corto daba distancia negativa y *todo* era
-   HIT. Cada fragmento respondía HOLA. Ahora `_unit()` normaliza de los
-   dos lados.
-
-2. **Matching por similitud cruzando fragmentos.** El umbral 0.05 está
-   calibrado para frases completas; en fragmentos de una o dos palabras
-   dejó de ser equivalencia y pasó a ser coincidencia accidental.
-   `"me llamo ana vivo en || bogota soy"` caía a <0.05 de
-   `"me llamo ana vivo en || vivo en"` y devolvía VIVIR,DONDE. Los
-   fragmentos usan `exact_only=True`.
-
-3. **`settled_count` contado en un espacio de índices y usado en
-   otro.** Contaba sobre `words` (con rellenos) e indexaba `tokens`
-   (sin ellos): firmaba media palabra de más.
-
-### Caché semántico en memoria
-
-`load_all()` al arrancar: 46 filas en **662 ms**. Con eso un lookup es
-distancia coseno con numpy en vez de ~200 ms de red. El embedding sigue
-en `asyncio.to_thread` porque son 12–25 ms de CPU y bloquear el bucle de
-eventos retrasaba también el audio entrante de las otras sesiones.
-
-La precarga es best-effort a propósito: un caché vacío cuesta una llamada
-al LLM por frase; un arranque que no arranca cuesta la sesión entera.
-
-### Precalentado del LLM
-
-La primera inferencia contra un servidor local carga el modelo: **6.2 s**
-medidos contra 270–440 ms de las siguientes. `LLMClient.warm_up()` lo
-saca de la ruta caliente, en una tarea aparte para no retrasar el
-arranque. Los errores se ignoran: que el servidor esté caído al arrancar
-no debe impedir que el servicio levante.
-
-### Camino corto por catálogo
-
-Una palabra suelta que existe en el catálogo resuelve en ~0.1 ms con un
-dict, sin embedding, sin caché y sin LLM. Casi la mitad de las 50 glosas
-son palabras sueltas escritas igual en español. Es deliberadamente
-literal y de una sola palabra: "vivo" no es `VIVIR`, y adivinar la
-morfología cambiaría una respuesta rápida equivocada por una lenta
-correcta.
-
-### Pendiente de medir
-
-- **Varios clientes a la vez.** Todo se midió con uno solo. Con varios
-  comparten la GPU y el `InferenceScheduler` los serializa, así que el
-  tiempo por cliente sube linealmente.
-- **El caché creciendo.** El tope son 20 000 filas (~30 MB). No se probó
-  qué pasa cuando se llena, solo que deja de crecer y avisa.
-
----
-
 ## 8. Caché semántico con oraciones cortas
 
 **Fecha:** 2026-10-02
@@ -604,6 +496,64 @@ segmentador se movió a `app/nlp/text_normalizer.py` para compartirlo.
 
 **Costo:** paráfrasis más lejanas ("¿Cómo se llama usted?" por "¿Cuál
 es su nombre?") ahora van al LLM la primera vez.
+
+---
+
+## 9. El prompt carga el vocabulario completo — y eso hay que quitarlo
+
+**Fecha:** medido el 2026-10-15, anotado acá el 2026-10-21.
+**Estado:** **pendiente.** Es el punto **D-7** de la decisión del owner (2026-10-16), y
+**todavía no se implementó**.
+
+**Cómo funciona hoy.** `LLMClient.__init__` arma el prompt **una sola vez** al
+arrancar el backend y lo guarda en `self._prompt`
+(`app/nlp/llm_client.py:149`), con las glosas ordenadas y separadas por comas
+(`app/nlp/llm_client.py:150`). En cada llamada se manda como mensaje de sistema
+(`app/nlp/llm_client.py:180`). El vocabulario es el **catálogo entero**:
+`catalog_repository.vocabulary()` (`app/main.py:74`), que devuelve las 50 glosas.
+
+**El tamaño actual.** El vocabulario son **413 caracteres, unos 103 tokens**
+(medido el 2026-10-15 con las 50 glosas de LSC50). El prompt del sistema
+completo ronda los **300 tokens**. Para 50 señas es irrelevante, y RD-01 fija el
+corpus en 50.
+
+**Dónde se rompe.** El costo es **lineal con el tamaño del corpus y se paga en
+cada llamada**:
+
+| Glosas | Caracteres de vocabulario | Tokens aproximados |
+|---|---|---|
+| 50 (hoy) | 413 | ~103 |
+| 500 | ~4 100 | ~1 000 |
+| 5 000 | ~41 000 | ~10 000 |
+
+A 5 000 glosas se mandan 41 KB de vocabulario en cada inferencia, más el costo de
+que el modelo preste atención a una lista que ya no cabe en su atención útil.
+
+**La decisión (D-7, owner, 2026-10-16).** El prompt **no** debe llevar la lista.
+El análisis está en `../sign-ai-android/docs/PLAN-MEDICION.md` §3. Las dos
+razones: el plan de pruebas
+(`../sign-ai-docs/plan-pruebas/01-diseno/llm/general.md:31-33`) dice que el prompt
+no la lleva, y el costo no escala. **El SDD no dice nada del contenido del
+prompt**, así que quitarlo no rompe ningún diagrama.
+
+**Qué sale y qué se queda.** La lista sale del prompt. **Se quedan**
+`_repair_glosses` (`app/nlp/llm_client.py:206`) y `_merge_fragments`
+(`app/nlp/llm_client.py:238`), que consultan el vocabulario con `normalize_gloss`
+contra un diccionario: es O(1) y escala sin problema, y es lo que evita que
+"cómo estás" vuelva como `TÚ, ESTAR, CÓMO`. También se queda el validador,
+`ValidatorServiceImpl._validate_gloss`
+(`app/validation/validator_service_impl.py:17-21`), que es el mecanismo de
+RF-CAT-03.
+
+**Lo que hay que reescribir cuando se implemente.** Tres reglas del prompt
+mencionan "the vocabulary" y quedan sin sentido si la lista ya no está
+(`app/nlp/llm_client.py:81-84` y `:91-92`). La regla del ejemplo ("COMO ESTAS"
+es **una** glosa, no dos) se puede conservar como ejemplo concreto, sin decir de
+dónde sale.
+
+**Lo que falta medir.** El plan de la app lo tiene como Fase 2: la reparación es
+lo que cubre el riesgo, y hay que medirlo para que la consecuencia quede con
+número y no con recuerdo.
 
 ---
 
@@ -710,19 +660,16 @@ automáticamente cada final para las pruebas).
 
 ## Cerrar la frase al detener el micrófono
 
-**Resuelto el 2026-10-02**: `_parse_client_frame` acepta
-`{"type":"end"}` y `Controller.handle_end()` lo reenvía al STT como el
-frame `"end"`. La app ya no necesita mandar ~2 s de silencio, y la
-documentación de `docs/android-integration.md` ya no lo pide.
-
-## Catálogo incompleto
+El STT acepta el mensaje de texto `"end"` para transcribir de inmediato
+la frase en curso, pero `_forward_audio` (`app/controller/router.py`)
+solo reenvía mensajes binarios e ignora los de texto. Si la app deja de
+enviar audio a mitad de una frase, nunca llegan los 1.5 s de silencio y
+la frase se pierde. Agregar al protocolo un mensaje de la app (por
+ejemplo `{"type": "end"}`) que el backend reenvíe al STT como `"end"`,
+y documentarlo en `docs/android-integration.md` (hoy indica enviar ~2 s
+de silencio como solución temporal).
 
 ## Desacoplar la traducción y enviar segmentos al estar listos
-
-**Resuelto el 2026-10-14**, ver entrada 9. Lo que
-queda de este ítem: la frase escrita y el "Repetir" siguen yendo por el
-camino de frase completa, que es lo correcto porque no hay hipótesis
-creciente que seguir.
 
 **Depende de:** el segmentador.
 
@@ -757,13 +704,9 @@ fechas y lugares) y confirmar el umbral.
 
 ## Catálogo incompleto
 
-**Resuelto el 2026-10-14** (semilla): la tabla `catalog` tiene las 50
-glosas de LSC50 con `glb_animation_path` same-origin (`signs/<id>.glb`).
-
-Lo que sigue incompleto es del lado de la app: **solo 32 de las 50 tienen
-animación exportada**. Las 18 restantes llegan con `available: true` y un
-path que no existe, que es lo que dispara `SignsCatalog.isOwnAssetPath()`
-del lado Android. Exportarlas es el gap más grande de calidad que queda.
+La tabla `catalog` en Neon tiene 3 señas de las 50 del corpus, por eso
+casi todas las glosas salen con `available: False`. Cargar el catálogo
+completo antes de la demo.
 
 ## STT (`sign-ai-stt`)
 
@@ -775,3 +718,47 @@ del lado Android. Exportarlas es el gap más grande de calidad que queda.
   corto. Si se repite, ajustar `SPEECH_ONSET_WINDOW_MS`.
 - **Varias sesiones a la vez:** todo se probó con un solo cliente; con
   varios, comparten la misma GPU.
+
+---
+
+## Vuelta al flujo por oraciones (2026-10-15)
+
+**Qué cambió:** el camino por fragmentos (`app/realtime/`, `stream: true`,
+`total: 0`) se desarmó y la unidad de traducción volvió a ser la oración. La
+traducción solo se dispara con un `{"type":"text"}` del cliente; las
+transcripciones del STT se reenvían para mostrarse y nada más. El detalle del
+contrato está en `docs/sdd-changes.md` y en `docs/android-integration.md` §3.1.
+
+**Las métricas renombradas** porque `rt_utterance_*` y `rt_chunk_*` describían
+fragmentos. Ahora son `rt_phrase_total_ms`, `rt_sentence_delay_ms`,
+`rt_sentences_total`, `rt_phrases_total` y `rt_phrase_sentences`.
+`rt_first_sign_ms` conserva el nombre y ahora se mide **desde el envío del
+cliente**, que es la confirmación del usuario de RNF-DES-01.
+
+**Lo que hay que remedir antes de comparar:** la cifra de 913 ms p50 / 1336 ms
+p95 que circula en `tools/TIEMPO-REAL.md` y en las sesiones es del camino por
+palabras. No se puede comparar con la de ahora: con oraciones la primera
+oración se representa al **terminarla**, no a mitad de camino, así que el número
+sube por construcción y por una razón que no es una regresión. Repetir las 28
+frases de `../sign-ai-stt/fixtures/audio` (los clips se generan con
+`scripts/make_audio_fixtures.py --all` en el repo del STT) con
+`../sign-ai-android/tools/verificar-tiempo-real.sh` y recién
+después hablar de mejora o de lo contrario.
+
+**Pendiente de esta entrada:**
+
+- Repetir la medición de las 28 frases con la pila completa. **Ojo:** desde el
+  2026-10-16 el control de latencia de `tools/verificar-tiempo-real.sh` declara
+  **no medible** cualquier corrida hecha con `semantic_cache` llena, porque con
+  la caché caliente el p95 sale de 5 ms y pasa cualquier presupuesto sin haber
+  medido el pipeline. Para medir en frío: `DELETE FROM semantic_cache;` y
+  reiniciar el backend.
+- ~~Contrastar `rt_sentence_delay_ms` con la traza por oración~~ — **hecho el
+  2026-10-16.** El "por qué se demoró" ya no depende de leer un log con
+  `DEBUG_TRACE_ENABLED=true`: hay tres histogramas en `/metrics` que lo dicen.
+  `llm_ms{model}` es la llamada al modelo de lenguaje (medido con
+  `qwen3:4b-instruct` en Ollama local: p50 442 ms, max 881 ms) y
+  `cache_lookup_ms` la consulta a la caché semántica (p50 48 ms, que no es lo
+  que se asumía: una fila de la caché no es gratis). `rt_read_loop_busy_ms` es
+  el trabajo por frame del bucle de lectura del socket, que es el cuarto actor
+  y el que estaba trabando el micrófono.

@@ -1,8 +1,4 @@
-"""Canal con el servicio STT."""
-
 from abc import ABC, abstractmethod
-
-from app.realtime.incremental import TranscriptUpdate
 
 
 class SttServiceClient(ABC):
@@ -25,8 +21,8 @@ class SttServiceClient(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def receive_transcript(self) -> TranscriptUpdate | None:
-        """The next transcription update, or None if the connection closed."""
+    async def receive_transcript(self) -> tuple[str, bool] | None:
+        """Returns (text, is_final), or None if the connection closed."""
         raise NotImplementedError
 
     @abstractmethod

@@ -52,24 +52,6 @@ class CatalogRepository:
     def search(self, gloss: str) -> CatalogEntry | None:
         return self.cache.get(normalize_gloss(gloss))
 
-    def search_word(self, word: str) -> CatalogEntry | None:
-        """Like `search`, but for one word out of spoken Spanish.
-
-        The catalog is 50 glosses in plain uppercase, and about half of them are
-        bare words that Spanish text writes the same way (`HOLA`, `GRACIAS`,
-        `FAMILIA`, `BIEN`, `NUNCA`). A fragment like "hola" arriving from the
-        real-time path is a catalog lookup away from a sign, so it does not need
-        the embedding, the cache, or the LLM to get there.
-
-        Single-word only, and an exact match only. "vivo" is not `VIVIR` and
-        guessing morphology here would trade a fast wrong answer for a slow
-        right one; that case goes to the LLM like it always did.
-        """
-        candidate = word.strip()
-        if not candidate or " " in candidate:
-            return None
-        return self.cache.get(normalize_gloss(candidate))
-
     def vocabulary(self) -> dict[str, str]:
         """Every catalog gloss as folded key -> display spelling.
 

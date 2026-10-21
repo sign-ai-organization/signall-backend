@@ -38,6 +38,12 @@ async def main() -> None:
             settings.llm_model,
             settings.llm_temperature,
             settings.llm_timeout_ms,
+            # Sin esto el cliente habla con OpenAI de verdad y con
+            # `LLM_MODEL=qwen3:4b-instruct` responde 404 "model not found":
+            # el script parecía que andaba y lo que hacía era pegarle a la API
+            # de otro con un modelo que no existe ahí.
+            settings.llm_base_url,
+            catalog_repository.vocabulary(),
         ),
         SentenceSegmenter(settings.sentence_segmenter) if settings.sentence_segmenter.enabled else None,
     )

@@ -47,32 +47,6 @@ class Settings(BaseSettings):
     # semantic cache HIT. Lower = stricter match required.
     semantic_cache_similarity_threshold: float = 0.05
 
-    # Default matches the "stt" service name in docker-compose.yml.
-    stt_ws_url: str = "ws://stt:8000/ws/transcribe"
-
-    # ---- Tiempo real -------------------------------------------------------
-    # Con esto apagado el backend se comporta exactamente como antes: espera el
-    # transcripción final y manda la frase completa en un solo lote. Encendido,
-    # traduce y envia cada fragmento de la frase a medida que el STT lo
-    # confirma como dicho (ver app/realtime/).
-    realtime_enabled: bool = True
-
-    # Margen en ms entre "la palabra terminó" y "la doy por firme". Whisper
-    # marca el final de una palabra un poco antes de que de verdad se calle,
-    # así que un margen pequeño hace que se firme tarde. Con 180 ms la palabra
-    # anterior al silencio ya está estable pero todavía hay Cola para
-    # transcribir la que se está formando.
-    realtime_settle_margin_ms: int = 180
-
-    # Cuántas palabras nuevas esperar antes de lanzar una traducción, cuando el
-    # STT no manda timestamps por palabra. Evita una llamada al LLM por sílaba;
-    # a cambio la última palabra de la frase espera un poco más.
-    realtime_batch_words: int = 2
-
-    # Máximo de fragmentos enviados por utterance. Si el STT se desarma y nunca
-    # cierra el segmento, esto corta la racha en vez de acumular indefinida.
-    realtime_max_segments: int = 32
-
     # Cargar el semantic_cache completo en memoria al arrancar. Con la base
     # Neon a ~100 ms por viaje, un HIT por red costaba más que el LLM que
     # estaba evitando. Es un caché derivado: se reconstruye solo.
@@ -82,6 +56,15 @@ class Settings(BaseSettings):
     # dice; si sepas que va a crecer mucho, esto lo frena en vez de dejar que
     # el proceso se coma la RAM.
     semantic_cache_max_rows: int = 20000
+
+    # Default matches the "stt" service name in docker-compose.yml.
+    stt_ws_url: str = "ws://stt:8000/ws/transcribe"
+
+    # How often to re-read the STT's /health to mirror its runtime configuration
+    # (today `silence_timeout_ms`) into our own /health. The Android app needs
+    # that value for its debug overlay and cannot ask the STT directly, so it has
+    # to travel through this service. 0 disables the poll.
+    stt_config_poll_seconds: float = 30.0
 
     # Nested: override as SENTENCE_SEGMENTER__<FIELD>, e.g. SENTENCE_SEGMENTER__ENABLED=false.
     sentence_segmenter: SentenceSegmenterSettings = SentenceSegmenterSettings()

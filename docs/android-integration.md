@@ -99,6 +99,37 @@ En Android, `AudioRecord` con `AudioFormat.ENCODING_PCM_16BIT`,
 No hay que avisar cuándo termina una frase: el sistema lo detecta por
 el silencio (~1.5 s) y responde solo.
 
+### 3.1 Traducir es mandar un `text`: el audio nunca se traduce solo
+
+El backend tiene dos entradas y **una sola de las dos se traduce**:
+
+| Frame | Qué hace el backend |
+|---|---|
+| Audio binario | Lo reenvía al STT tal cual y te devuelve cada transcripción. **No traduce nada.** |
+| `{"type":"text","text":"..."}` | Divide la frase en oraciones y devuelve un `segment` por oración. |
+| `{"type":"end"}` | Le avisa al STT que cierre el utterance abierto. No traduce. |
+
+Que el `final` del STT no dispare traducción es lo que hace que **RF-STT-03**
+se cumpla por construcción: no hay forma de que una frase dictada llegue al
+módulo de lenguaje sin que la app la haya mandado. Por eso los tres modos de
+captura son decisión de la app y no hay que avisarle nada al backend:
+
+- **Dictado**: la app deja la frase en la barra y la manda como `text` cuando
+  el usuario confirma.
+- **En vivo**: la app reenvía cada frase que cierra, sola, sin que el usuario
+  toque nada.
+- **En vivo con el micrófono siempre prendido** (`◢◢ TR`): igual que el
+  anterior, sin apagar el micrófono entre frases.
+
+El texto viaja dos veces en el camino de voz (primero llega como audio y sale
+como transcripción, después la app lo manda como `text`), y ese es el precio de
+que el backend no sepa en qué modo está. Alrededor de un milisegundo por frase
+en local, al lado de los cientos de milisegundos del LLM.
+
+**No existe un frame `mode`.** La versión anterior de este contrato tenía uno
+para distinguir dictado de tiempo real; ya no está. Un cliente viejo que lo
+mande no rompe nada: el frame se ignora como cualquier `type` desconocido.
+
 ---
 
 ## 4. Mensajes que envía el backend (backend → app)
@@ -114,39 +145,34 @@ Todos son JSON de texto. Se distinguen por el campo `type`.
 - `final: false`: transcripción parcial; llega varias veces mientras la
   persona habla, cada una reemplaza a la anterior. Es el texto que se
   muestra en la barra de transcripción en vivo (RF-STT-02).
-- `final: true`: la frase terminó; es el texto definitivo. Puede venir
-  vacío (`""`): ignorarlo.
+- `final: true`: la frase terminó; es el texto definitivo.
 
-En modo tiempo real (`REALTIME_ENABLED=true`, el default) los parciales ya
-disparan `segment`: **no hay que esperar al `final` para empezar a señar**.
+**Una transcripción nunca dispara una traducción.** Ver §3.1.
 
-### `segment`: un fragmento traducido, listo para el avatar
+### El `final` vacío es una respuesta, no una pérdida
 
-Es el mismo frame para los dos modos, y lo que los distingue es `stream`.
+Un `final` puede venir con `text: ""`. Es lo que pasa cuando el STT cierra la
+frase sobre audio que su filtro de descarte no encontró (*ruido*, `no_speech`,
+`logprob`): la frase se cerró y no tenía palabras. **El STT responde siempre al
+`end` del cliente, también en vacío**; si no, el cliente que preguntó queda
+esperando una transcripción que ya no va a llegar.
 
-**Modo fragmentado** (`stream: true`, el default). El backend traduce
-apenas el STT confirma que esas palabras ya se dijeron y lo manda en el
-acto. `total` es `0`: en una frase todavía abierta nadie sabe cuántas
-van a ser.
+Atendé el `final` vacío cerrando la frase: cancelá cualquier espera de
+transcripción y mandá lo que tengas en el buffer de dictado. Si no hay nada,
+mostrale al usuario "No se escuchó nada" y volvé a `Idle`. Ignorarlo deja la
+app colgada hasta su timeout, y el timeout reporta como fallida una frase que
+nunca existió.
 
-```json
-{
-  "type": "segment",
-  "index": 0,
-  "total": 0,
-  "stream": true,
-  "provisional": true,
-  "source_text": "hola",
-  "segment": {
-    "type": "AFFIRMATIVE",
-    "glosses": [{"text": "HOLA", "available": true, "glb_path": "signs/0030_0000_0000.glb"}]
-  }
-}
-```
+Ojo con el texto del usuario: un `final` vacío **no** debe vaciar el campo de
+entrada. Si el usuario tenía algo escrito a mano antes de prender el micrófono
+y no llegó a decir nada, ese texto se sigue escribiendo.
 
-**Modo frase completa** (`stream` ausente o `false`). El backend divide
-el texto en oraciones y manda una por mensaje, en orden, sin esperar a
-las demás.
+### `segment`: una oración traducida, lista para el avatar
+
+Cuando el cliente manda una frase con `{"type":"text"}`, el backend la divide
+en oraciones y envía **una por mensaje, en orden, en cuanto cada una está
+lista**. No hay que esperar a las demás: el avatar puede empezar a señar la
+primera mientras se traducen las siguientes.
 
 ```json
 {
@@ -156,9 +182,9 @@ las demás.
   "segment": {
     "type": "CONTENT_QUESTION",
     "glosses": [
-      {"text": "HOLA", "available": true, "glb_path": "signs/0030_0000_0000.glb"},
+      {"text": "HOLA", "available": true, "glb_path": "/static/glb/hola.glb"},
       {"text": "TU", "available": false, "glb_path": ""},
-      {"text": "COMO", "available": true, "glb_path": "signs/0044_0000_0000.glb"}
+      {"text": "COMO", "available": true, "glb_path": "/static/glb/como.glb"}
     ]
   }
 }
@@ -166,26 +192,18 @@ las demás.
 
 | Campo | Significado |
 |---|---|
-| `index` | Posición, desde 0. Siempre en orden. |
-| `total` | Cuántos fragmentos tiene la frase. **`0` significa "todavía no se sabe"**, que es lo normal mientras la frase está abierta. Solo en modo fragmentado. |
-| `stream` | `true` si el fragmento se envió sin esperar el final. Un backend más viejo que la app no lo manda, y la app cae en el camino de frase completa, que es el default seguro. |
-| `provisional` | `true` si el fragmento salió de una hipótesis que el STT todavía puede corregir. Solo informativo: la app lo muestra como texto provisional, no cambia lo que firma. |
-| `source_text` | El texto del STT del que salió este fragmento. Es lo que la app registra en el historial. |
+| `index` | Posición de la oración (empieza en 0). Siempre llegan en orden. |
+| `total` | Cuántas oraciones tiene la frase. Se conoce desde la primera. |
 | `segment.type` | Tipo de frase: `AFFIRMATIVE`, `YES_NO_QUESTION`, `CONTENT_QUESTION`, `NEGATIVE` o `IMPERATIVE`. Sirve para los marcadores no manuales del avatar. |
 | `glosses` | Señas en el orden en que se deben reproducir. |
 | `glosses[].available` | `true` si la seña está en el catálogo del backend. |
-| `glosses[].glb_path` | Valor de `glb_animation_path` del catálogo para esa seña. |
+| `glosses[].glb_path` | Valor de `glb_animation_path` del catálogo para esa seña. Vacío si `available` es `false`. |
 
-**Qué tiene que hacer la app con `stream: true`.** No esperar: anexar el
-fragmento a la cola de reproducción y firmarlo ya. `total: 0` no es un
-error ni un total pendiente de resolver: es la señal de que la cola
-puede seguir creciendo.
-
-`glb_path` es **siempre un path same-origin dentro del APK**
-(`signs/<id>.glb`), nunca una URL. Las animaciones viven en la app, no en
-el backend; el backend solo dice qué seña reproducir. Si una glosa no
-está disponible, la app decide qué hacer (omitirla, deletrear, mostrar el
-texto).
+Las animaciones GLB viven en la app, no en el backend. La app usa
+`text` (la glosa) o `glb_path` para encontrar la animación en sus
+propios recursos; el catálogo del backend y los archivos de la app
+tienen que usar los mismos nombres. Si una glosa no está disponible, la
+app decide qué hacer (omitirla, deletrear, mostrar el texto).
 
 ### `done`: terminó la frase
 
@@ -193,9 +211,7 @@ texto).
 {"type": "done"}
 ```
 
-Llega después del último `segment` de la frase. En modo fragmentado
-significa "el backend dejó de mandar", **no** "terminó la animación": la
-app sigue firmando lo que quede en la cola y recién ahí cierra el turno.
+Llega después del último `segment` de la frase.
 
 ### `error`
 
@@ -267,9 +283,7 @@ val socket = client.newWebSocket(request, object : WebSocketListener() {
 // Captura: 16 kHz, mono, PCM 16 bits; enviar bloques de ~30 ms
 val minBuffer = AudioRecord.getMinBufferSize(16000, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
 val recorder = AudioRecord(
-    // VOICE_RECOGNITION, no MIC: es la fuente afinada para reconocimiento, así
-    // el STT escucha la voz en vez del AGC bombeando.
-    MediaRecorder.AudioSource.VOICE_RECOGNITION, 16000,
+    MediaRecorder.AudioSource.MIC, 16000,
     AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(minBuffer, 960 * 4)
 )
 recorder.startRecording()
@@ -288,65 +302,38 @@ pasar al hilo principal antes de tocar la interfaz o el avatar.
 
 ### Reproducción en el avatar
 
-Modo fragmentado (el default): **anexar** cada `segment` a la cola y
-firmarlo ya. El primero arranca la cola; los siguientes se encadenan
-detrás de lo que esté sonando. Es indispensable que elappen en orden:
-resolver una glosa puede suspender (bajar un asset remoto), así que si
-dos fragmentos compiten y se anexan desordenados el avatar firma la
-frase al revés.
-
-Modo frase completa (`stream` ausente o `false`): encolar por `index` y
-reproducirlos en ese orden. Ya llegan ordenados, pero la cola permite
-empezar el primero mientras llegan los demás.
-
-Dentro de cada segmento, reproducir `glosses` en el orden de la lista.
+- Encolar los `segment` por `index` y reproducirlos en ese orden; ya
+  llegan ordenados, pero la cola permite empezar el primero mientras
+  llegan los demás.
+- Dentro de cada segmento, reproducir `glosses` en el orden de la lista.
 
 ### Al detener el micrófono
 
-**Ya no hace falta mandar silencio.** Al soltar el micrófono, la app
-manda `{"type":"end"}` y el backend lo reenvía al STT como el frame
-`end` del protocolo, que fuerza la transcripción final del segmento en
-curso. Antes había que mandar ~2 s de bytes en cero, porque el segmento
-solo se cerraba oyendo silencio.
+**Limitación actual:** una frase solo se cierra tras ~1.5 s de
+silencio. Si la app deja de enviar audio a mitad de una frase, esa frase
+no se transcribe. Mientras se corrige en el backend, al detener el
+micrófono enviar ~2 s de silencio (bloques de bytes en cero) antes de
+cerrar el WebSocket:
 
-El hangover de silencio del STT bajó de 1500 ms a 600 ms
-(`SILENCE_TIMEOUT_MS`, perfil de tiempo real). Ese es el piso por debajo
-del cual una pausa natural entre palabras parte la frase en dos, que
-para señas encadenables es el trade-off correcto.
+```kotlin
+repeat(67) { socket.send(ByteArray(960).toByteString()) } // ~2 s de silencio
+```
 
 Cerrar la conexión con `socket.close(1000, null)` cuando termine la
 conversación.
 
 ---
 
-## 6. Ejemplo de una frase completa (modo fragmentado)
+## 6. Ejemplo de una frase completa
 
 ```
 app → backend   [audio binario continuo...]
 backend → app   {"type":"transcript","text":"Hola","final":false}
-backend → app   {"type":"segment","index":0,"total":0,"stream":true,"provisional":true,
-                 "source_text":"hola","segment":{"glosses":[{"text":"HOLA",...}]}}
-                       ↑ el avatar ya empieza a firmar HOLA mientras la persona sigue hablando
-backend → app   {"type":"transcript","text":"Hola, ¿cómo estás?","final":false}
-backend → app   {"type":"segment","index":1,"total":0,"stream":true,"provisional":true,
-                 "source_text":"como estas","segment":{"glosses":[{"text":"COMO ESTAS",...}]}}
-                (silencio ~0.6 s)
-backend → app   {"type":"transcript","text":"Hola, ¿cómo estás?","final":true}
-backend → app   {"type":"done"}   ← el avatar sigue firmando lo que le queda en la cola
-```
-
-Medido sobre los 28 fixtures de audio del repo `sign-ai-stt`, reproducidos
-por el socket a velocidad real: **primera seña p50 913 ms / p95 1336 ms**,
-contada desde el primer sample de audio. El modo anterior esperaba al
-`final`: 2.4–4.8 s después de que la persona dejaba de hablar.
-
-## 6bis. Ejemplo de una frase completa (modo `REALTIME_ENABLED=false`)
-
-```
-app → backend   [audio binario continuo...]
+backend → app   {"type":"transcript","text":"Hola, ¿cómo estás? Me llamo Ana.","final":false}
+                (silencio ~1.5 s)
 backend → app   {"type":"transcript","text":"Hola, ¿cómo estás? Me llamo Ana.","final":true}
-backend → app   {"type":"segment","index":0,"total":2,"segment":{...}}
-backend → app   {"type":"segment","index":1,"total":2,"segment":{...}}
+backend → app   {"type":"segment","index":0,"total":2,"segment":{...}}   ~0.3 s después
+backend → app   {"type":"segment","index":1,"total":2,"segment":{...}}   ~1.5–2.5 s si va al LLM
 backend → app   {"type":"done"}
 ```
 
@@ -357,24 +344,21 @@ procesa igual.
 
 ## 7. Limitaciones actuales (importante)
 
-- **18 de las 50 glosas no tienen animación.** El catálogo de Neon
-  anuncia las 50 con `available: true`, pero el APK solo trae 32 `.glb`
-  (`0000`–`0031`). Las 18 restantes (`0032`–`0049`: POR FAVOR, CON GUSTO,
-  NUNCA, YO, TU, USTEDES, QUE, CUANDO, DONDE, COMO, POR QUE, QUIEN,
-  DIFERENTE, TODOS, MUCHO, BIENVENIDO, PERDÓN, PERMISO) llegan como un
-  path propio que nadie va a servir. La app lo detecta y no intenta
-  bajarlo por HTTP.
-- **Glosas fuera de LSC50 se traducen a algo aproximando.** "estudiante" no
-  está en el vocabulario cerrado y el LLM puede devolver algo que no
-  significa lo mismo. Lo correcto sería que la frase se quedara sin firmar
-  y quedara en el caption.
+- **Falta acordar el formato de `glb_path`.** Hoy el catálogo guarda
+  rutas como `/static/glb/casa.glb`, pensadas para un servidor del
+  backend que ya no se usará. Hay que definir con el equipo qué valor
+  guarda el catálogo (por ejemplo, el nombre del archivo dentro de la
+  app) para que la app lo encuentre.
+- **Detener el micrófono a mitad de una frase la pierde**, salvo que la
+  app envíe ~2 s de silencio antes de cerrar (sección 5). Se corregirá
+  en el backend para que la app pueda pedir el cierre de la frase.
+- **El catálogo tiene 3 de las 50 señas.** Casi todas las glosas llegan
+  con `available: false` hasta que se cargue el catálogo completo.
 - **Confirmación del texto (RF-STT-03 / RF-UI-02) no implementada.** Los
   requisitos dicen que el usuario confirma (y puede editar) el texto
-  final antes de traducirlo. Hoy el backend traduce cada fragmento
-  automáticamente, que es incompatible con confirmar: para cuando llegara
-  el `final` el avatar ya firmó media frase. Cuando se implemente, la
-  app tendrá que enviar un mensaje de confirmación con el texto; **este
-  contrato va a cambiar** y
+  final antes de traducirlo. Hoy el backend traduce cada final
+  automáticamente. Cuando se implemente, la app tendrá que enviar un
+  mensaje de confirmación con el texto; **este contrato va a cambiar** y
   se acordará antes con el equipo.
 - El protocolo de esta guía todavía no está reflejado en el SDD (ver
   `docs/sdd-changes.md`).
@@ -383,79 +367,11 @@ procesa igual.
 
 ## 8. Probar sin la app
 
-Hay tres formas, de menos a más realista.
-
-### Cliente de referencia, con micrófono
-
-`scripts/manual_translation_client.py` hace lo mismo que la app
-(micrófono → WebSocket → imprime los mensajes) e imprime la latencia de
-cada mensaje. Sirve para comparar comportamientos a ojo:
+`scripts/manual_translation_client.py` es un cliente de referencia que
+hace lo mismo que debe hacer la app (micrófono → WebSocket → imprime los
+mensajes). Útil para comparar comportamientos:
 
 ```bash
 pip install -r requirements-dev.txt
 python -m scripts.manual_translation_client ws://<IP-del-computador>:8080/ws/translate
 ```
-
-### Reproducir un WAV, sin micrófono ni voz
-
-`scripts/verify_realtime_latency.py` manda un WAV por el socket a
-velocidad real y cronometra desde el primer sample. Es la forma
-reproducible: el mismo archivo da siempre el mismo resultado.
-
-```bash
-# una frase
-python scripts/verify_realtime_latency.py --phrase "hola" --phrase "cómo estás"
-
-# línea de tiempo de un audio
-python scripts/verify_realtime_latency.py \
-    --replay-audio ../sign-ai-stt/fixtures/audio/conversacion_2.wav
-
-# los 28 fixtures, con tabla y p50/p95 al final
-python scripts/verify_realtime_latency.py --all-fixtures
-```
-
-Los WAV se generan en el repo del STT:
-
-```bash
-cd ../sign-ai-stt
-python3 -m venv .venv-tts && .venv-tts/bin/pip install piper-tts numpy
-.venv-tts/bin/python scripts/make_audio_fixtures.py --all
-```
-
-### Sin nada corriendo
-
-```bash
-# qué seña se firma y cuál no: 31 aserciones, sin red ni base de datos
-docker compose exec backend python scripts/verify_incremental.py
-
-# el protocolo del WebSocket, en los dos modos
-docker compose exec backend python scripts/verify_client_frames.py
-```
-
-### Todo junto, con el teléfono incluido
-
-En el repo de la Android:
-
-```bash
-tools/verificar-tiempo-real.sh
-```
-
----
-
-## 9. Métricas
-
-Los dos servicios exponen `/metrics` (Prometheus) y `/metrics.json`.
-
-```bash
-curl -s 127.0.0.1:8080/metrics | less
-curl -s 127.0.0.1:8000/metrics.json | python3 -m json.tool
-```
-
-Del backend, las que importan para el modo fragmentado:
-
-| Métrica | Qué es |
-|---|---|
-| `rt_first_sign_ms` | del primer texto del STT a la primera seña enviada. **La que decide si se siente en tiempo real.** |
-| `rt_utterance_ms` | del primer texto a la última seña. |
-| `rt_chunk_delay_ms` | cada fragmento por separado, para ver si se entregan espaciados o de golpe al final. |
-| `audio_bytes_total` | audio reenviado al STT. El único tramo que no produce salida: si el micrófono se rompe, esto es lo único que se mueve. |

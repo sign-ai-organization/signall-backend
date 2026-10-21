@@ -100,7 +100,9 @@ nunca se conecta directo al STT.
 **Por qué:** se evaluó una alternativa (repo `stt-integration-test`) donde
 el cliente le habla directo al STT y este reenvía por HTTP al backend
 como aviso aparte. Se descartó porque contradice un requerimiento ya
-aprobado (`docs/requirements.md`): un único canal WebSocket persistente
+aprobado (**RF-INT-COM-01**, en
+`../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md:168`):
+un único canal WebSocket persistente
 entre la app y el backend, que lleva audio en un sentido y el resultado
 final en el otro — la alternativa necesitaría una segunda conexión
 (app↔STT) que ese requerimiento no contempla.

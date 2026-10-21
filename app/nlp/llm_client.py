@@ -2,6 +2,7 @@ import logging
 
 from langchain_openai import ChatOpenAI
 
+from app.metrics import metrics_timer
 from app.validation.catalog_repository import normalize_gloss
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,9 @@ logger = logging.getLogger(__name__)
 #
 #   1. The vocabulary is CLOSED and injected into the prompt, taken straight from
 #      the catalog. The model cannot invent a sign that will not resolve.
+#      -- PART 1 IS SUPERSEDED: decision D-7 (owner, 2026-10-16) takes the list
+#      OUT of the prompt, because it goes against the test plan and does not
+#      scale. Parts 2 and 3 stay. See docs/performance.md section 9.
 #   2. Multi-word glosses are explicitly allowed, and there is an explicit
 #      counter-example of the exact split we were getting.
 #   3. `_repair_glosses` fixes the answer *after* the fact, because a 4B model
@@ -158,47 +162,41 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
             timeout=timeout_ms / 1000,
         )
 
-    async def transform(self, text: str, context: str = "") -> list[str]:
-        """Glosses for `text`.
-
-        `context` is what was already translated earlier in the same utterance.
-        It is **not** translated again; it is there so a fragment that is not a
-        sentence on its own still gets a sensible answer. "estudiante" alone got
-        the model to answer NIÑO; "me llamo ana / estudiante" gets ESTUDIANTE
-        out of vocabulary rather than a wrong sign the avatar would play.
-
-        Context is only sent when there is some. That keeps the first fragment of
-        an utterance — the one the user notices first — on the plain, cacheable
-        path, and it is the only fragment that reliably is a phrase.
-        """
-        messages = [("system", self._prompt)]
-        if context:
-            messages.append(
-                (
-                    "human",
-                    f"Contexto ya traducido (NO lo repitas en la respuesta): {context}\n"
-                    f"Traduce solo esto: {text}",
-                )
+    async def transform(self, text: str) -> list[str]:
+        # `rt_first_sign_ms` says when the first sentence went out and
+        # `rt_sentence_delay_ms` repeats that clock for every sentence, but
+        # neither says *why* one of them was late. Until this metric existed the
+        # only trace of the model call was `PipelineTrace`, which needs
+        # `DEBUG_TRACE_ENABLED=true` and a log to read, so the number that
+        # decides whether this feels real time had no measurement of the stage
+        # that actually costs it.
+        with metrics_timer(
+            "llm_ms",
+            "Inference del modelo de lenguaje para una oracion",
+            {"model": self.model},
+        ):
+            response = await self._chat.ainvoke(
+                [
+                    ("system", self._prompt),
+                    ("human", text),
+                ]
             )
-        else:
-            messages.append(("human", text))
-
-        response = await self._chat.ainvoke(messages)
         return self._repair_glosses(self._parse_glosses(response.content))
 
     async def warm_up(self) -> None:
-        """Una llamada de relleno para que la primera frase real no pague el arranque.
+        """One filler call, so the first real phrase does not pay for the load.
 
-        Con un servidor local, la primera inferencia carga el modelo en memoria:
-        medido, 6.2 s contra los 270-440 ms de las siguientes. Sin esto, la
-        primera frase de la sesión paga seis segundos y el resto anda bien, que
-        es la peor forma de fallar para una demo. Los errores se ignoran a
-        propósito: que el servidor esté caído al arrancar no debe impedir que el
-        servicio levante, y la primera frase real lo reportará como sí.
+        With a local server the first inference pulls the model into memory:
+        measured, 6.2 s against the 270-440 ms of the ones after it. Without
+        this, the first phrase of the session pays six seconds and the rest run
+        fine, which is the worst way to fail for a demo. Errors are ignored on
+        purpose: the model server being down at start-up must not keep the
+        service from starting, and the first real phrase will report it as what
+        it is.
         """
         try:
             await self.transform("hola")
-        except Exception:  # noqa: BLE001 - el precalentado es opcional
+        except Exception:  # noqa: BLE001 - the warm-up is optional
             logger.warning("LLM warm-up failed; the first real phrase will pay the model load", exc_info=True)
 
     def _parse_glosses(self, content: str) -> list[str]:

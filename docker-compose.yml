@@ -21,37 +21,19 @@ services:
     env_file:
       - .env
 
-  # STT service (Whisper), lives in a separate repo (sign-ai-stt).
-  #
-  # Los valores de latencia vienen de variables de entorno con default en el
-  # perfil de tiempo real de `sign-ai-stt/app/config.py`. Acá se listan
-  # explicitamente para que un despliegue los vea de un vistazo; si se saca uno,
-  # el default del perfil sigue aplicando.
+  # STT service (Whisper), lives in a separate repo (sign-ai-stt.
   stt:
     build: ../sign-ai-stt
     ports:
       - "8000:8000"
     environment:
-      MODEL_SIZE: ${STT_MODEL_SIZE:-medium}
-      # Modelo chico para los parciales. Se descarta en cuanto llega el final,
-      # asi que no necesita la precision del modelo de finales.
-      PARTIAL_MODEL_SIZE: ${STT_PARTIAL_MODEL_SIZE:-small}
-      PARTIAL_COMPUTE_TYPE: ${STT_PARTIAL_COMPUTE_TYPE:-float16}
+      MODEL_SIZE: medium
       DEVICE: cuda
       COMPUTE_TYPE: float16
       LANGUAGE: es
-      # Hangover de silencio: el mayor termino de la latencia percibida.
-      SILENCE_TIMEOUT_MS: ${STT_SILENCE_TIMEOUT_MS:-600}
-      PARTIAL_INTERVAL_MS: ${STT_PARTIAL_INTERVAL_MS:-250}
-      SPEECH_ONSET_WINDOW_MS: ${STT_SPEECH_ONSET_WINDOW_MS:-150}
-      AVG_LOGPROB_THRESHOLD: ${STT_AVG_LOGPROB_THRESHOLD:--1.0}
-      WORD_TIMESTAMPS: ${STT_WORD_TIMESTAMPS:-true}
+      SILENCE_TIMEOUT_MS: 1500
     volumes:
       - stt-hf-cache:/root/.cache/huggingface
-      # Fixtures de audio de `sign-ai-stt/scripts/make_audio_fixtures.py`, de
-      # solo lectura: las pruebas de latencia extremo a extremo los reproducen
-      # por el socket sin necesitar el microfono.
-      - ../sign-ai-stt/fixtures:/fixtures:ro
     deploy:
       resources:
         reservations:

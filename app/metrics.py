@@ -7,19 +7,26 @@ es preferible a inventar un paquete común para dos consumidores.
 Qué se mide y por qué
 ---------------------
 
-Un backend de traducción tiene tres relojes distintos que se confunden si se
-miden como uno solo:
+La unidad de traducción es la **oración**, y la frase llega por el frame `text`
+del cliente. Un backend de traducción tiene tres relojes distintos que se
+confunden si se miden como uno solo:
 
-- `rt_first_sign_ms`: primer texto del STT → primera seña enviada. **Es la
-  latencia que percibe el usuario** y la única que importa para decidir si el
-  producto se siente en tiempo real.
-- `rt_utterance_ms`: primer texto → última seña. Cuánto dura la respuesta
-  completa.
-- `rt_chunk_delay_ms`: cada fragmento individual, para ver si se entrega
-  espaciado o de golpe al final.
+- `rt_first_sign_ms`: frase recibida → primera oración traducida y enviada.
+  **Es la latencia que percibe el usuario** y la única que importa para decidir
+  si el producto se siente en tiempo real. El punto de partida es el envío del
+  cliente, que es lo que RNF-DES-01 llama la confirmación del usuario.
+- `rt_phrase_total_ms`: frase recibida → última oración enviada. Cuánto tarda
+  la respuesta completa.
+- `rt_sentence_delay_ms`: cada oración por separado, para ver si salen
+  espaciadas o de golpe al final.
+
+Los nombres antiguos `rt_utterance_*` y `rt_chunk_*` describían el camino por
+palabras que ya no existe (traducir fragmentos mientras la persona todavía
+habla) y se renombraron al volver al flujo por oraciones: lo que miden es la
+misma cosa, pero el nombre tiene que decir qué cosa.
 
 Los histogramas guardan hasta 512 muestras cada uno para el p95, y ese tope es
-deliberado: el servicio produce miles de fragmentos por hora y retenerlos todos
+deliberado: el servicio produce miles de oraciones por hora y retenerlas todas
 sería una fuga de memoria disfrazada de instrumentación.
 """
 
@@ -129,6 +136,17 @@ class MetricsRegistry:
     def counter_value(self, name: str, labels: dict[str, str] | None = None) -> float:
         with self._lock:
             return self._counters.get(self._key(name, labels), 0.0)
+
+    def gauge_value(self, name: str, labels: dict[str, str] | None = None) -> float:
+        """Current value of a gauge.
+
+        Counters and gauges live in separate maps, so reading one with
+        `counter_value` always answers 0. That made every gauge that did
+        `gauge(name, counter_value(name) + 1)` —`sessions_active`— report 1 no
+        matter how many sessions were open: it never saw its own previous value.
+        """
+        with self._lock:
+            return self._gauges.get(self._key(name, labels), 0.0)
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:

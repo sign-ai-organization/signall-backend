@@ -1,19 +1,20 @@
-"""Caché semántico de frases -> glosas, resident en memoria.
+"""Semantic cache of phrase -> glosses, resident in memory.
 
-Por qué cambió
+Why it changed
 --------------
 
-La versión anterior preguntaba a Neon en cada `lookup`. Medido en este proyecto,
-un viaje a Neon cuesta ~100 ms y el `lookup` completo se llevaba ~200 ms con el
-acquire y el release: **el caché era más lento que el LLM que estaba evitando**.
-Para el modo frase-por-frase eso se tolera; para tiempo real, donde el objetivo
-es que el avatar empiece aSigning dentro del primer medio segundo, no.
+The previous version asked Neon on every `lookup`. Measured in this project, a
+trip to Neon costs ~100 ms and the whole `lookup` took ~200 ms with the acquire
+and the release: **the cache was slower than the LLM it was avoiding.** That has
+nothing to do with how fast the avatar is supposed to move — a cache that costs
+more than a miss is a cache that is never worth consulting, whatever else is
+happening in the pipeline.
 
-Ahora la tabla se carga completa al arrancar y la búsqueda es distancia coseno
-en memoria. En Neon solo se escribe, y en segundo plano.
+So the table is loaded whole at start-up and the search is cosine distance in
+memory. Neon is written to, and only in the background.
 
-El caché es derivado: se reconstruye con la primera frase de cada una. Perderlo
-no pierde información, solo obliga a volver a llamar al LLM.
+The cache is derived: it rebuilds itself from the first occurrence of each
+phrase. Losing it loses no information, it only means calling the LLM again.
 """
 
 import asyncio
@@ -34,19 +35,26 @@ def _format_vector(embedding: list[float]) -> str:
     return "[" + ",".join(str(value) for value in embedding) + "]"
 
 
+def _unit(vector: np.ndarray) -> np.ndarray:
+    """The vector scaled to length 1. A null vector is left as it is."""
+    norm = float(np.linalg.norm(vector))
+    if norm <= 1e-12:
+        return vector.astype(np.float32)
+    return (vector / norm).astype(np.float32)
+
+
 class _PhraseTypeIndex:
-    """Filas de un solo `phrase_type`, con la matriz de embeddings al lado.
+    """Rows of a single `phrase_type`, with the embedding matrix alongside.
 
-    Se particiona por tipo porque la consulta original filtraba por
-    `phrase_type`: mezclar tipos haría que "cómo estás" (pregunta) encontrara
-    cerca "bien" (afirmativo) solo por parecido léxico.
+    Partitioned by type because the original query filtered on `phrase_type`:
+    mixing types would let "cómo estás" (a question) find "bien" (affirmative)
+    close by on lexical resemblance alone.
 
-    Todos los vectores se guardan **normalizados a norma 1**. No es opcional:
-    la consulta anterior usaba el operador `<=>` de pgvector, que normaliza por
-    su cuenta, y `SentenceTransformer.encode` devuelve vectores sin normalizar.
-    Sin normalizar acá, el producto punto de un fragmento corto puede dar
-    mayor que 1, la distancia sale negativa y *todo* resulta HIT. Se traduce en
-    que el avatar firmaba HOLA para cada frase.
+    All vectors are stored **normalized to length 1**. This is not optional: the
+    original query used pgvector's `<=>`, which normalizes on its own, and
+    `SentenceTransformer.encode` returns unnormalized vectors. Without it, the
+    dot product of a short phrase can exceed 1, the distance comes out negative
+    and *everything* is a HIT.
     """
 
     __slots__ = ("vectors", "glosses", "exact")
@@ -54,8 +62,8 @@ class _PhraseTypeIndex:
     def __init__(self) -> None:
         self.vectors: np.ndarray = np.zeros((0, 0), dtype=np.float32)
         self.glosses: list[list[str]] = []
-        # texto normalizado -> índice de fila. El atajo exacto evita incluso
-        # calcular el embedding, que son 12-25 ms de CPU.
+        # normalized text -> row. The exact shortcut avoids even computing the
+        # embedding, which is 12-25 ms of CPU.
         self.exact: dict[str, int] = {}
 
     def add(self, normalized: str, vector: np.ndarray, glosses: list[str]) -> None:
@@ -78,19 +86,11 @@ class _PhraseTypeIndex:
         if not self.glosses:
             return None
 
-        # Con ambos lados normalizados, el producto punto es la similitud del
-        # coseno y la distancia es 1 - producto, igual que el `<=>` de pgvector.
+        # With both sides normalized, the dot product is cosine similarity and
+        # the distance is 1 - dot, the same thing pgvector's `<=>` computes.
         similarity = self.vectors @ _unit(vector)
         best = int(np.argmax(similarity))
         return self.glosses[best], float(1.0 - similarity[best])
-
-
-def _unit(vector: np.ndarray) -> np.ndarray:
-    """Devuelve el vector con norma 1. Un vector nulo se deja como está."""
-    norm = float(np.linalg.norm(vector))
-    if norm <= 1e-12:
-        return vector.astype(np.float32)
-    return (vector / norm).astype(np.float32)
 
 
 class SemanticCache:
@@ -113,11 +113,11 @@ class SemanticCache:
         self._loaded = False
 
     async def load_all(self) -> None:
-        """Carga la tabla en memoria. Best-effort: si falla, se sigue con Neon.
+        """Load the table into memory. Best-effort: on failure, keep using Neon.
 
-        Que el arranque no dependa de esto es deliberado. Un caché vacío solo
-        cuesta una llamada al LLM por frase; un arranque que no arranca cuesta la
-        sesión entera.
+        Start-up deliberately does not depend on this. An empty cache costs one
+        LLM call per phrase; a start-up that does not start costs the whole
+        session.
         """
         if not self._preload:
             logger.info("SemanticCache preload disabled; lookups go to Neon")
@@ -161,27 +161,11 @@ class SemanticCache:
     def row_count(self) -> int:
         return self._rows
 
-    async def lookup(
-        self,
-        text: str,
-        fingerprint: Fingerprint,
-        exact_only: bool = False,
-    ) -> list[str] | None:
-        """Glosas para `text`, o None si hay que preguntarle al LLM.
+    async def lookup(self, text: str, fingerprint: Fingerprint) -> list[str] | None:
+        """Glosses for `text`, or None when the LLM has to be asked.
 
-        `exact_only` desactiva el matching por similitud y deja solo la coincidencia
-        literal de texto. Los fragmentos del modo en tiempo real lo necesitan:
-
-        El umbral de 0.05 está calibrado para frases completas, donde "cómo
-        estás" y "¿cómo estás?" sí son la misma seña. Aplicado a fragmentos de
-        una o dos palabras deja de ser una equivalencia y pasa a ser una
-        coincidencia accidental. Medido: "me llamo ana vivo en || bogotá soy"
-        caía a menos de 0.05 de "me llamo ana vivo en || vivo en" y devolvía
-        VIVIR,DONDE para un fragmento que no tenía nada que ver. Y del mismo modo
-        "me llamo bob" habría recuperado NOMBRE,NIÑA de "me llamo ana", que es
-        justo el error que el caché semántico debe evitar, no causar.
-
-        Para fragmentos, literal es la única equivalencia defendible.
+        The 0.05 threshold is calibrated for whole phrases, where "cómo estás"
+        and "¿cómo estás?" really are the same sign.
         """
         normalized = normalize(text)
         category = fingerprint.category.value
@@ -193,8 +177,6 @@ class SemanticCache:
                     row = index.exact.get(normalized)
                     if row is not None:
                         return list(index.glosses[row])
-                if exact_only:
-                    return None
 
             with trace_step("cache.embed"):
                 embedding = await self._embed_async(normalized)
@@ -237,13 +219,11 @@ class SemanticCache:
         with trace_step("store.acquire"):
             conn = await self._pool.acquire()
         try:
-            with trace_step("store.insert"):
+            with trace_step("store.query"):
                 await conn.execute(
                     """
-                    INSERT INTO semantic_cache
-                        (original_text, embedding, phrase_type, glosses, secondary_signals, had_collision)
-                    VALUES
-                        ($1, $2::vector, $3, $4, $5, $6)
+                    INSERT INTO semantic_cache (original_text, embedding, phrase_type, glosses, secondary_signals, had_collision)
+                    VALUES ($1, $2::vector, $3, $4, $5, $6)
                     """,
                     text,
                     _format_vector(embedding),
@@ -257,17 +237,16 @@ class SemanticCache:
                 await self._pool.release(conn)
 
     async def _embed_async(self, text: str) -> list[float]:
-        """Embebe fuera del bucle de eventos.
+        """Embed off the event loop.
 
-        `SentenceTransformer.encode` son 12-25 ms de CPU puro. En el modo frase
-        completa eso era ruido; translating un fragmento cada 300 ms, bloquear el
-        bucle 25 ms retarda también el audio entrante de todas las demás
-        conexiones.
+        `SentenceTransformer.encode` is 12-25 ms of pure CPU. Blocking the loop
+        for that delays the incoming audio of every other connection too, not
+        just the phrase being translated.
         """
         return await asyncio.to_thread(self._embedding_model.embed, text)
 
     async def _lookup_neon(self, normalized: str, category: str) -> list[str] | None:
-        """Ruta vieja contra la base, para cuando no se pudo precargar."""
+        """The old path against the database, for when preload did not happen."""
         with trace_step("cache.embed"):
             embedding = await self._embed_async(normalized)
 
