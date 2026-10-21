@@ -1,6 +1,10 @@
-import asyncpg
+import logging
 
+import asyncpg
 from app.domain.models import CatalogEntry
+from app.persistence.database import RetryPolicy, run_with_retry
+
+logger = logging.getLogger(__name__)
 
 # Accented vowels -> unaccented, on purpose an explicit table instead of
 # `unicodedata.normalize("NFD", ...)`: that decomposition splits the tilde off
@@ -26,16 +30,29 @@ def normalize_gloss(gloss: str) -> str:
 
 
 class CatalogRepository:
-    def __init__(self, pool: asyncpg.Pool) -> None:
+    def __init__(self, pool: asyncpg.Pool | None, retry_policy: RetryPolicy | None = None) -> None:
+        # None means the database was unreachable at start-up. The catalog stays
+        # empty and every sign comes out as unavailable; the service still runs.
         self._pool = pool
+        self._retry_policy = retry_policy or RetryPolicy()
         self.cache: dict[str, CatalogEntry] = {}
 
     async def load_all(self) -> None:
-        # Ordered so the catalog's vocabulary is identical on every start. The
-        # LLM prompt embeds it, and a stable list keeps the prompt byte-stable
-        # (any server-side prompt cache depends on it).
-        rows = await self._pool.fetch(
-            "SELECT gloss, glb_animation_path FROM catalog ORDER BY id_sign"
+        """Load the catalog into memory.
+
+        Ordered so the catalog is identical on every start.
+        """
+        pool = self._pool
+        if pool is None:
+            logger.warning("No database pool: the catalog stays empty")
+            return
+
+        rows = await run_with_retry(
+            lambda: pool.fetch(
+                "SELECT gloss, semantic_category, glb_animation_path FROM catalog ORDER BY id_sign"
+            ),
+            self._retry_policy,
+            "could not load the catalog",
         )
 
         # Keyed by the folded gloss so an accented emission from the LLM finds
@@ -44,7 +61,9 @@ class CatalogRepository:
         # `CatalogEntry.gloss` keeps the stored spelling for display.
         self.cache = {
             normalize_gloss(row["gloss"]): CatalogEntry(
-                gloss=row["gloss"], glb_path=row["glb_animation_path"]
+                gloss=row["gloss"],
+                semantic_category=row["semantic_category"] or "",
+                glb_path=row["glb_animation_path"],
             )
             for row in rows
         }
@@ -55,8 +74,8 @@ class CatalogRepository:
     def vocabulary(self) -> dict[str, str]:
         """Every catalog gloss as folded key -> display spelling.
 
-        The LLM prompt is built from this so the model can only propose signs
-        the app can actually play, and the prompt's post-hoc repair resolves
-        against the same keys (`COMO ESTAS` resolves an accented `CÓMO ESTÁS`).
+        The post-hoc repair of the model's answer resolves against these keys
+        (`COMO ESTAS` resolves an accented `CÓMO ESTÁS`). The list does not go
+        into the prompt: decision D-7 (owner, 2026-10-16) took it out of it.
         """
         return {folded: entry.gloss for folded, entry in self.cache.items()}

@@ -44,19 +44,21 @@ logger = logging.getLogger(__name__)
 # and emitted a typo, "FEELIZ".) Switching models does not fix this; only the
 # prompt does.
 #
-# The fix has three parts, all in this file:
+# The fix has two parts, all in this file:
 #
-#   1. The vocabulary is CLOSED and injected into the prompt, taken straight from
-#      the catalog. The model cannot invent a sign that will not resolve.
-#      -- PART 1 IS SUPERSEDED: decision D-7 (owner, 2026-10-16) takes the list
-#      OUT of the prompt, because it goes against the test plan and does not
-#      scale. Parts 2 and 3 stay. See docs/performance.md section 9.
-#   2. Multi-word glosses are explicitly allowed, and there is an explicit
+#   1. Multi-word glosses are explicitly allowed, and there is an explicit
 #      counter-example of the exact split we were getting.
-#   3. `_repair_glosses` fixes the answer *after* the fact, because a 4B model
+#   2. `_repair_glosses` fixes the answer *after* the fact, because a 4B model
 #      still gets ~10% of phrases wrong no matter how good the prompt is. It
 #      re-joins adjacent fragments that form a real gloss, canonicalises spelling
 #      against the catalog, and drops what it cannot map.
+#
+# A third part used to live here: injecting the whole catalog into the prompt
+# as a closed vocabulary, so the model could not answer with a sign that would
+# not resolve. It is gone (decision D-7, owner, 2026-10-16): the list does not
+# scale, it goes against the test plan, and the validator already marks a sign
+# that is not in the catalog as unavailable. The vocabulary is still used, but
+# only in memory, to repair the answer. See docs/performance.md section 9.
 #
 # Measured on 10 phrases with this prompt (2026-10-14):
 #
@@ -72,24 +74,21 @@ logger = logging.getLogger(__name__)
 PROMPT_TEMPLATE = """You translate short Spanish sentences into LSC (Lengua de \
 Señas Colombiana) glosses.
 
-You must use ONLY the glosses in this closed vocabulary:
-{vocabulary}
-
 Rules:
 - A gloss may be one or more words. "COMO ESTAS", "BUENOS DIAS" and "MAS O MENOS" \
 are each ONE gloss, not three.
-- Never split a gloss from the vocabulary into its separate words. If the \
-vocabulary has "COMO ESTAS", never answer "TU,ESTAR,COMO".
-- Write each gloss exactly as it appears in the vocabulary above: UPPERCASE, \
-accents already removed, Ñ preserved as is.
+- Never split a multi-word gloss into its separate words. If the gloss is \
+"COMO ESTAS", never answer "TU,ESTAR,COMO".
+- Write each gloss in UPPERCASE, with the accents already removed and Ñ \
+preserved as is.
 - Keep topic-comment order: the topic of the sentence goes first.
 - Drop articles (el, la, los, las, un, una) and the copula (ser/estar) when the \
 meaning stays clear without them.
 - Use the base/infinitive form of verbs, never conjugated.
 - Do not emit a bare pronoun (YO, TU, USTEDES) unless the sentence is about \
 that person: "estoy contento" is CONTENTO, not YO,CONTENTO.
-- If no vocabulary gloss covers part of the meaning, leave that part out rather \
-than inventing a gloss.
+- If you do not know the gloss for part of the meaning, leave that part out \
+rather than inventing one.
 - Respond with ONLY the glosses separated by commas. No explanation, no \
 classification, no separator other than a comma.
 
@@ -127,8 +126,16 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
     default; set OLLAMA_HOST=0.0.0.0:11434).
 
     `vocabulary` is the catalog's gloss list, folded key -> display spelling. It
-    both constrains the prompt and backs the post-hoc repair, so an answer can
-    never reference a sign the app is unable to play.
+    backs the post-hoc repair, which is what keeps an answer from referencing a
+    sign the app is unable to play. It is **not** part of the prompt: decision
+    D-7 (owner, 2026-10-16) took the closed list out of it, because the list
+    does not scale and the validator already marks a sign that is not in the
+    catalog as unavailable.
+
+    `timeout_ms` is the ceiling of a single call and `max_retries` how many
+    times a failed call is tried again. Together they keep the answer inside
+    the window the Android client waits for a phrase before it gives up on its
+    own.
     """
 
     def __init__(
@@ -137,18 +144,20 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
         model: str,
         temperature: float,
         timeout_ms: int,
+        max_retries: int = 1,
         base_url: str = "",
         vocabulary: dict[str, str] | None = None,
     ) -> None:
         self.model = model
         self.temperature = temperature
         self.timeout_ms = timeout_ms
+        self.max_retries = max_retries
         self.vocabulary = vocabulary or {}
-        # Sorted so the prompt (and therefore any server-side prompt cache) is
-        # byte-identical between restarts.
-        self._prompt = PROMPT_TEMPLATE.format(
-            vocabulary=", ".join(sorted(set(self.vocabulary.values()))) or "(empty)"
-        )
+        # The prompt is a constant: it does not depend on the catalog. D-7
+        # (owner, 2026-10-16) took the closed vocabulary out of it, so there is
+        # nothing left to build at start-up, and nothing that has to be rebuilt
+        # when the catalog changes.
+        self._prompt = PROMPT_TEMPLATE
         # ChatOpenAI already accepted base_url; Settings never exposed one, so
         # the provider could not be changed without editing code. That is what
         # branch bab1cd8 attempted; this is the same idea, ported onto current
@@ -160,6 +169,7 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
             model=model,
             temperature=temperature,
             timeout=timeout_ms / 1000,
+            max_retries=max_retries,
         )
 
     async def transform(self, text: str) -> list[str]:

@@ -2,6 +2,8 @@ import asyncio
 import json
 import logging
 import time
+from dataclasses import dataclass
+from typing import Any
 
 from fastapi import APIRouter, WebSocket
 
@@ -19,13 +21,29 @@ TEXT_FRAME = "text"
 END_FRAME = "end"
 
 
-def _parse_client_frame(raw: str) -> tuple[str, str] | None:
+@dataclass(frozen=True)
+class ClientFrame:
+    """A text frame from the client, already classified.
+
+    `turn` is the client's own identifier for the phrase: an integer that goes
+    up from 1 on each connection. The backend treats it as opaque — it does not
+    parse it, does not compare it and does not generate it — and copies it
+    into the frames it sends back for that phrase. A frame without the field
+    is still a valid frame: the client gets its answers without a turn.
+    """
+
+    kind: str
+    text: str = ""
+    turn: Any = None
+
+
+def _parse_client_frame(raw: str) -> ClientFrame | None:
     """Classify a text frame from the client, or None when it is not one.
 
     The Android client sends `{"type":"text","text":"<phrase>"}` for a phrase
     typed instead of spoken, and `{"type":"end"}` when the user releases the
-    microphone. Returns `(kind, payload)` where payload is the phrase for
-    `text` and empty for `end`.
+    microphone. The phrase frame may carry a `turn`, the client's identifier
+    for that phrase.
 
     Anything else — malformed JSON, a non-object, an unknown type, an empty
     phrase — is ignored rather than turned into an error the user cannot act
@@ -42,7 +60,7 @@ def _parse_client_frame(raw: str) -> tuple[str, str] | None:
 
     kind = payload.get("type")
     if kind == END_FRAME:
-        return (END_FRAME, "")
+        return ClientFrame(kind=END_FRAME)
     if kind != TEXT_FRAME:
         return None
 
@@ -50,7 +68,7 @@ def _parse_client_frame(raw: str) -> tuple[str, str] | None:
     if not isinstance(text, str) or not text.strip():
         return None
 
-    return (TEXT_FRAME, text.strip())
+    return ClientFrame(kind=TEXT_FRAME, text=text.strip(), turn=payload.get("turn"))
 
 
 class _PhraseTranslator:
@@ -76,15 +94,15 @@ class _PhraseTranslator:
         self._lock = asyncio.Lock()
         self._tasks: set[asyncio.Task[None]] = set()
 
-    def submit(self, text: str) -> None:
+    def submit(self, text: str, turn: Any = None) -> None:
         """Start translating [text] without waiting for it."""
-        task = asyncio.create_task(self._translate(text), name="translate-phrase")
+        task = asyncio.create_task(self._translate(text, turn), name="translate-phrase")
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-    async def _translate(self, text: str) -> None:
+    async def _translate(self, text: str, turn: Any = None) -> None:
         async with self._lock:
-            await self._controller.handle_text(text)
+            await self._controller.handle_text(text, turn)
 
     def cancel_all(self) -> list[asyncio.Task[None]]:
         """Cancel every translation still in flight and return the tasks."""
@@ -138,9 +156,8 @@ async def _forward_audio(
             metrics.histogram(*_busy(busy_since))
             continue
 
-        kind, payload = frame
-        if kind == TEXT_FRAME:
-            translator.submit(payload)
+        if frame.kind == TEXT_FRAME:
+            translator.submit(frame.text, frame.turn)
         else:
             await controller.handle_end()
         metrics.histogram(*_busy(busy_since))

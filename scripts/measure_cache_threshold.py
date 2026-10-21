@@ -5,10 +5,9 @@ Does not touch the database.
 Usage: python -m scripts.measure_cache_threshold
 """
 
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
-
 from app.config.settings import settings
 from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.gloss_analyzer import GlossAnalyzer

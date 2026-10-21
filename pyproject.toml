@@ -1,0 +1,39 @@
+[tool.ruff]
+# The code follows the project's own conventions (see CLAUDE.md): type hints,
+# small functions, English identifiers. `line-length` matches the width the
+# files were written at.
+line-length = 120
+target-version = "py312"
+src = ["app", "scripts"]
+
+[tool.ruff.lint]
+# The rules that catch real mistakes: undefined names, unused code, shadowing,
+# mutable defaults, and the modernisations that keep the code readable.
+select = ["E", "F", "I", "UP", "B", "W"]
+ignore = [
+    # The scripts print long lines on purpose: they are read by a person, not
+    # parsed by another tool.
+    "E501",
+    # `class PhraseType(str, Enum)` is the form the project has always used.
+    # Moving to `StrEnum` would change what `str()` returns for a member, and
+    # the value is serialized in more than one place.
+    "UP042",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# The verification scripts put their imports after the environment setup, which
+# has to run before the settings are read.
+"scripts/*.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app"]
+# The dependencies that ship no type information (numpy, spacy, the embedding
+# model) are checked as `Any` instead of being an error of their own.
+ignore_missing_imports = true
+# The project is not strict-typed yet: the annotations that exist are checked,
+# and the ones that do not exist are not demanded.
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true

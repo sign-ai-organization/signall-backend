@@ -19,12 +19,16 @@ class Segment(BaseModel):
 class CatalogEntry(BaseModel):
     gloss: str
     glb_path: str
+    # The category the corpus gives to this sign. It travels with the gloss so
+    # the client has the same grouping the catalog has.
+    semantic_category: str = ""
 
 
 class Gloss(BaseModel):
     text: str
     available: bool
     glb_path: str = ""
+    semantic_category: str = ""
 
 
 class ValidatedSegment(BaseModel):

@@ -1,7 +1,8 @@
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Iterator
+from typing import Any
 
 
 class PipelineTrace:
@@ -50,7 +51,7 @@ def trace_sentence(text: str) -> Iterator[None]:
         yield
         return
 
-    sentence = {"text": text, "source": None, "steps_ms": {}}
+    sentence: dict[str, Any] = {"text": text, "source": None, "steps_ms": {}}
     trace.sentences.append(sentence)
     token = _current_sentence.set(sentence)
     try:

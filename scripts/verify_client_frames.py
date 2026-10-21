@@ -31,12 +31,11 @@ os.environ.setdefault("LLM_MODEL", "gpt-4o-mini")
 # no llena esa lista, porque no pasa por trace_sentence.
 os.environ["DEBUG_TRACE_ENABLED"] = "false"
 
+from app.controller import router as router_module  # noqa: E402
+from app.controller.router import END_FRAME, TEXT_FRAME, ClientFrame, _parse_client_frame  # noqa: E402
+from app.domain.models import Gloss, PhraseType, ValidatedSegment  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-
-from app.controller import router as router_module  # noqa: E402
-from app.controller.router import END_FRAME, TEXT_FRAME, _parse_client_frame  # noqa: E402
-from app.domain.models import Gloss, PhraseType, ValidatedSegment  # noqa: E402
 
 failures: list[str] = []
 
@@ -60,9 +59,9 @@ def check(name: str, got, expected) -> None:
 # -- El clasificador de frames ------------------------------------------------
 
 print("\n_parse_client_frame")
-check("frase escrita", _parse_client_frame(TYPED_PHRASE), (TEXT_FRAME, "hola, como estas"))
-check("recorta los espacios", _parse_client_frame('{"type":"text","text":"  hola  "}'), (TEXT_FRAME, "hola"))
-check("cierre de microfono", _parse_client_frame('{"type":"end"}'), (END_FRAME, ""))
+check("frase escrita", _parse_client_frame(TYPED_PHRASE), ClientFrame(kind=TEXT_FRAME, text="hola, como estas"))
+check("recorta los espacios", _parse_client_frame('{"type":"text","text":"  hola  "}'), ClientFrame(kind=TEXT_FRAME, text="hola"))
+check("cierre de microfono", _parse_client_frame('{"type":"end"}'), ClientFrame(kind=END_FRAME))
 check("ignora frase vacia", _parse_client_frame('{"type":"text","text":"   "}'), None)
 check("ignora tipo desconocido", _parse_client_frame('{"type":"nope"}'), None)
 check("ignora JSON invalido", _parse_client_frame("no soy json"), None)

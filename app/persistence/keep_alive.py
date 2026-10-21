@@ -13,7 +13,14 @@ class DatabaseKeepAlive:
     recent activity, so idle backends let it suspend and stop using compute.
     """
 
-    def __init__(self, pool: asyncpg.Pool, interval_seconds: float, idle_window_seconds: float) -> None:
+    def __init__(
+        self,
+        pool: asyncpg.Pool | None,
+        interval_seconds: float,
+        idle_window_seconds: float,
+    ) -> None:
+        # None means the database was unreachable at start-up: there is nothing
+        # to keep awake.
         self._pool = pool
         self._interval_seconds = interval_seconds
         self._idle_window_seconds = idle_window_seconds
@@ -57,7 +64,10 @@ class DatabaseKeepAlive:
         return time.monotonic() - self._last_activity < self._idle_window_seconds
 
     async def _ping(self) -> None:
+        pool = self._pool
+        if pool is None:
+            return
         try:
-            await self._pool.fetchval("SELECT 1")
+            await pool.fetchval("SELECT 1")
         except Exception:
             logger.warning("Database keep-alive ping failed", exc_info=True)

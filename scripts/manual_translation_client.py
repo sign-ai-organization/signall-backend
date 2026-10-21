@@ -48,7 +48,7 @@ def print_segment(message: dict, sentence: dict | None, elapsed: str) -> None:
 
 
 async def main() -> None:
-    audio_queue: "asyncio.Queue[bytes]" = asyncio.Queue()
+    audio_queue: asyncio.Queue[bytes] = asyncio.Queue()
     loop = asyncio.get_event_loop()
 
     def callback(indata, frames, time_info, status):

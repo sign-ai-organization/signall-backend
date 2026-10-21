@@ -1,0 +1,31 @@
+name: CI
+
+# The static analysis the project owes (RNF-MNT-03): ruff and mypy, on every
+# push and pull request. The verification scripts are not run here: they need
+# the service's dependencies (spacy, the embedding model) and, for some of
+# them, a running database.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the analyzers
+        run: pip install "ruff==0.17.1" "mypy==2.4.0"
+
+      - name: ruff
+        run: ruff check app scripts
+
+      - name: mypy
+        run: mypy

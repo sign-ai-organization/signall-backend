@@ -19,7 +19,7 @@ from app.nlp.nlp_service_impl import NLPServiceImpl
 from app.nlp.segmenter import SentenceSegmenter
 from app.nlp.semantic_cache import SemanticCache
 from app.orchestrator.orchestrator import Orchestrator
-from app.persistence.database import create_pool
+from app.persistence.database import RetryPolicy, open_pool
 from app.persistence.keep_alive import DatabaseKeepAlive
 from app.validation.catalog_repository import CatalogRepository
 from app.validation.validator_service_impl import ValidatorServiceImpl
@@ -31,11 +31,14 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    pool = await create_pool(
+    retry_policy = RetryPolicy(settings.db_max_retries, settings.db_retry_delay_seconds)
+    pool = await open_pool(
         settings.database_url,
         settings.db_pool_min_size,
         settings.db_pool_max_size,
         settings.db_pool_max_inactive_connection_lifetime_seconds,
+        command_timeout_seconds=settings.db_command_timeout_seconds,
+        policy=retry_policy,
     )
     db_keep_alive = DatabaseKeepAlive(
         pool,
@@ -44,8 +47,15 @@ async def lifespan(app: FastAPI):
     )
     db_keep_alive.start()
 
-    catalog_repository = CatalogRepository(pool)
-    await catalog_repository.load_all()
+    catalog_repository = CatalogRepository(pool, retry_policy)
+    try:
+        await catalog_repository.load_all()
+    except Exception:
+        # A database that is down at this exact moment must not take the service
+        # down with it: the container would stay dead and the Android client,
+        # which reconnects on its own, would never reach it again. Without the
+        # catalog every sign comes out as unavailable, but the service answers.
+        logger.exception("Could not load the catalog; starting without it")
 
     semantic_cache = SemanticCache(
         pool,
@@ -53,6 +63,7 @@ async def lifespan(app: FastAPI):
         settings.semantic_cache_similarity_threshold,
         preload=settings.semantic_cache_preload,
         max_rows=settings.semantic_cache_max_rows,
+        retry_policy=retry_policy,
     )
     await semantic_cache.load_all()
 
@@ -61,16 +72,17 @@ async def lifespan(app: FastAPI):
         settings.llm_model,
         settings.llm_temperature,
         settings.llm_timeout_ms,
+        settings.llm_max_retries,
         settings.llm_base_url,
         # The catalog's glosses, for the post-hoc repair: an answer can never
         # reference a sign the app is unable to play. See the long comment at
         # the top of app/nlp/llm_client.py for why the old "one gloss = one
         # word" prompt broke this.
         #
-        # They also go into the prompt as a closed vocabulary, so the model
-        # cannot answer with a sign that has no animation. That part is
-        # SUPERSEDED by decision D-7 (owner, 2026-10-16): the list comes out of
-        # the prompt. See docs/performance.md section 9.
+        # They do NOT go into the prompt: decision D-7 (owner, 2026-10-16)
+        # took the list out of it, because it does not scale and the validator
+        # already marks a sign that is not in the catalog as unavailable. See
+        # docs/performance.md section 9.
         catalog_repository.vocabulary(),
     )
 
@@ -95,7 +107,7 @@ async def lifespan(app: FastAPI):
     warmup_task = asyncio.create_task(_warm_up_llm(llm_client)) if settings.llm_warmup_enabled else None
 
     # The STT's own configuration, mirrored so the Android app can read it.
-    app.state.stt_config: dict[str, int] = {}
+    app.state.stt_config = {}
     stt_config_task = (
         asyncio.create_task(_watch_stt_config(app)) if settings.stt_config_poll_seconds > 0 else None
     )
@@ -108,7 +120,8 @@ async def lifespan(app: FastAPI):
         stt_config_task.cancel()
     await nlp_service.wait_for_pending_stores()
     await db_keep_alive.stop()
-    await pool.close()
+    if pool is not None:
+        await pool.close()
 
 
 async def _warm_up_llm(llm_client: LLMClient) -> None:

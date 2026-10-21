@@ -502,20 +502,22 @@ es su nombre?") ahora van al LLM la primera vez.
 ## 9. El prompt carga el vocabulario completo — y eso hay que quitarlo
 
 **Fecha:** medido el 2026-10-15, anotado acá el 2026-10-21.
-**Estado:** **pendiente.** Es el punto **D-7** de la decisión del owner (2026-10-16), y
-**todavía no se implementó**.
+**Estado:** **hecho el 2026-10-21.** Es el punto **D-7** de la decisión del
+owner (2026-10-16), y ya está implementado: el prompt es una constante, sin
+la lista de glosas.
 
-**Cómo funciona hoy.** `LLMClient.__init__` arma el prompt **una sola vez** al
-arrancar el backend y lo guarda en `self._prompt`
+**Cómo funcionaba.** `LLMClient.__init__` armaba el prompt **una sola vez** al
+arrancar el backend y lo guardaba en `self._prompt`
 (`app/nlp/llm_client.py:149`), con las glosas ordenadas y separadas por comas
-(`app/nlp/llm_client.py:150`). En cada llamada se manda como mensaje de sistema
-(`app/nlp/llm_client.py:180`). El vocabulario es el **catálogo entero**:
-`catalog_repository.vocabulary()` (`app/main.py:74`), que devuelve las 50 glosas.
+(`app/nlp/llm_client.py:150`). En cada llamada se mandaba como mensaje de
+sistema (`app/nlp/llm_client.py:180`). El vocabulario era el **catálogo
+entero**: `catalog_repository.vocabulary()` (`app/main.py:74`), que devolvía
+las 50 glosas.
 
-**El tamaño actual.** El vocabulario son **413 caracteres, unos 103 tokens**
-(medido el 2026-10-15 con las 50 glosas de LSC50). El prompt del sistema
-completo ronda los **300 tokens**. Para 50 señas es irrelevante, y RD-01 fija el
-corpus en 50.
+**El tamaño de entonces.** El vocabulario eran **413 caracteres, unos 103
+tokens** (medido el 2026-10-15 con las 50 glosas de LSC50). El prompt del
+sistema completo rondaba los **300 tokens**. Para 50 señas era irrelevante, y
+RD-01 fija el corpus en 50.
 
 **Dónde se rompe.** El costo es **lineal con el tamaño del corpus y se paga en
 cada llamada**:
@@ -526,34 +528,34 @@ cada llamada**:
 | 500 | ~4 100 | ~1 000 |
 | 5 000 | ~41 000 | ~10 000 |
 
-A 5 000 glosas se mandan 41 KB de vocabulario en cada inferencia, más el costo de
-que el modelo preste atención a una lista que ya no cabe en su atención útil.
+A 5 000 glosas se mandaban 41 KB de vocabulario en cada inferencia, más el
+costo de que el modelo preste atención a una lista que ya no cabe en su
+atención útil.
 
-**La decisión (D-7, owner, 2026-10-16).** El prompt **no** debe llevar la lista.
-El análisis está en `../sign-ai-android/docs/PLAN-MEDICION.md` §3. Las dos
-razones: el plan de pruebas
-(`../sign-ai-docs/plan-pruebas/01-diseno/llm/general.md:31-33`) dice que el prompt
-no la lleva, y el costo no escala. **El SDD no dice nada del contenido del
-prompt**, así que quitarlo no rompe ningún diagrama.
+**La decisión (D-7, owner, 2026-10-16).** El prompt **no** debe llevar la
+lista. El análisis está en `../sign-ai-android/docs/PLAN-MEDICION.md` §3. Las
+dos razones: el plan de pruebas
+(`../sign-ai-docs/plan-pruebas/01-diseno/llm/general.md:31-33`) dice que el
+prompt no la lleva, y el costo no escala. **El SDD no dice nada del contenido
+del prompt**, así que quitarlo no rompe ningún diagrama.
 
-**Qué sale y qué se queda.** La lista sale del prompt. **Se quedan**
-`_repair_glosses` (`app/nlp/llm_client.py:206`) y `_merge_fragments`
-(`app/nlp/llm_client.py:238`), que consultan el vocabulario con `normalize_gloss`
-contra un diccionario: es O(1) y escala sin problema, y es lo que evita que
-"cómo estás" vuelva como `TÚ, ESTAR, CÓMO`. También se queda el validador,
-`ValidatorServiceImpl._validate_gloss`
-(`app/validation/validator_service_impl.py:17-21`), que es el mecanismo de
-RF-CAT-03.
+**Qué salió y qué se quedó.** La lista salió del prompt: `self._prompt` es
+ahora la constante `PROMPT_TEMPLATE`, y las tres reglas que la mencionaban
+se reescribieron sin hablar de ella. **Se quedaron** `_repair_glosses` y
+`_merge_fragments`, que consultan el vocabulario con `normalize_gloss` contra
+un diccionario: es O(1) y escala sin problema, y es lo que evita que
+"cómo estás" vuelva como `TÚ, ESTAR, CÓMO`. También se quedó el validador,
+`ValidatorServiceImpl._validate_gloss`, que es el mecanismo de RF-CAT-03.
 
-**Lo que hay que reescribir cuando se implemente.** Tres reglas del prompt
-mencionan "the vocabulary" y quedan sin sentido si la lista ya no está
-(`app/nlp/llm_client.py:81-84` y `:91-92`). La regla del ejemplo ("COMO ESTAS"
-es **una** glosa, no dos) se puede conservar como ejemplo concreto, sin decir de
-dónde sale.
+**Lo que falta medir.** El plan de la app lo tiene como Fase 2: la reparación
+es lo que cubre el riesgo, y hay que medirlo para que la consecuencia quede
+con número y no con recuerdo.
 
-**Lo que falta medir.** El plan de la app lo tiene como Fase 2: la reparación es
-lo que cubre el riesgo, y hay que medirlo para que la consecuencia quede con
-número y no con recuerdo.
+> **La trampa de esta sección:** cambiar el prompt **no** invalida
+> `semantic_cache`. Las glosas viejas siguen en Neon y salen por
+> `SemanticCache HIT`, así que el prompt nuevo no se ejecuta y parece que el
+> arreglo no sirvió. Hay que correr `DELETE FROM semantic_cache;` y reiniciar
+> el backend. Es caché derivada y se reconstruye sola.
 
 ---
 
