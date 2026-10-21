@@ -20,7 +20,7 @@ se puede dejar como estaba: quién dispara la traducción.
 
 | Qué | De dónde | Por qué |
 |---|---|---|
-| Prompt con el catálogo como vocabulario cerrado, `_repair_glosses`, `_merge_fragments`, `CatalogRepository.vocabulary()`, `ORDER BY id_sign`, `LLM_BASE_URL` | `ac013d4` (cherry-pick limpio) | El prompt lo pide y con oración sigue haciendo falta: es lo que evita que "cómo estás" vuelva `TÚ, ESTAR, CÓMO` |
+| Prompt con el catálogo como vocabulario cerrado, `_repair_glosses`, `_merge_fragments`, `CatalogRepository.vocabulary()`, `ORDER BY id_sign`, `LLM_BASE_URL` | `ac013d4` (cherry-pick limpio) | El prompt lo pide y con oración sigue haciendo falta: es lo que evita que "cómo estás" vuelva `TÚ, ESTAR, CÓMO`. **Después, la decisión D-7 (owner, 2026-10-16) quitó el vocabulario cerrado del prompt**; la reparación y la fusión se quedan |
 | `app/metrics.py` (registro Prometheus, `/metrics` y `/metrics.json`) | `d5c6570` | `marco.md` §6.1 lo pone como **criterio de entrada** a las rondas de prueba |
 | Caché semántico en memoria | `d5c6570` + `fa045f2` | Decisión del owner. Un viaje a Neon son ~100 ms y el `lookup` completo ~200 ms: más caro que el LLM que evita |
 | Precalentado del LLM | `d5c6570` | Sin esto la primera frase paga 6,2 s de carga del modelo y solo esa |

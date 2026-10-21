@@ -96,6 +96,9 @@ oración, así que la clave es una oración limpia, la misma en los dos modos.
 
 También viene `db1fa69` (cherry-pick de `ac013d4`, que estaba en `develop`): el
 LLM partía glosas nominales en palabras sueltas que no se pueden representar.
+**Ojo:** de ese cherry-pick, la parte del **vocabulario cerrado en el prompt se
+quita** por la decisión D-7 (owner, 2026-10-16; ver `docs/performance.md` §9).
+La reparación (`_repair_glosses`, `_merge_fragments`) y el validador se quedan.
 
 `semantic_cache` se vació en Neon (619 filas, 201 con `||`). Es caché derivada y
 se reconstruye sola con la primera frase de cada entrada. `catalog` quedó intacta

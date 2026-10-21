@@ -48,6 +48,9 @@ logger = logging.getLogger(__name__)
 #
 #   1. The vocabulary is CLOSED and injected into the prompt, taken straight from
 #      the catalog. The model cannot invent a sign that will not resolve.
+#      -- PART 1 IS SUPERSEDED: decision D-7 (owner, 2026-10-16) takes the list
+#      OUT of the prompt, because it goes against the test plan and does not
+#      scale. Parts 2 and 3 stay. See docs/performance.md section 9.
 #   2. Multi-word glosses are explicitly allowed, and there is an explicit
 #      counter-example of the exact split we were getting.
 #   3. `_repair_glosses` fixes the answer *after* the fact, because a 4B model
