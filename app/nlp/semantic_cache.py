@@ -213,6 +213,13 @@ class SemanticCache:
         return await self._lookup_neon(normalized, category)
 
     async def store(self, text: str, fingerprint: Fingerprint, glosses: list[str]) -> None:
+        if not glosses:
+            # An empty answer is not a translation. Storing it would poison the
+            # cache: the next lookup of the same phrase would hit an entry with
+            # no signs in it, and the avatar would have nothing to play.
+            logger.warning("Not storing an empty answer for %r", text)
+            return
+
         normalized = normalize(text)
         category = fingerprint.category.value
 
@@ -224,8 +231,10 @@ class SemanticCache:
             async with self._lock:
                 if self._rows < self._max_rows:
                     index = self._indexes.setdefault(category, _PhraseTypeIndex())
+                    is_new = normalized not in index.exact
                     index.add(normalized, vector, list(glosses))
-                    self._rows += 1
+                    if is_new:
+                        self._rows += 1
                 else:
                     logger.warning(
                         "semantic_cache in memory is at the %d row cap; new phrases will miss until restart",
@@ -279,6 +288,12 @@ class SemanticCache:
                     """
                     INSERT INTO semantic_cache (original_text, embedding, phrase_type, glosses, secondary_signals, had_collision)
                     VALUES ($1, $2::vector, $3, $4, $5, $6)
+                    ON CONFLICT (original_text, phrase_type) DO UPDATE SET
+                        embedding = EXCLUDED.embedding,
+                        glosses = EXCLUDED.glosses,
+                        secondary_signals = EXCLUDED.secondary_signals,
+                        had_collision = EXCLUDED.had_collision,
+                        created_at = now()
                     """,
                     text,
                     _format_vector(embedding),

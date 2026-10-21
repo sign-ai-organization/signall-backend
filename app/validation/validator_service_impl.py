@@ -18,4 +18,9 @@ class ValidatorServiceImpl(ValidatorService):
         entry = self.catalog_repository.search(gloss)
         if entry is None:
             return Gloss(text=gloss, available=False)
-        return Gloss(text=gloss, available=True, glb_path=entry.glb_path)
+        return Gloss(
+            text=gloss,
+            available=True,
+            glb_path=entry.glb_path,
+            semantic_category=entry.semantic_category,
+        )

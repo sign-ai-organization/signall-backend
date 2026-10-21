@@ -49,7 +49,7 @@ class CatalogRepository:
 
         rows = await run_with_retry(
             lambda: pool.fetch(
-                "SELECT gloss, glb_animation_path FROM catalog ORDER BY id_sign"
+                "SELECT gloss, semantic_category, glb_animation_path FROM catalog ORDER BY id_sign"
             ),
             self._retry_policy,
             "could not load the catalog",
@@ -61,7 +61,9 @@ class CatalogRepository:
         # `CatalogEntry.gloss` keeps the stored spelling for display.
         self.cache = {
             normalize_gloss(row["gloss"]): CatalogEntry(
-                gloss=row["gloss"], glb_path=row["glb_animation_path"]
+                gloss=row["gloss"],
+                semantic_category=row["semantic_category"] or "",
+                glb_path=row["glb_animation_path"],
             )
             for row in rows
         }
