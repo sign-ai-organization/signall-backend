@@ -1,20 +1,20 @@
 # Web framework: defines the HTTP/WebSocket endpoints (Controller, /health, static GLB server).
-fastapi
+fastapi==0.143.0
 # ASGI server that runs the FastAPI app. [standard] adds full WebSocket support, used by the Controller.
-uvicorn[standard]
+uvicorn[standard]==0.54.0
 # Data validation and domain models (Segment, Gloss, etc.).
-pydantic
+pydantic==2.14.1
 # Centralized app configuration, reading settings from environment variables.
-pydantic-settings
+pydantic-settings==2.15.0
 # Async PostgreSQL driver
-asyncpg
+asyncpg==0.32.0
 # Local embeddings model for EmbeddingModel (SemanticCache).
-sentence-transformers
+sentence-transformers==6.1.0
 # LLMClient: interface to the external LLM provider.
-langchain
-langchain-openai
+langchain==1.4.5
+langchain-openai==1.7.1
 # SttServiceClient: outbound WebSocket client to the STT service (sign-ai-stt).
-websockets
+websockets==16.1.1
 # SentenceSegmenter: splits the final STT text into sentences
 spacy>=3.8,<3.9
 # Spanish spaCy model, pinned to the version the segmenter rules were evaluated with.

@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from app.domain.models import ValidatedSegment
 from app.nlp.nlp_service import NLPService

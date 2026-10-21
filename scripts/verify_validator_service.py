@@ -1,8 +1,8 @@
 import asyncio
 
 from app.config.settings import settings
-from app.persistence.database import create_pool
 from app.domain.models import PhraseType, Segment
+from app.persistence.database import create_pool
 from app.validation.catalog_repository import CatalogRepository
 from app.validation.validator_service_impl import ValidatorServiceImpl
 

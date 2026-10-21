@@ -16,6 +16,8 @@ class SttServiceClientImpl(SttServiceClient):
         self._connection = await websockets.connect(self._stt_ws_url, ping_interval=None)
 
     async def send_audio(self, chunk: bytes) -> None:
+        if self._connection is None:
+            return
         await self._connection.send(chunk)
 
     async def send_end(self) -> None:
@@ -26,6 +28,8 @@ class SttServiceClientImpl(SttServiceClient):
         await self._connection.send("end")
 
     async def receive_transcript(self) -> tuple[str, bool] | None:
+        if self._connection is None:
+            return None
         try:
             message = await self._connection.recv()
         except websockets.ConnectionClosed:

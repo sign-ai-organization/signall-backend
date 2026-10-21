@@ -117,4 +117,4 @@ def split_by_clauses(text: str, nlp: Language, config: SentenceSegmenterSettings
 
     # Cut the original text at the character offset of each cut word.
     bounds = [0] + [words[c].idx for c in cuts] + [len(text)]
-    return [text[a:b].strip() for a, b in zip(bounds, bounds[1:]) if text[a:b].strip()]
+    return [text[a:b].strip() for a, b in zip(bounds, bounds[1:], strict=False) if text[a:b].strip()]

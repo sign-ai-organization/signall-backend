@@ -22,7 +22,14 @@ async def main() -> None:
         GlossAnalyzer(),
         SemanticCache(pool, EmbeddingModel(), settings.semantic_cache_similarity_threshold),
         LLMClient(
-            settings.llm_api_key, settings.llm_model, settings.llm_temperature, settings.llm_timeout_ms
+            settings.llm_api_key,
+            settings.llm_model,
+            settings.llm_temperature,
+            settings.llm_timeout_ms,
+            settings.llm_max_retries,
+            # Sin esto el cliente habla con OpenAI de verdad y con
+            # `LLM_MODEL=qwen3:4b-instruct` responde 404 "model not found".
+            settings.llm_base_url,
         ),
         segmenter=None,
     )

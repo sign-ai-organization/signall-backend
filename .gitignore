@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .env
+# Caches of the static analyzers (ruff, mypy).
+.ruff_cache/
+.mypy_cache/

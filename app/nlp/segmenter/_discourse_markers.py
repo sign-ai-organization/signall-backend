@@ -86,4 +86,4 @@ def split_by_markers(text: str, config: SentenceSegmenterSettings) -> list[str]:
         i += step
 
     bounds = [0] + cuts + [n]
-    return [" ".join(tokens[a:b]) for a, b in zip(bounds, bounds[1:])]
+    return [" ".join(tokens[a:b]) for a, b in zip(bounds, bounds[1:], strict=False)]

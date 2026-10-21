@@ -1,7 +1,6 @@
 import asyncio
 
 from app.config.settings import settings
-from app.domain.models import PhraseType
 from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.gloss_analyzer import GlossAnalyzer
 from app.nlp.llm_client import LLMClient
@@ -38,6 +37,7 @@ async def main() -> None:
             settings.llm_model,
             settings.llm_temperature,
             settings.llm_timeout_ms,
+            settings.llm_max_retries,
             # Sin esto el cliente habla con OpenAI de verdad y con
             # `LLM_MODEL=qwen3:4b-instruct` responde 404 "model not found":
             # el script parecía que andaba y lo que hacía era pegarle a la API

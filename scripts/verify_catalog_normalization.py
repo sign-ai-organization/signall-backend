@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 if "asyncpg" not in sys.modules:
     stub = types.ModuleType("asyncpg")
     stub.Pool = object
+    stub.Connection = object
     sys.modules["asyncpg"] = stub
 
 from app.validation.catalog_repository import CatalogRepository, normalize_gloss

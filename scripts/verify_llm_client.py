@@ -37,6 +37,7 @@ async def main() -> None:
         settings.llm_model,
         settings.llm_temperature,
         settings.llm_timeout_ms,
+        settings.llm_max_retries,
     )
 
     print("1. Correr casos predeterminados")

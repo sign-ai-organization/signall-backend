@@ -107,7 +107,7 @@ async def lifespan(app: FastAPI):
     warmup_task = asyncio.create_task(_warm_up_llm(llm_client)) if settings.llm_warmup_enabled else None
 
     # The STT's own configuration, mirrored so the Android app can read it.
-    app.state.stt_config: dict[str, int] = {}
+    app.state.stt_config = {}
     stt_config_task = (
         asyncio.create_task(_watch_stt_config(app)) if settings.stt_config_poll_seconds > 0 else None
     )
