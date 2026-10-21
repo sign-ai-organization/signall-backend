@@ -39,6 +39,7 @@ import array
 import logging
 import math
 import time
+from typing import Any
 
 from fastapi import WebSocket
 
@@ -91,6 +92,10 @@ class Controller:
         self._first_segment_at: float | None = None
         self._sentences_sent = 0
         self._glosses_sent = 0
+        # The client's own identifier for the phrase being translated. It is
+        # opaque: the backend does not parse it, does not compare it and does
+        # not generate it. It only copies it into the frames it sends back.
+        self._turn: Any = None
 
     # ----------------------------------------------------------------- audio
 
@@ -121,7 +126,7 @@ class Controller:
 
     # ---------------------------------------------------------------- phrases
 
-    async def handle_text(self, text: str) -> None:
+    async def handle_text(self, text: str, turn: Any = None) -> None:
         """Translate one phrase. The only translation trigger in the system.
 
         Whether the phrase was typed, dictated, or dictated in live mode is the
@@ -129,6 +134,12 @@ class Controller:
         `text` is a phrase to translate. It goes through
         `Orchestrator.translate_stream`, which splits it into sentences and
         yields them in order with a real `index` and `total`.
+
+        `turn` is the client's identifier for this phrase. The backend copies it
+        into every frame it sends for this phrase and does nothing else with
+        it: it never parses it, never compares it and never makes one up. A
+        client that does not send one gets frames without it, exactly as
+        before.
 
         **No echoed transcript.** A `transcript` frame means one thing only: the
         STT transcribed audio. Echoing the phrase back as a `final` transcript
@@ -143,6 +154,7 @@ class Controller:
         self._first_segment_at = None
         self._sentences_sent = 0
         self._glosses_sent = 0
+        self._turn = turn
 
         logger.info("Phrase received: %r -> translating", text)
         with start_trace() as trace:
@@ -155,14 +167,21 @@ class Controller:
                 logger.info("Pipeline trace for %r: %s", text, trace.to_dict())
                 metrics.counter("rt_phrase_errors_total")
                 await self.send_error("No se pudo traducir el texto.")
+                # The turn is closed even when it failed. The client waits for
+                # the `done` to know the phrase is over, and without it the app
+                # waits out its own timeout and then reports a failure that
+                # already happened.
+                await self.send_done()
                 self._phrase_started_at = None
+                self._turn = None
                 return
 
         logger.info("Pipeline trace for %r: %s", text, trace.to_dict())
         if self.debug_trace_enabled:
             await self.websocket.send_json({"type": "trace", "steps_ms": trace.to_dict()["steps_ms"]})
-        await self.websocket.send_json({"type": "done"})
+        await self.send_done()
         self._record_phrase_timings(text)
+        self._turn = None
 
     async def handle_end(self) -> None:
         """Close the utterance the STT has open.
@@ -229,12 +248,30 @@ class Controller:
         if self.debug_trace_enabled:
             await self.websocket.send_json({"type": "sentence_trace", "index": index, **trace.sentence_dict(index)})
         await self.websocket.send_json(
-            {"type": "segment", "index": index, "total": total, "segment": segment.model_dump(mode="json")}
+            self._with_turn(
+                {"type": "segment", "index": index, "total": total, "segment": segment.model_dump(mode="json")}
+            )
         )
+
+    async def send_done(self) -> None:
+        """Close the phrase, whether it was translated or it failed."""
+        await self.websocket.send_json(self._with_turn({"type": "done"}))
 
     async def send_error(self, message: str) -> None:
         logger.info("Sending error: %s", message)
-        await self.websocket.send_json({"type": "error", "message": message})
+        await self.websocket.send_json(self._with_turn({"type": "error", "message": message}))
+
+    def _with_turn(self, frame: dict[str, Any]) -> dict[str, Any]:
+        """Add the client's turn identifier to a frame, when there is one.
+
+        The identifier travels as it came: the backend does not read it, does
+        not compare it and does not generate it. A client that sends none gets
+        frames without the field, exactly as before, and a client that sends
+        one gets it back on every frame of that phrase.
+        """
+        if self._turn is None:
+            return frame
+        return {**frame, "turn": self._turn}
 
     # -------------------------------------------------------------- metrics
 

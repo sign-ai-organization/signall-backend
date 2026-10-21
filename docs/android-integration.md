@@ -130,6 +130,32 @@ en local, al lado de los cientos de milisegundos del LLM.
 para distinguir dictado de tiempo real; ya no está. Un cliente viejo que lo
 mande no rompe nada: el frame se ignora como cualquier `type` desconocido.
 
+### 3.2 El identificador de turno (`turn`)
+
+El frame de texto puede llevar un campo más, `turn`, que identifica la frase
+que se está mandando:
+
+```json
+{"type": "text", "text": "hola, como estas", "turn": 1}
+```
+
+- **Lo pone el cliente.** El backend no lo genera, no lo compara y no lo
+  usa para nada: lo copia, tal cual, en los frames que devuelve de esa frase.
+- **Es opaco.** Para el backend es texto que no se mira. La forma acordada es
+  un entero que sube desde 1 en cada conexión, pero el backend no lo valida.
+- **Es opcional.** Un `text` sin `turn` es un frame válido: el backend
+  responde sin el campo, exactamente como antes de que existiera.
+
+Por qué lo pone el cliente y no el servidor: la app necesita conocer el
+identificador **antes** de que salga la primera oración, para poder cancelar
+una frase que ya no le interesa. Si lo pusiera el backend, la app se enteraría
+demasiado tarde.
+
+Qué resuelve: cuando el usuario cancela una frase y manda otra, el `done` de
+la primera puede llegar cuando la segunda ya está corriendo. Sin identificador
+la app no sabe a qué frase pertenece cada `done` y se lo traga a ciegas; con
+él, descarta el que no es suyo.
+
 ---
 
 ## 4. Mensajes que envía el backend (backend → app)
@@ -182,11 +208,12 @@ primera mientras se traducen las siguientes.
   "segment": {
     "type": "CONTENT_QUESTION",
     "glosses": [
-      {"text": "HOLA", "available": true, "glb_path": "/static/glb/hola.glb"},
-      {"text": "TU", "available": false, "glb_path": ""},
-      {"text": "COMO", "available": true, "glb_path": "/static/glb/como.glb"}
+      {"text": "HOLA", "available": true, "glb_path": "/static/glb/hola.glb", "semantic_category": "sustantivo"},
+      {"text": "TU", "available": false, "glb_path": "", "semantic_category": ""},
+      {"text": "COMO", "available": true, "glb_path": "/static/glb/como.glb", "semantic_category": "interrogativo"}
     ]
-  }
+  },
+  "turn": 1
 }
 ```
 
@@ -198,6 +225,8 @@ primera mientras se traducen las siguientes.
 | `glosses` | Señas en el orden en que se deben reproducir. |
 | `glosses[].available` | `true` si la seña está en el catálogo del backend. |
 | `glosses[].glb_path` | Valor de `glb_animation_path` del catálogo para esa seña. Vacío si `available` es `false`. |
+| `glosses[].semantic_category` | La categoría de la seña en el catálogo (`catalog.semantic_category`). Vacía si la seña no está en el catálogo. |
+| `turn` | El identificador de la frase (§3.2), si el cliente lo mandó. |
 
 Las animaciones GLB viven en la app, no en el backend. La app usa
 `text` (la glosa) o `glb_path` para encontrar la animación en sus
@@ -208,20 +237,32 @@ app decide qué hacer (omitirla, deletrear, mostrar el texto).
 ### `done`: terminó la frase
 
 ```json
-{"type": "done"}
+{"type": "done", "turn": 1}
 ```
 
 Llega después del último `segment` de la frase.
 
+**También llega cuando la frase falló**, después del `error`. El turno se
+cierra siempre: el `done` es la señal de "terminé, successfulo o no", y sin
+él la app espera su propio reloj de 15 s y después reporta como fallida una
+frase que ya había fallado.
+
+El campo `turn` es el identificador de la frase (§3.2), si el cliente lo
+mandó.
+
 ### `error`
 
 ```json
-{"type": "error", "message": "No se pudo traducir el texto."}
+{"type": "error", "message": "No se pudo traducir el texto.", "turn": 1}
 ```
 
 El mensaje está en español y se puede mostrar al usuario. Si llega en
 medio de una frase, descartar los `segment` que hayan llegado de esa
 frase.
+
+**Después del `error` viene un `done`.** Es lo que cierra el turno (ver
+arriba). El `turn` dice a qué frase pertenece el fallo; sin él, la app no
+puede saber si el error es de la frase que está esperando o de otra.
 
 ### Mensajes de depuración: ignorar
 
@@ -300,6 +341,10 @@ recorder.release()
 envían tal cual. Los callbacks de OkHttp llegan en un hilo de fondo:
 pasar al hilo principal antes de tocar la interfaz o el avatar.
 
+**El `done` también llega después de un `error`.** Un cliente que cierre el
+turno en el `error` y no acepte un `done` posterior tiene que soportar los
+dos: el `error` dice que la frase falló y el `done` la cierra.
+
 ### Reproducción en el avatar
 
 - Encolar los `segment` por `index` y reproducirlos en ese orden; ya
@@ -332,9 +377,10 @@ backend → app   {"type":"transcript","text":"Hola","final":false}
 backend → app   {"type":"transcript","text":"Hola, ¿cómo estás? Me llamo Ana.","final":false}
                 (silencio ~1.5 s)
 backend → app   {"type":"transcript","text":"Hola, ¿cómo estás? Me llamo Ana.","final":true}
-backend → app   {"type":"segment","index":0,"total":2,"segment":{...}}   ~0.3 s después
-backend → app   {"type":"segment","index":1,"total":2,"segment":{...}}   ~1.5–2.5 s si va al LLM
-backend → app   {"type":"done"}
+app → backend   {"type":"text","text":"Hola, ¿cómo estás? Me llamo Ana.","turn":1}
+backend → app   {"type":"segment","index":0,"total":2,"segment":{...},"turn":1}   ~0.3 s después
+backend → app   {"type":"segment","index":1,"total":2,"segment":{...},"turn":1}   ~1.5–2.5 s si va al LLM
+backend → app   {"type":"done","turn":1}
 ```
 
 Mientras tanto la app sigue enviando audio: la siguiente frase se
