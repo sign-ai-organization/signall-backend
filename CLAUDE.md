@@ -25,8 +25,8 @@ separados; este backend se comunica con ambos pero no los contiene.
 - Persistencia: PostgreSQL 16 + pgvector (Neon). Dos tablas sin relaciones
   entre sí: `catalog` y `semantic_cache`.
 - Fuente de verdad de la arquitectura: `docs/sdd.md` (diagramas en
-  `docs/diagrams/`). Requisitos: `docs/requirements.md`. Plan de
-  implementación por fases: `docs/plan-implementacion-backend.md`.
+  `docs/diagrams/`). Requisitos: `../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md`.
+  Plan de implementación por fases: `docs/plan-implementacion-backend.md`.
 
 ## Estructura de carpetas
 
@@ -70,11 +70,18 @@ el usuario. Es él quien decide cuándo y cómo aplicar el cambio al SDD.
 - **`CatalogRepository` carga todo el catálogo en memoria al arrancar**
   (`loadAll()`). `ValidatorService` nunca hace consultas a PostgreSQL durante
   la inferencia, solo contra el mapa en memoria.
-- **El prompt de glosas usa el catálogo como vocabulario cerrado.** LSC50 tiene
-  glosas **frasales** (`COMO ESTAS`, `BUENOS DIAS`, `MAS O MENOS`), así que la
-  regla de "una glosa = una palabra" partía las frases en palabras sueltas que no
-  existían en el catálogo y el avatar caía a la seña por defecto. El razonamiento
-  completo está en el comentario de `app/nlp/llm_client.py`.
+- **El prompt de glosas NO lleva la lista de glosas.** Es la decisión **D-7**
+  (owner, 2026-10-16): la lista sale del prompt, porque va contra el plan de
+  pruebas y no escala. Lo que hace el trabajo es `_repair_glosses` +
+  `_merge_fragments` (que consultan el vocabulario en memoria y son O(1)) y el
+  validador, que marca como no disponible lo que no está en el catálogo.
+  **El código todavía no lo cumple**: hoy `main.py` inyecta el catálogo entero en
+  el prompt (`app/nlp/llm_client.py:146`), y eso hay que quitarlo. Ver
+  `docs/performance.md` §9. LSC50 tiene glosas **frasales** (`COMO ESTAS`,
+  `BUENOS DIAS`, `MAS O MENOS`), así que la regla de "una glosa = una palabra"
+  partía las frases en palabras sueltas que no existían en el catálogo y el avatar
+  caía a la seña por defecto. El razonamiento completo está en el comentario de
+  `app/nlp/llm_client.py`.
 - **No se usa el patrón Gateway dentro del monolito.** El flujo es
   Controller → Orchestrator, sin una capa de gateway intermedia.
 
