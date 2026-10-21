@@ -6,6 +6,11 @@ narrativa y/o la tabla de persistencia no coinciden entre sí. No se
 edita `sdd.md` ni los diagramas directamente al encontrarlas: quedan
 documentadas aquí hasta que decidas aplicarlas.
 
+Cada entrada lleva su estado al final. **Aplicado** significa que el
+cambio se hizo en el SDD, y en qué fecha; esas entradas se quedan como
+historia de lo que se corrigió. Las que todavía tienen trabajo quedan
+abiertas.
+
 ---
 
 ## SemanticCache — tipo de `lookup()` y `store()`
@@ -40,8 +45,12 @@ construye únicamente en `NLPServiceImpl` (Fase 7), combinando
 `fingerprint.category` con las `glosses` obtenidas de cualquiera de los
 dos caminos.
 
-**Estado:** implementado en código así (Fase 5), pendiente de reflejar
-en el diagrama/texto del SDD.
+**Estado:** el **diagrama** ya lo refleja: la Figura 5 tiene
+`lookup(text, fingerprint): List<String>?` y
+`store(text, fingerprint, glosses: List<String>)`, que es lo que hace el
+código (`app/nlp/semantic_cache.py:164` y `:197`). Lo que **no** está
+reflejado es la lista de clases de `docs/sdd.md:198-200`, que sigue con la
+firma vieja: ver la entrada del 2026-10-21, que trata las dos cosas juntas.
 **Fecha:** 2026-09-03
 
 ---
@@ -62,7 +71,11 @@ método `embed(text: String): List<Float>` (o el tipo equivalente), y
 una relación de dependencia desde `SemanticCache` hacia `EmbeddingModel`.
 
 **Estado:** implementado en código (`app/nlp/embedding_model.py`, Fase
-5.1), pendiente de agregar al diagrama.
+5.1) y **agregado al diagrama**: la Figura 5 tiene `EmbeddingModel` con
+`+ embed(text: String): List<Float>` y `SemanticCache` lo tiene como
+atributo `embeddingModel`, que es lo que hace el código
+(`app/nlp/semantic_cache.py:26` y `:100`). Falta en la lista de clases de
+`docs/sdd.md`: ver la entrada del 2026-10-21.
 **Fecha:** 2026-09-03
 
 ---
@@ -94,8 +107,11 @@ instrumentación no funcional (fuera del contrato funcional del
 `Controller` con Android), y agregar el mensaje `trace` al protocolo
 WebSocket como mensaje opcional de debug.
 
-**Estado:** implementado en código, pendiente de decidir si se refleja
-en el SDD.
+**Estado:** **aplicado.** Se decidió reflejarlo y quedó en el SDD: la
+sección 7.5 (Instrumentación), nueva el 20/10/2026, describe el
+`PipelineTrace`, las métricas `rt_*`, `llm_ms` y `cache_lookup_ms`, y dice
+que la traza se escribe en el registro del servidor y, si está activada,
+se envía además al cliente como un mensaje de tipo `trace`.
 **Fecha:** 2026-10-01
 
 ---
@@ -121,7 +137,9 @@ se pierde la entrada de caché; el resultado entregado no cambia.
 asíncrona (flecha de mensaje asíncrono) y reflejarlo en la narrativa
 del paso 7.
 
-**Estado:** implementado en código, pendiente de reflejar en el SDD.
+**Estado:** **aplicado.** La Figura 7.2 marca el paso 14 como
+`(asíncrono, no se espera respuesta)` y el paso 14 de la narrativa del
+SDD dice lo mismo ("en segundo plano: no se espera la respuesta").
 **Fecha:** 2026-10-01
 
 ---
@@ -201,8 +219,13 @@ mientras la validación con casos nuevos del laboratorio sigue pendiente.
 Desactivado, `NLPServiceImpl` recibe `segmenter=None` y procesa el texto
 completo como antes. Se quita cuando esa validación confirme el método.
 
-**Estado:** confirmado; implementado en código (`app/nlp/segmenter/`),
-pendiente de reflejar en el SDD.
+**Estado:** confirmado; implementado en código (`app/nlp/segmenter/`) y
+**aplicado al SDD el 20/10/2026**. De los seis puntos de la lista de
+arriba están hechos el 1 (§6.3), el 3 (§7.2), el 4 (§7.3) y el 6 (la fila
+del historial). El 2 (§7.1) quedó a medias: el diagrama y la narrativa
+sí lo tienen, la lista de clases no (ver la entrada del 2026-10-21). El 5,
+que era opcional, no se hizo: el SDD no menciona el modelo de spaCy ni lo
+que carga al contenedor del backend.
 **Fecha:** 2026-10-02
 
 ---
@@ -247,8 +270,12 @@ podía empezar a señar.
 3. **Contrato con Android:** los mensajes `segment` y `done` reemplazan
    la lista única de resultado.
 
-**Estado:** implementado en código, pendiente de reflejar en el SDD y de
-acordar con el cliente Android.
+**Estado:** implementado en código y **aplicado al SDD el 20/10/2026**: la
+Figura 7.2 tiene los pasos 22 (`segment`) y 23 (`done`), y la narrativa
+describe `translateStream`, `sendSegment(index, total, segment)` y el aviso
+de fin. **Con el cliente Android ya está acordado**: el contrato de
+`docs/android-integration.md` §3.1 usa `segment` y `done`, con `index` y
+`total` reales desde el primero.
 **Fecha:** 2026-10-02
 
 ---
@@ -274,8 +301,13 @@ propios recursos. El servidor estático no se implementó.
    eliminarlo si la app usa la glosa como clave.
 3. Marcar la fase 12 del plan como descartada.
 
-**Estado:** decisión tomada; formato de la referencia al GLB pendiente
-de acordar con el equipo Android; pendiente de reflejar en el SDD.
+**Estado:** decisión tomada y **aplicada al SDD el 20/10/2026**: el
+servidor estático de GLB ya no está en la Vista 6.2 ni en el C4 de
+componentes, y `catalog.glb_animation_path` quedó redefinido como la clave
+con la que la aplicación encuentra la animación entre las que trae dentro
+de sí ("no es una dirección en la red"). Los tres puntos del cambio
+propuesto están hechos, y el formato de la referencia quedó resuelto por
+esa vía.
 **Fecha:** 2026-10-02
 ---
 
@@ -304,7 +336,10 @@ del camino por palabras:
 - El prompt con el catálogo como vocabulario cerrado y `_repair_glosses` /
   `_merge_fragments` (`ac013d4`). Con oración sigue siendo necesario: es lo que
   evita que "cómo estás" vuelva como `TÚ, ESTAR, CÓMO`, y las tres glosas son
-  irreproducibles.
+  irreproducibles. **Ojo:** la parte del **vocabulario cerrado se quita** por la
+  decisión **D-7** (owner, 2026-10-16; ver `docs/performance.md` §9): la lista
+  de glosas **sale del prompt**. **La reparación y la fusión se quedan**, y el
+  validador también.
 - El caché semántico en memoria y las métricas, renombradas (§ abajo).
 - `docs/performance.md`, `docs/android-integration.md` y las verificaciones.
 
@@ -343,7 +378,9 @@ punto de partida pasó a ser el envío del cliente, que es la "confirmación de
 envío del usuario" de RNF-DES-01.
 
 **Pendiente:** remedir `rt_first_sign_ms` con las 28 frases de
-`fixtures/audio/` (ver `sign-ai-docs/auditoria-flujo-2026-10-15.md` §7). La
+`../sign-ai-stt/fixtures/audio` (los clips se generan con
+`scripts/make_audio_fixtures.py --all` en el repo del STT, y la medición se
+corre con `../sign-ai-android/tools/verificar-tiempo-real.sh`). La
 cifra publicada de 913 ms p50 / 1336 ms p95 era del camino por palabras y con
 oraciones **no es comparable**: ahora se mide al terminar la primera oración y
 no a mitad de camino.
@@ -363,9 +400,9 @@ después. Ninguno cambia el contrato con la app.
 
 | Documento | Dice |
 |---|---|
-| `docs/performance.md:618-623` | "Desacoplar la traducción de la lectura del STT. Hoy `_forward_transcripts` espera a que termine cada traducción antes de leer el siguiente mensaje del STT. **Lanzar cada traducción como tarea** y garantizar que los resultados se envíen al cliente en el orden de las frases." |
+| `docs/performance.md:676-681` | "Desacoplar la traducción de la lectura del STT. Hoy `_forward_transcripts` espera a que termine cada traducción antes de leer el siguiente mensaje del STT. **Lanzar cada traducción como tarea** y garantizar que los resultados se envíen al cliente en el orden de las frases." |
 | `docs/performance.md:331-334` | lo nombra como requisito |
-| `docs/requirements.md:163` (RF-INT-SW-04) y `:536` (RNF-REL-01) | no bloquear el hilo principal |
+| `../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md:160` (RF-INT-SW-04) y `:553` (RNF-REL-01) | no bloquear el hilo principal |
 | `app/controller/controller.py:29-36` (docstring) | "The translation now happens on its own task and the read loop keeps draining the STT" — **ya lo afirmaba y no era cierto** |
 
 **Qué se implementó:** `_PhraseTranslator` corre cada frase en su propia tarea
@@ -425,7 +462,7 @@ misma clase de error estaba en el STT, en `stt_sessions_active` y
 
 ### 4. `llm_ms` y `cache_lookup_ms` como métricas de verdad
 
-**Qué decía el pendiente:** `docs/performance.md:688-693` — "contrastar
+**Qué decía el pendiente:** `docs/performance.md:756` — "contrastar
 `rt_sentence_delay_ms` con la traza por oración: el histograma dice cuándo salió
 cada oración pero no por qué se demoró esa".
 
@@ -452,3 +489,45 @@ WebSocket con la app no cambia, así que `docs/android-integration.md` no necesi
 cambios por esto.
 
 **Fecha:** 2026-10-16
+
+---
+
+## La lista de clases de la §7.1 no coincide con su propio diagrama
+
+**Dónde:** `docs/sdd.md:192-210` (la lista "Clases y elementos principales"
+de la Figura 5), contra
+`../sign-ai-docs/diagramas/draw.io/sdd-7.1-clases-2-nlp.drawio` y su PNG,
+que es el mismo archivo que se ve en
+`docs/diagrams/sdd-7.1-clases-2-nlp.drawio.png`.
+
+**Qué dice cada fuente:**
+
+| Fuente | Dice |
+|---|---|
+| El diagrama (Figura 5) | `NLPServiceImpl` con **cuatro** atributos: `segmenter`, `analyzer`, `cache`, `llmClient`. `SemanticCache.lookup(text, fingerprint): List<String>?` y `store(text, fingerprint, glosses: List<String>)`. Una clase `EmbeddingModel` con `+ embed(text: String): List<Float>`, de la que `SemanticCache` depende |
+| La lista de clases de `docs/sdd.md:192-210` | `NLPServiceImpl` con **tres** atributos (sin `segmenter`); `lookup(...): List<Segment>?` y `store(..., segments: List<Segment>): void`; **no menciona `EmbeddingModel`** |
+| La narrativa de la misma §7.1 (`docs/sdd.md:211-213`) | "**cuatro** colaboradores", incluido `segmenter`, y usa `store(text, fingerprint, glosses)` |
+| El SDD de Overleaf (`main.tex:318`, `:323`, `:325`) | No tiene lista de firmas: pone la Figura 5 y la narrativa, que ya habla de los cuatro colaboradores y de `store(..., glosses)` |
+
+**Cuál parece correcta:** el diagrama. Es el que describe el código:
+`app/nlp/semantic_cache.py:164` devuelve `list[str] | None` y `:197` recibe
+`glosses: list[str]`, y `app/nlp/embedding_model.py:10` tiene
+`embed(text: str) -> list[float]`.
+
+**Por qué sigue así:** esa lista del Markdown es una transcripción escrita a
+mano de la Figura 5. El 20/10/2026 se corrigió el SDD al pasar del flujo por
+palabras al flujo por oraciones, y en esa pasada se actualizaron los
+diagramas y la narrativa, pero la lista de firmas se quedó atrás.
+
+**Qué habría que cambiar:** tres puntos en `docs/sdd.md:192-210`:
+1. Agregar `segmenter: SentenceSegmenter` a los atributos de
+   `NLPServiceImpl`.
+2. Poner las firmas de `SemanticCache` como las del diagrama:
+   `lookup(text, fingerprint): List<String>?` y
+   `store(text, fingerprint, glosses: List<String>): void`.
+3. Agregar la clase `EmbeddingModel`, con `+ embed(text: String): List<Float>`,
+   y la dependencia de `SemanticCache` hacia ella.
+
+**Estado:** documentado; **no se aplicó**, por la regla de que los cambios
+del SDD se anotan en este archivo y los aplica el owner.
+**Fecha:** 2026-10-21
