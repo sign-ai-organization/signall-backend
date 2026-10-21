@@ -72,16 +72,16 @@ el usuario. Es él quien decide cuándo y cómo aplicar el cambio al SDD.
   la inferencia, solo contra el mapa en memoria.
 - **El prompt de glosas NO lleva la lista de glosas.** Es la decisión **D-7**
   (owner, 2026-10-16): la lista sale del prompt, porque va contra el plan de
-  pruebas y no escala. Lo que hace el trabajo es `_repair_glosses` +
-  `_merge_fragments` (que consultan el vocabulario en memoria y son O(1)) y el
-  validador, que marca como no disponible lo que no está en el catálogo.
-  **El código todavía no lo cumple**: hoy `main.py` inyecta el catálogo entero en
-  el prompt (`app/nlp/llm_client.py:146`), y eso hay que quitarlo. Ver
-  `docs/performance.md` §9. LSC50 tiene glosas **frasales** (`COMO ESTAS`,
+  pruebas y no escala. El código ya lo cumple (implementado el 2026-10-21):
+  `self._prompt` es la constante `PROMPT_TEMPLATE`, sin nada inyectado. Lo
+  que hace el trabajo es `_repair_glosses` + `_merge_fragments` (que consultan
+  el vocabulario en memoria y son O(1)) y el validador, que marca como no
+  disponible lo que no está en el catálogo.
+  LSC50 tiene glosas **frasales** (`COMO ESTAS`,
   `BUENOS DIAS`, `MAS O MENOS`), así que la regla de "una glosa = una palabra"
   partía las frases en palabras sueltas que no existían en el catálogo y el avatar
   caía a la seña por defecto. El razonamiento completo está en el comentario de
-  `app/nlp/llm_client.py`.
+  `app/nlp/llm_client.py`. Ver `docs/performance.md` §9.
 - **No se usa el patrón Gateway dentro del monolito.** El flujo es
   Controller → Orchestrator, sin una capa de gateway intermedia.
 

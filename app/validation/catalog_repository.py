@@ -31,9 +31,6 @@ class CatalogRepository:
         self.cache: dict[str, CatalogEntry] = {}
 
     async def load_all(self) -> None:
-        # Ordered so the catalog's vocabulary is identical on every start. The
-        # LLM prompt embeds it, and a stable list keeps the prompt byte-stable
-        # (any server-side prompt cache depends on it).
         rows = await self._pool.fetch(
             "SELECT gloss, glb_animation_path FROM catalog ORDER BY id_sign"
         )
@@ -55,8 +52,8 @@ class CatalogRepository:
     def vocabulary(self) -> dict[str, str]:
         """Every catalog gloss as folded key -> display spelling.
 
-        The LLM prompt is built from this so the model can only propose signs
-        the app can actually play, and the prompt's post-hoc repair resolves
-        against the same keys (`COMO ESTAS` resolves an accented `CÓMO ESTÁS`).
+        The post-hoc repair of the model's answer resolves against these keys
+        (`COMO ESTAS` resolves an accented `CÓMO ESTÁS`). The list does not go
+        into the prompt: decision D-7 (owner, 2026-10-16) took it out of it.
         """
         return {folded: entry.gloss for folded, entry in self.cache.items()}

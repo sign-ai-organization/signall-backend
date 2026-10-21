@@ -67,10 +67,10 @@ async def lifespan(app: FastAPI):
         # the top of app/nlp/llm_client.py for why the old "one gloss = one
         # word" prompt broke this.
         #
-        # They also go into the prompt as a closed vocabulary, so the model
-        # cannot answer with a sign that has no animation. That part is
-        # SUPERSEDED by decision D-7 (owner, 2026-10-16): the list comes out of
-        # the prompt. See docs/performance.md section 9.
+        # They do NOT go into the prompt: decision D-7 (owner, 2026-10-16)
+        # took the list out of it, because it does not scale and the validator
+        # already marks a sign that is not in the catalog as unavailable. See
+        # docs/performance.md section 9.
         catalog_repository.vocabulary(),
     )
 
