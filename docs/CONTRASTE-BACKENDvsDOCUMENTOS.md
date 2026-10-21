@@ -1,38 +1,56 @@
 # Contraste Backend ↔ Documentos
 
-**Fecha:** 2026-10-18 · **Backend:** `sign-ai-backend`, rama `flujo-oraciones`, commit
-`0363546` (sin mergear) · **Estado del árbol:** 15 archivos modificados y 2 sin
-trackear del trabajo del 2026-10-15, que **no son de este documento**.
+**Fecha del contraste:** 2026-10-18 · **Backend:** `sign-ai-backend`, rama `flujo-oraciones`,
+commit `4b8b9b8` (sin mergear).
 
-**Fuentes leídas, enteras, el 2026-10-18:**
+**Última actualización: 2026-10-21**, después de releer las cuatro fuentes enteras y de
+corregir los números que no cuadraban. Este documento nació como el contraste; ahora es
+también el registro de lo que se hizo. **Lo que se hizo y lo que falta está en
+[§10](#10-estado-de-la-ejecución--del-2026-10-19-al-2026-10-21).**
 
-| Fuente | Qué se leyó | Sello |
-|---|---|---|
-| **El código** | `app/` completo, `scripts/verify_*.py`, `tools/`, migraciones, `docker-compose.yml`, `Dockerfile`, `requirements.txt`, `.env` | `flujo-oraciones` @ `0363546` |
-| **Los documentos del proyecto** | `../sign-ai-docs`: Requerimientos v0.15 (701 líneas), `modificaciones/requerimientos.md`, `auditoria-flujo-2026-10-15.md`, `plan-pruebas/00-bases/` (3) y `plan-pruebas/01-diseno/*/general.md` (6), y los **12 `.drawio` con sus PNG** | `main` |
-| **Overleaf — SDD** | proyecto `6a85c9a632974414503d9b82`, `main.tex`, **540 líneas**, versión **159**, editado el **2026-08-30**, más las **12 PNG de `images/`** | v159 |
-| **Overleaf — SRS** | proyecto `6a122a19bb9a5dd9d390ba3d`, `main.tex`, **1370 líneas**, versión **436**, editado el **2026-10-18 05:02** | v436 |
-| **La app** | `../sign-ai-android/docs/CONTRASTE-APPvsDOCUMENTOS.md` y `.opencode/skills/contrato-websocket/SKILL.md`, **solo lectura** | `flujo-oraciones` |
+> **Revisión de cierre, 2026-10-21.** Al terminar la sesión se volvió a leer este documento
+> entero y se corrigieron **nueve citas por número de línea** que apuntaban a otra cosa (las
+> del prompt, las del `requirements.txt`, las de la migración del catálogo y dos del v0.16),
+> y se reverificaron con script los números de §10.1. El detalle está en §10.6.
+> **Lo que falta de los documentos está en [§10.2](#102-lo-que-falta); lo que falta de
+> código, en [§10.3](#103-los-cambios-de-código-que-faltan).**
 
-> **Su gemelo para la app es `../sign-ai-android/docs/CONTRASTE-APPvsDOCUMENTOS.md`.**
-> Los dos se citan por ruta relativa, nunca con la ruta absoluta de una máquina.
+> **Este es el documento único de contraste.** Reemplaza a los dos que lo precedieron:
+> `../sign-ai-docs/auditoria-flujo-2026-10-15.md` (el primer contraste, del 15 de
+> octubre) y `../sign-ai-docs/modificaciones/texto-overleaf-pendiente.md` (el archivo de
+> textos para pegar en Overleaf, que ya no sirve: todo lo que tenía se pegó).
+> Los dos se borraron el 2026-10-21.
+
+**Fuentes leídas, enteras. La columna "Sello" dice con qué versión se leyó cada una:**
+
+| Fuente | Qué se leyó | Sello | Cuándo |
+|---|---|---|---|
+| **El código** | `app/` completo, `scripts/verify_*.py`, `tools/`, migraciones, `docker-compose.yml`, `Dockerfile`, `requirements.txt`, `.env` | `flujo-oraciones` @ `4b8b9b8` | 2026-10-21 |
+| **Los documentos del proyecto** | `../sign-ai-docs`: Requerimientos (**750 líneas**, v0.16), `modificaciones/requerimientos.md` (**45 filas**), `plan-pruebas/00-bases/` (3) y `plan-pruebas/01-diseno/*/general.md` (6), y los **12 `.drawio` con sus PNG** | `docs-contraste-2026-10-19` @ `18457be`, con 9 archivos modificados sin commitear | 2026-10-21 |
+| **Overleaf — SDD** | proyecto `6a85c9a632974414503d9b82`, `main.tex`, **550 líneas**, más las **12 PNG de `images/`** | **v212** | 2026-10-21 |
+| **Overleaf — SRS** | proyecto `6a122a19bb9a5dd9d390ba3d`, `main.tex`, **1495 líneas** | **v524**, editado el **2026-10-21 04:05** | 2026-10-21 |
+| **La app** | `.opencode/skills/contrato-websocket/SKILL.md`, **solo lectura** | `flujo-oraciones` @ `dee9241` | 2026-10-21 |
+
+> El contraste de la app (`../sign-ai-android/docs/CONTRASTE-APPvsDOCUMENTOS.md`) es un
+> documento **de otro repo** y no se lleva desde acá. Lo único que se lee de ese repo es
+> el contrato del WebSocket, que es lo que este repo implementa.
 >
 > **Overleaf es de solo lectura.** Si un `.tex` está mal, lo corrige el owner.
 
 ---
 
-## ⚠ Orden de trabajo de la sesión siguiente
+## ⚠ Orden de trabajo de la sesión siguiente — **ejecutado**
 
 Este documento es el registro de las decisiones. **La sesión siguiente es la de ejecutar.**
 Y lo primero que se hace es la **documentación y los diagramas**, en los dos sitios donde
 viven:
 
-| # | Qué | Dónde |
-|---|---|---|
-| 1 | **Copiar las 12 imágenes** del juego viejo al juego nuevo. No es redibujar: es subir el archivo que ya existe | De `../sign-ai-docs/diagramas/png/` a `images/` del SDD en Overleaf, y a `docs/diagrams/` de este repo |
-| 2 | **Editar el C4-2**: cambiar "Filament" por Three.js. Regenerar su PNG y volver a subirla | `../sign-ai-docs/diagramas/draw.io/sdd-c4-2-contenedores.drawio` |
-| 3 | **Editar el 7.4**: agregar el estado *Texto listo* con sus tres transiciones, y quitar el "≤2s" de la salida de *Error*. Regenerar su PNG y volver a subirla | `../sign-ai-docs/diagramas/draw.io/sdd-7.4-diagrama-estados-ui.drawio` |
-| 4 | **Solo después**, corregir el texto del SDD §6.1, §6.2, §6.3, §7.1, §7.2 y §7.3 | SDD de Overleaf y `docs/sdd.md` de este repo |
+| # | Qué | Dónde | Cómo terminó |
+|---|---|---|---|
+| 1 | **Copiar las 12 imágenes** del juego viejo al juego nuevo. No es redibujar: es subir el archivo que ya existe | De `../sign-ai-docs/diagramas/png/` a `images/` del SDD en Overleaf, y a `docs/diagrams/` de este repo | **Hecho.** Los tres juegos son el mismo archivo: verificado byte a byte el 2026-10-21 (§10.1) |
+| 2 | **Editar el C4-2**: cambiar "Filament" por Three.js. Regenerar su PNG y volver a subirla | `../sign-ai-docs/diagramas/draw.io/sdd-c4-2-contenedores.drawio` | **Hecho.** Editado y con su PNG nueva |
+| 3 | **Editar el 7.4**: agregar el estado *Texto listo* con sus tres transiciones, y quitar el "≤2s" de la salida de *Error*. Regenerar su PNG y volver a subirla | `../sign-ai-docs/diagramas/draw.io/sdd-7.4-diagrama-estados-ui.drawio` | **Hecho.** Editado y con su PNG nueva |
+| 4 | **Solo después**, corregir el texto del SDD §6.1, §6.2, §6.3, §7.1, §7.2 y §7.3 | SDD de Overleaf y `docs/sdd.md` de este repo | **Hecho.** Los 17 lugares del SDD de Overleaf y 11 secciones de `docs/sdd.md` (que son 32 bloques de párrafo) |
 
 El orden importa: si se empieza por el texto se cambian veinte frases y después aparecen
 las imágenes y hay que revisarlo todo otra vez. Al revés, primero las imágenes y después
@@ -43,6 +61,51 @@ Los tres pasos de arriba dejan resueltos, de un solo movimiento, los puntos **1,
 trabajo futuro, y el **34** depende de la decisión del proxy.
 
 **Nunca se commitea nada sin que el owner lo pida**, y Overleaf no se escribe desde acá.
+
+> Se editó además el **7.1-1** (el diagrama de clases de la orquestación), que no estaba en
+> la lista de arriba pero quedó desalineado al cambiar el texto del SDD.
+
+---
+
+## 📌 Convención: cómo se marca un punto abierto
+
+Decidido el 2026-10-19. **Todo lo que escribamos y quede abierto se marca en el
+propio texto del documento con `(TODO: ...)`**, para poder buscarlo de un tirón y
+no dejar nada colgado:
+
+```
+(TODO: definir e implementar la política de retención del texto de la caché.)
+```
+
+Aplica a los tres documentos: el **SRS** y el **SDD** de Overleaf, y el
+**Requerimientos Consolidados v0.16** de `../sign-ai-docs`. La marca es la misma
+en los tres, y el texto del documento **no se deforma para dejarla**: el
+requerimiento sigue diciendo lo que dice, y la coletilla va al final, entre
+paréntesis.
+
+Tres reglas para que la marca sirva de algo:
+
+1. **Una sola sintaxis.** `(TODO: ...)`. El `[PENDIENTE: ...]` que ya existía en el
+   SRS (§2.1.6, el tamaño del APK) se convierte a la misma forma.
+2. **Un TODO marca un punto abierto de este documento o de la implementación.** Una
+   referencia a una tarea externa (TSK-03, DEC-20, ADR-011) **sigue siendo
+   referencia** y no se convierte en TODO: no está abierto en este documento.
+3. **Una pasada de cierre antes de entregar la tesis.** Cada TODO se cierra o se
+   mueve a *trabajo futuro*. Mientras queden, el documento es un borrador, y el
+   v0.16 ya se declara como tal ("Estado: Borrador (primera versión completa,
+   pendiente de validación)").
+
+**No se usa esta marca para dos cosas distintas.** Hay que separar:
+
+| Qué es | Cómo se marca | Ejemplo |
+|---|---|---|
+| Una **decisión que no está tomada** | En el texto, como provisional, según la convención del §1.1 del v0.16 | "El criterio de similitud queda pendiente de diseño" |
+| Una **brecha entre lo especificado y lo construido** | `(TODO: ...)`, y el trabajo futuro lo recoge la *Memoria* | "el texto se escribe en los registros del servidor (TODO: dejar de escribirlo)" |
+
+Las dos se confunden fácil, y por eso quedan separadas. El registro
+`modificaciones/requerimientos.md` sigue siendo el sitio donde está el *estado* de
+cada cambio (Propuesto / Acordado / Hecho); la marca `(TODO: ...)` va en el texto
+del documento, y el registro la refleja.
 
 ---
 
@@ -73,6 +136,10 @@ con vaciar el caché antes de remedir y con no autenticar las métricas. **Queda
 puntos abiertos** —el límite de solicitudes por cliente y la concurrencia de sesiones— y
 cuatro temas de fondo en §6, cada uno con sus dos salidas.
 
+> **Este resumen es la foto del 18/10.** Los dos puntos abiertos y los cuatro temas de §6
+> se resolvieron esa misma tarde (§9.3 bis), y las correcciones se ejecutaron los días 19,
+> 20 y 21. **Para saber qué está hecho y qué falta, el sitio es §10**, no este resumen.
+
 Una nota que atraviesa todo el documento: **la línea base publicada de `rt_first_sign_ms`
 (913 ms p50 / 1336 ms p95) es del camino por palabras y con oraciones no es comparable.**
 La del flujo por oraciones es **p50 273 ms / p95 422 ms**, medida el **2026-10-15** con
@@ -85,6 +152,10 @@ de la tesis.
 
 El owner preguntó esto primero, así que va primero.
 
+> **Este veredicto es el del 2026-10-18.** Las correcciones se aplicaron los días 19, 20 y
+> 21 de octubre: lo que se hizo y lo que falta está en **§10**. El estado de §10 se
+> reverificó entero el 2026-10-21, leyendo los archivos y no de memoria.
+
 ### 1.1 El veredicto
 
 | Cosa | ¿Al día? | Evidencia |
@@ -96,7 +167,7 @@ El owner preguntó esto primero, así que va primero.
 | **Overleaf SDD `main.tex` (v159)** | **No.** El texto es del flujo viejo | Habla de `sendResult(segments)`, de `translate(text)` como único método y del Static GLB Server |
 | **`sign-ai-backend/docs/sdd.md`** | **No.** Es el mismo texto viejo que el `.tex` | Copia del Overleaf |
 | **Overleaf SRS `main.tex` (v436)** | **Sí**, salvo la §3 vacía y las filas de §5 | Editado el 2026-10-18 |
-| **`../sign-ai-docs/documentos/requerimientos` v0.15** | **Es la fuente de los RF/RNF**; su lista de cambios pendientes ya recoge varios de estos ítems | 11 de agosto de 2026 |
+| **`../sign-ai-docs/documentos/requerimientos` v0.16** | **Es la fuente de los RF/RNF**; su lista de cambios pendientes ya recoge varios de estos ítems | 11 de agosto de 2026 |
 
 En una frase: **`sign-ai-docs` está al día y Overleaf no.** El SDD de Overleaf es el que
 se quedó atrás, y `docs/sdd.md` del backend es una copia suya, así que arrastra lo mismo.
@@ -117,6 +188,13 @@ a la de `sign-ai-docs`:
 
 (Hash FNV-1a de 32 bits, calculado el 2026-10-18. Coinciden los cinco probados, con el
 tamaño en bytes idéntico también.)
+
+> **Esta tabla es la foto del 2026-10-18 y ya no describe el estado.** El 7.4 de Overleaf
+> tenía `932e5740` y hoy tiene `474f6e0b`, que es el nuevo: el estado *Texto listo* ya está
+> en la imagen de Overleaf. Lo mismo pasó con las otras once. **Los tres juegos de PNG son
+> hoy el mismo archivo**, verificado byte a byte el 2026-10-21 (§10.1). La columna de
+> Overleaf y la de este repo dicen "= igual" porque las dos eran el juego viejo; ahora las
+> tres son iguales al nuevo.
 
 ### 1.3 Cómo se sabe — método 2: qué dicen los `.drawio` y qué dice el código
 
@@ -649,6 +727,11 @@ Esta es la pregunta que el owner hizo, y la respuesta es buena.
 Se leyó el XML de los doce `.drawio` de `../sign-ai-docs/diagramas/` y se comparó cada
 caja con el código.
 
+> **La columna "Qué hay que tocar" es el plan del 2026-10-18, y ya se ejecutó entero.** Los
+> dos `.drawio` que había que editar (el 7.4 y el C4-2) están editados, más el 7.1-1 que
+> se desalineó al cambiar el texto. Y las doce PNG ya están en los tres sitios. Lo que sigue
+> es el análisis, no el estado: el estado está en §10.
+
 | Diagrama | ¿Está al día? | Qué dice | Qué hay que tocar |
 |---|---|---|---|
 | 6.1 Vista lógica | **Sí** | `TranslateStream`, `Split`/`TransformSentence`, `Validate(segments)`, sin Static GLB | Solo subir la PNG |
@@ -697,7 +780,7 @@ imágenes y después el texto dice exactamente qué cambiar.
 
 ### 5.1 El punto 23 — límite de solicitudes por cliente (RNF-SEC-01)
 
-**Qué pide.** v0.15 RNF-SEC-01: que el backend limite el número de solicitudes de
+**Qué pide.** v0.16 RNF-SEC-01: que el backend limite el número de solicitudes de
 traducción y de conexiones WebSocket de un mismo cliente "en un intervalo corto de
 tiempo, rechazando o retrasando el excedente". Razón que da el requisito: *evitar que un
 uso indebido o automatizado agote el saldo del proveedor del LLM, que se cobra por uso*.
@@ -777,15 +860,15 @@ decisión del owner**; el cuarto ya está cerrado.
 |---|---|
 | `.env` | `LLM_MODEL` vuelve a `gpt-4o-mini` y `LLM_BASE_URL` a vacío (vacío = OpenAI). Lo local se mueve a un `.env.local` que no está en git |
 | SRS `main.tex:1077-1080` | Ya dice `gpt-4o-mini` y OpenAI. **No hay que tocarlo**. La imagen 6.2 también lo dice |
-| v0.15 RF-INT-SW-02 | Pide un proveedor externo. **Se cumple** |
+| v0.16 RF-INT-SW-02 | Pide un proveedor externo. **Se cumple** |
 | `docs/CAMBIOSBACKEND.md` §"Pendiente" 1 | "Falta remedir `rt_first_sign_ms` con el LLM de producción". La decisión lo destraba, pero la remedición sigue pendiente |
 | Línea base | Los **273 ms p50 / 422 ms p95** son de Qwen local. **Dejan de ser la línea base de la tesis** |
 
 ### 6.2 El catálogo: ¿reiniciar el backend o recargar en caliente?
 
-**Qué dice cada uno.** RNF-MNT-01 (v0.15 §6.4) pide que cambiar una seña se reconozca
+**Qué dice cada uno.** RNF-MNT-01 (v0.16 §6.4) pide que cambiar una seña se reconozca
 "sin reiniciar el servicio". RNF-BD-03 (§7) pide que el catálogo se cargue en memoria al
-arrancar para que la inferencia no consulte la base. El propio v0.15 lo reconoce al final:
+arrancar para que la inferencia no consulte la base. El propio v0.16 lo reconoce al final:
 *"RNF-MNT-01 exige que una seña nueva se reconozca sin reiniciar el servicio, lo cual está
 en tensión con este RNF-BD-03… No se modifica RNF-MNT-01 hasta que el equipo lo
 confirme"*. `modificaciones/requerimientos.md` punto 11 ya propone aceptar el reinicio.
@@ -813,7 +896,7 @@ siguiente vez que se reinicia el backend, sin tocar código**. Y con eso se cier
 reiniciar").
 
 **La tensión que se cierra.** RNF-MNT-01 ("sin reiniciar el servicio") y RNF-BD-03 ("el
-catálogo en memoria, cero consultas durante la inferencia") se contradecían, y el propio v0.15
+catálogo en memoria, cero consultas durante la inferencia") se contradecían, y el propio v0.16
 lo reconocía: *"RNF-MNT-01 exige que una seña nueva se reconozca sin reiniciar el servicio, lo
 cual está en tensión con este RNF-BD-03… No se modifica RNF-MNT-01 hasta que el equipo lo
 confirme"*. Con esta decisión se elige RNF-BD-03 y se reescribe RNF-MNT-01. Se puede escribir
@@ -876,7 +959,7 @@ tardar una consulta. Y sin `timeout` en `pool.acquire()`: si el pool se agota, l
 tampoco tiene techo. Las tres llamadas que tocan la base son `_lookup_neon`
 (`app/nlp/semantic_cache.py:248-274`), `store` (`:219-237`) y la carga del arranque.
 
-**Qué hay hoy, en documentación.** v0.15 RNF-REL-03 pide reintentos con número acotado.
+**Qué hay hoy, en documentación.** v0.16 RNF-REL-03 pide reintentos con número acotado.
 `modificaciones/requerimientos.md` punto 20: *"Hoy no hay reintentos. Decidir: implementar
 uno o dos reintentos, o ajustar el requisito a 'error controlado sin reintentos'"*. Y hay
 un detalle del arranque: `CatalogRepository.load_all()` (`app/main.py:48`) **no está
@@ -1132,6 +1215,9 @@ once.
 
 ### 9.3 Lo que queda sin decidir
 
+> **Esta tabla es de las 18:00 del 18/10.** Las cinco quedaron resueltas esa misma tarde:
+> está en §9.3 bis, abajo.
+
 | # | Qué | Dónde |
 |---|---|---|
 | **Punto 4** | `NLPService.transform` contra `split` y `transform_sentence`. Se le explicó que **B no toca ningún diagrama** y que la Figura 5 y la 7.2 de `sign-ai-docs` ya están correctas, pero el owner no llegó a responder | §3.1, fila 4 |
@@ -1187,16 +1273,300 @@ la diferencia entre que "Me llamo Ana. ¿Cómo estás?" salga con un tipo de fra
 
 ---
 
-## 10. Dónde sigue cada cosa
+## 10. Estado de la ejecución — del 2026-10-19 al 2026-10-21
+
+La sesión del 2026-10-18 dejó el contraste y las decisiones. Las sesiones siguientes se
+dedicaron a **ejecutar** esas decisiones en los tres documentos de la tesis. Esta sección es
+el estado: qué se hizo, qué falta y de quién es.
+
+**Todo lo de §10 se reverificó el 2026-10-21**, leyendo los archivos y no de memoria: el
+código de este repo con `git`, los documentos de `../sign-ai-docs` con `git diff`, y los dos
+`.tex` y las doce PNG de Overleaf por el MCP. Donde dice "verificado", está verificado con
+esa lectura; no con lo que se recuerda de la sesión anterior.
+
+### 10.1 Lo que se hizo
+
+| Documento | Qué se aplicó | Cómo terminó |
+|---|---|---|
+| **SRS de Overleaf** (`6a122a19bb9a5dd9d390ba3d`) | Los doce lugares: el protocolo del canal (§2.1.5), los cuatro puntos de entrada, la memoria del NLP, el búfer de audio del STT, la caché y su retención, el tiempo hasta la primera seña en dos tramos, el plazo del modelo de lenguaje, la GPU, la tabla de software, y los `[PENDIENTE:]` convertidos en `(TODO:)` | Aplicado. Verificado el 2026-10-20 y **reverificado el 2026-10-21** en `v524` (1495 líneas): `:643` los cuatro puntos de entrada, `:751` el plazo del modelo, `:850-857` los dos tramos, `:1041-1042` y `:1062-1063` la tabla de software, `:1117` el protocolo, `:1211` el búfer del STT, `:1272-1279` la caché y la retención, `:1291` la GPU, y los cuatro `(TODO:)` en `:945`, `:1190`, `:1272` y `:1279` |
+| **SDD de Overleaf** (`6a85c9a632974414503d9b82`) | Los diecisiete lugares de texto: §6.1, §6.2, §6.3, §7.1, §7.4, §8.2 y §8.3, más la subsección nueva `\subsection{Instrumentación}` (línea 425) y la fila del historial del 20/10/2026 (línea 131) | Aplicado. Verificado el 2026-10-20 y **reverificado el 2026-10-21** en `v212` (550 líneas): `:131` la fila del historial, `:210-217` el §6.1, `:310` los tres métodos de entrada, `:323` los cuatro colaboradores, `:361` el `translateStream`, `:391` la tabla `catalog`, `:419-421` el §7.4 con el estado *Texto listo*, `:425-431` la subsección de instrumentación, `:513-517` el §8.3 |
+| **`docs/sdd.md`** de este repo | Once secciones corregidas (§6.1, §6.2, §6.3, §7.1, §7.2, §7.3, §7.4, §8.2, §8.3, el índice y el §7.5 nuevo), que en párrafos son **32 bloques** | Hecho. Es el único de los tres que se corrige en este repo, sin pasar por Overleaf |
+| **v0.16** de `../sign-ai-docs` (antes v0.15) | El encabezado pasó a 0.16 con su fila de historial; se agregaron seis requerimientos (RF-NLP-05, RF-STT-04, RF-STT-05, RF-UI-06, RF-UI-07 y RF-UI-08); se reescribieron **treinta y siete** requerimientos; se eliminó RNF-POR-03 (fusionado en RNF-MNT-04) y RNF-BD-02 pasó al SDD; **quince** de los **setenta y uno** requerimientos quedaron con un `(TODO: ...)` | Hecho. El archivo ahora se llama `SignAI_Requerimientos_Consolidados_v0.16.md` — el rename se hizo el 2026-10-21 |
+| **Registro** `../sign-ai-docs/modificaciones/requerimientos.md` | **Cuarenta y cinco filas: 36 Hecho**, 4 Acordado, 4 Bloqueado hasta la ronda diagnóstica y 1 Propuesto | Al día. Contado con script, no a ojo |
+| **Trazabilidad** `plan-pruebas/00-bases/trazabilidad.md` | Las dos referencias a RNF-BD-02, la fusión de RNF-POR-03 (tres lugares), y el **contraste reverificado el 2026-10-20**: las seis filas de los requerimientos nuevos, el estado real de la aplicación (el modo dictado, la entrada de texto y el historial ya existen) y el estado de los **trece** bloques | Hecho. El conteo de bloques no cambió: siguen siendo trece |
+| **Diagramas** | Tres `.drawio` editados (7.1-1, 7.4 y C4-2) con sus PNG regeneradas, y las doce PNG de `docs/diagrams/` de este repo reemplazadas por las nuevas | Hecho. Las doce de este repo y las doce de `../sign-ai-docs/diagramas/png/` son **el mismo archivo**, verificado con md5 el 2026-10-21 |
+| **Las doce PNG del SDD en Overleaf** | Subidas a `images/` del proyecto `6a85c9a632974414503d9b82`, con los nombres idénticos a los de `../sign-ai-docs/diagramas/png/` | Hecho el 2026-10-20. **Verificado el 2026-10-21 por hash:** las doce, leídas del servidor, coinciden byte a byte con las locales |
+| **La tabla de software del SRS** | FastAPI 0.115 → **0.143.0** y LangChain 1.4.6 → **1.4.5** | Hecho el 2026-10-20, verificado por el MCP: los números viejos ya no están |
+| **RF-UI-04 del v0.16** | El permiso de micrófono se pide al abrir la app y de nuevo al activar la captura si fue denegado. El requisito decía solo lo segundo, que no era lo que el código hacía | Hecho el 2026-10-20, decisión del owner: escribir los dos momentos en el requisito, sin tocar la app |
+| **`docs/requirements.md`** | Borrado: duplicaba el documento de requerimientos y estaba desactualizado | Hecho el 2026-10-21. `CLAUDE.md` pasó a apuntar al documento consolidado |
+| **El nombre del archivo de requerimientos** | `../sign-ai-docs/documentos/requerimientos/` | El `.md` pasó de `..._v0.15.md` a `..._v0.16.md`, para que el nombre coincida con la versión de adentro. Las **nueve citas por nombre** de los tres repos se cambiaron en el mismo momento, y las referencias sueltas a "v0.15" en el repo de documentos y en el de la app pasaron a "v0.16". Hecho el 2026-10-21 |
+| **El historial de `docs/sdd.md`** | `docs/sdd.md:9-14` | Le faltaba la fila del 20/10/2026. El contenido del SDD del backend ya estaba alineado con el código desde el 20 de octubre, pero su tabla de historial solo tenía la del 19 de agosto: el documento contaba una historia distinta a la del SDD de Overleaf sobre el mismo día. Se copió la fila de Overleaf (`main.tex:131`, v212) tal cual, cambiando `\textit{Texto listo}` por `*Texto listo*`. Hecho el 2026-10-21 |
+| **`docs/sdd-changes.md`** | `docs/sdd-changes.md` | Las siete entradas que seguían diciendo "pendiente de reflejar en el SDD" se verificaron una por una contra el código, los diagramas y el texto del SDD. Seis están **aplicadas** desde el 20/10/2026 y su línea de estado se reescribió diciendo qué se hizo, dónde y cuándo; una quedó a medias y se documentó como entrada nueva del 2026-10-21. Las dos entradas que son registro de trabajo (15/10 y 16/10) se dejaron intactas, con su pendiente de remedir `rt_first_sign_ms`. Hecho el 2026-10-21 |
+| **La revisión de cierre de este mismo documento** | `docs/CONTRASTE-BACKENDvsDOCUMENTOS.md` | Se leyó entero y se corrigieron **nueve citas por número de línea** que apuntaban a otra cosa, más una afirmación sobre las dependencias fijadas y otra sobre las herramientas de análisis estático. Los números de §10.1 se reverificaron con script, no a ojo. Hecho el 2026-10-21 |
+
+### 10.2 Lo que falta
+
+Todo lo de esta tabla, menos el punto 13, es **trabajo pendiente y se puede hacer**. Lo que no
+compete está en §10.4, y el punto 13 es una remisión a esa tabla. Lo que es solo código está
+desglosado en §10.3.
+
+**Los puntos 1 y 2 ya no cuentan como trabajo pendiente** (decisión del owner, 2026-10-21):
+el 1 queda **en pausa** hasta que el owner pregunte al equipo, y el 2 queda **para preguntar**.
+Se dejan en la tabla como están, pero no se trabajan: no son trabajo, son decisiones tomadas.
+
+| # | Qué falta | Dónde hay que hacerlo | Por qué |
+|---|---|---|---|
+| 1 | **Las referencias a ADR, TSK, DEC, INC, LIM y RSK** del v0.16 | `../sign-ai-docs/...v0.16.md`, 44 líneas | **En pausa.** El owner prefiere preguntar primero al equipo. Los treinta y tres reemplazos propuestos quedaron preparados en §4.1 del registro, sin aplicar |
+| 2 | **El proxy inverso (punto 34)**: no hay TLS de verdad sin él | Decisión, no código | **Toca preguntar.** Falta decidir si se va a usar o no. Hoy la decisión es "se adapta el documento", con un `(TODO:)` en RNF-INT-COM-03. El detalle de qué costaría está en §10.2 bis |
+| 3 | **Hecho (2026-10-21).** Las tres citas al documento de requerimientos por número de línea | `../sign-ai-android/docs/PLAN-MEDICION.md:19`, `:135` y `:186` | `:380` → **`:439`**, `:237` → **`:260`**, `:326` → **`:358`**. El fondo de las tres sigue siendo cierto, pero dos de las tres **citas textuales** también cambiaron de palabras: RF-NLP-02 pasó de "una frase / el texto" a "una oración / esa oración", y RF-CAT-03 pasó de "el sistema responderá" a "es la aplicación la que muestra", y ahora cubre dos casos. Las tres se corrigieron en el repo de la app |
+| 4 | **Hecho (2026-10-21).** Las citas al `docs/requirements.md` borrado | `docs/decisions.md` y `docs/sdd-changes.md` | `docs/requirements.md` era una **copia** del documento de requerimientos de `../sign-ai-docs` (764 líneas), duplicada y desactualizada. Las dos citas apuntaron al documento real: **RF-INT-COM-01** (`decisions.md:103` → `...v0.16.md:168`) y **RF-INT-SW-04** y **RNF-REL-01** (`sdd-changes.md:373` → `...v0.16.md:160` y `:553`). Se encontró **una tercera** cita al archivo borrado, en el repo de la app (`openspec/sessions/2026-10-16-latencia-y-decisiones.md:99`), y se corrigió igual |
+| 5 | **Hecho (2026-10-21).** Las referencias a `fixtures/audio/` y a `tools/verificar-tiempo-real.sh` | `docs/performance.md` y `docs/sdd-changes.md` | Los 28 clips de audio **no están en este repo**: están en `../sign-ai-stt/fixtures/audio` y se generan con `scripts/make_audio_fixtures.py --all` en el repo del STT. El script de medición está en `../sign-ai-android/tools/verificar-tiempo-real.sh`. Las dos referencias quedaron apuntando bien |
+| 6 | **Hecho (2026-10-21).** El `.docx` se borró y el `.md` se renombró | `../sign-ai-docs/documentos/requerimientos/` | El archivo ahora se llama `SignAI_Requerimientos_Consolidados_v0.16.md` y su versión interna dice 0.16: coinciden. Las **nueve citas por nombre** de los tres repos se cambiaron en el mismo momento: `docs/decisions.md:104`, `docs/sdd-changes.md:373`, `CLAUDE.md:28`, `AGENTS.md:261`, `../sign-ai-android/docs/SISTEMA.md:83`, `../sign-ai-android/docs/PLAN-MEDICION.md:19`, `:135`, `:186` y `../sign-ai-android/openspec/sessions/2026-10-16-latencia-y-decisiones.md:101`. El `.docx`, ver §10.5 |
+| 7 | **Hecho (2026-10-21).** La fila del historial del 20/10 en `docs/sdd.md` | `docs/sdd.md:9-14` | El SDD de Overleaf la tenía (`main.tex:131`) y esta copia no. Se copió tal cual, con `\textit{Texto listo}` en LaTeX pasado a `*Texto listo*` en Markdown. La fecha del documento (`docs/sdd.md:4`) quedó como estaba: en Overleaf es `\today`, que se pone solo al compilar |
+| 8 | **Hecho (2026-10-21).** `docs/sdd-changes.md` al día | `docs/sdd-changes.md` | Las siete entradas que decía "pendiente de reflejar en el SDD" se verificaron una por una contra el código, el diagrama y el texto: seis quedaron **aplicadas** el 20/10 y se reescribió su línea de estado diciendo qué se hizo y cuándo; una quedó **a medias** y se documentó como la entrada nueva del 2026-10-21 (punto 14). Las dos entradas que son registro de trabajo (15/10 y 16/10) se dejaron como están, con su pendiente de remedir `rt_first_sign_ms` |
+| 9 | **La fila del historial del v0.16 dice "ocho TODO"** | `../sign-ai-docs/...v0.16.md:32` | Hay **quince** `(TODO:)` en el archivo. La fila del historial quedó corta |
+| 10 | **Dos filas del registro contradicen el documento** | `../sign-ai-docs/modificaciones/requerimientos.md:43` (#16) y `:47` (#20) | Las dos dicen "el texto del requisito se queda como está", pero RNF-MNT-04 y RNF-REL-03 **sí** cambiaron de texto. Una de las dos cosas está mal |
+| 11 | **RF-UI-06 dice "un selector con dos opciones"** | `../sign-ai-docs/...v0.16.md:410` | La app tiene **dos interruptores** en la barra inferior, no un selector. La trazabilidad ya lo dice (`../sign-ai-docs/plan-pruebas/00-bases/trazabilidad.md:24-26`); el requisito no. También es lo que dejó el SRS con una descripción de los modos que no es la del código |
+| 12 | **`AGENTS.md` describe mal el estado del árbol** | `AGENTS.md`, sección "Estado del repo" | Dice "15 archivos modificados y 2 sin trackear". Al cierre de esta sesión son **22 modificados, 1 borrado y 0 sin trackear** en este repo. El número se mueve con cada tanda, así que conviene ponerlo con la fecha y no como un hecho fijo |
+| 13 | **La §3 del SRS, las dos portadas y los casos de uso CU-01 a CU-05** | Ver §10.4 | No nos compete. Quedan anotadas para que el owner sepa que están ahí |
+| 14 | **La lista de clases de la §7.1 no coincide con su propio diagrama** | `docs/sdd.md:192-210` contra la Figura 5 | La lista dice `lookup(...): List<Segment>?`, `store(..., segments: List<Segment>)` y tres atributos en `NLPServiceImpl`, **sin `EmbeddingModel`**. El diagrama de al lado dice `List<String>`, `glosses: List<String>`, cuatro atributos y `EmbeddingModel` con `embed()`. El SDD se contradice dentro de la misma sección, y la narrativa de 17 líneas más abajo ya está con la versión nueva. **Documentado** en `docs/sdd-changes.md` (entrada del 2026-10-21); **no se aplicó**, porque la regla del repo es anotar el cambio del SDD y que lo aplique el owner |
+| 15 | **Queda una referencia suelta a "la SRS v0.15"** | `docs/plan-implementacion-backend.md:25` | El SRS de Overleaf se versiona con los números de Overleaf (v159, v436, v524); **"v0.15" es la versión del documento de requerimientos**, no la del SRS. Está dentro de una frase que recuerda que el punto ya estaba identificado antes. Es la **última** referencia a "v0.15" que queda viva en los cuatro repos: las otras dos están en logs de sesión, que no se reescriben |
+
+### 10.2 bis El punto 2 en detalle — qué costaría montar el proxy inverso hoy
+
+El owner preguntó si se podría hacer ya, en el prototipo. **Sí se puede, y el backend no
+cambia ni una línea.** El detalle está verificado el 2026-10-21.
+
+| Pieza | Qué es | Dónde |
+|---|---|---|
+| **El proxy** | **Caddy** sirve de proxy inverso con un archivo de configuración: escucha en el 443 con TLS y le pasa todo al backend en el 8080. El backend ya corre con `network_mode: host`, así que no estorba | Host de desarrollo |
+| **El certificado** | El teléfono tiene que confiar en él. El `network_security_config.xml` de la app (el de `release`, `sign-ai-android/app/src/main/res/xml/network_security_config.xml`) prohíbe el texto en claro pero **no confía en los certificados instalados por el usuario**: falta el `<certificates src="user"/>`. Sin esa línea, el teléfono rechaza la conexión aunque el proxy esté perfecto. La herramienta estándar es `mkcert`, que genera la CA local y la instala en el teléfono | **Repo de la app**, que desde acá es de solo lectura |
+| **La URL** | `-Psignai.backendWsUrl=wss://…`. En `release` solo se acepta si empieza por `wss://`; el default es `wss://backend.invalid/ws/translate`, que no resuelve | `sign-ai-android/app/build.gradle.kts` |
+
+**Lo que quedaría es un TLS de laboratorio**: CA propia, sin dominio público, con el teléfono
+apuntando a la máquina por `adb reverse` o por el `hosts`. Sirve para demostrar que el canal
+va cifrado; no es un despliegue público.
+
+**Diagramas (3).** El 6.2 Vista física (caja nueva entre *Android Device* y *Demo / Dev Host`,
+que pasa de dos contenedores a tres, y la flecha de adentro del host en texto en claro), el
+C4-2 Contenedores (el contenedor nuevo y la frontera del host) y el C4-1 Contexto (el nodo
+nuevo). Los tres se editan en `../sign-ai-docs/diagramas/draw.io/`, se regenera su PNG, y esa
+PNG va a tres sitios: `sign-ai-backend/docs/diagrams/`, `../sign-ai-docs/diagramas/png/` y
+`images/` del SDD en Overleaf. Los otros nueve no se tocan: el 6.1 y el C4-3 son vistas
+lógicas, donde el proxy no aparece.
+
+**Documentos (4).** El RNF-INT-COM-03 de `../sign-ai-docs/...v0.16.md:186-189` (quitar el
+`(TODO:)` de `:189` y reescribir `:186`, que hoy dice que el cifrado "lo termina el
+despliegue"); el SRS de Overleaf (el mismo requisito y el §2.1.5 del protocolo del canal); el
+SDD de Overleaf y `docs/sdd.md` (el §6.2, que hoy describe el host con dos contenedores, más
+una nota de que el certificado es de laboratorio); y `docs/sdd-changes.md` con este punto.
+
+El costo real no son los diagramas: son el certificado y el cambio en la app. Si se decide
+hacerlo, el orden sería el del backend primero (Caddy más su servicio en el
+`docker-compose`), y después los documentos, para que los diagramas no describan una pieza que
+todavía no existe.
+
+### 10.3 Los cambios de código que faltan
+
+Cada punto es un cambio del backend que depende de una decisión ya tomada. **Ninguno está
+hecho**: se verificó uno por uno en `app/`, `requirements.txt` y `tools/`.
+
+| Qué | Dónde debería estar | Estado real verificado el 2026-10-21 |
+|---|---|---|
+| `llm_timeout_ms = 5000` y `max_retries = 1` | `app/config/settings.py:32` | **Sigue en `10000`, y no hay `max_retries`** |
+| Tiempo máximo de la base (5 s) y un reintento | `app/persistence/` | **No existe** |
+| Identificador de turno en `segment` y en `done` | `app/controller/controller.py` | **No existe**. El `done` solo se manda en el camino feliz (`:164`) |
+| `done` cuando la traducción falla | `app/controller/controller.py` | **No existe**: en el camino del error no se cierra el turno |
+| Leer `semantic_category` | `app/` | **Solo está en la migración** (`app/persistence/migrations/001_create_catalog.sql:5`); el código no lo lee en ningún `.py` |
+| `UPSERT` de la caché | `app/persistence/` | **No existe** |
+| Sacar el texto de los logs del servidor | `app/controller/controller.py:147`, `:155`, `:161`, `app/nlp/nlp_service_impl.py:59` y `:65`, `app/nlp/segmenter/sentence_segmenter.py:31` | **El texto se sigue escribiendo** (`logger.info("Phrase received: %r -> translating", text)`). Es lo que pide el `(TODO:)` de RNF-SEC-03 |
+| Validar el audio que llega por el canal | `app/controller/` | **No está** |
+| Analizadores estáticos (mypy, ruff) | No hay `.github/` (o sea, no hay integración continua) | **No hay**. `tools/` existe, pero trae un solo script (`verificar-conexiones-stt.py`); no hay configuración de mypy ni de ruff en ninguna parte |
+| Dependencias fijadas | `requirements.txt` | **Nueve de las once** están sin versión: `fastapi`, `uvicorn[standard]`, `pydantic`, `pydantic-settings`, `asyncpg`, `sentence-transformers`, `langchain`, `langchain-openai` y `websockets`. Solo `spacy` (con su rango) y `es_core_news_md` (con su rueda exacta) están fijados |
+| **Quitar el vocabulario cerrado del prompt (D-7)** | `app/nlp/llm_client.py:149-150` y las tres reglas de `:81-84` y `:91-92` | **No está hecho.** El prompt sigue recibiendo el catálogo entero: `catalog_repository.vocabulary()` (`app/main.py:74`) se inyecta en `self._prompt`. El SDD no dice nada del contenido del prompt, así que no toca ningún diagrama. Ver `docs/performance.md` §9 |
+
+### 10.3 bis El prompt no debe llevar la lista de glosas (D-7)
+
+**Es la más seria de las que faltan, y la única que ya tiene decisión tomada.** El owner la
+tomó el 2026-10-16 y **el código no la cumple**. Se encontró el 2026-10-21 al rescatar el
+§9 del contraste que se borró (§10.5), y el rescate quedó anotado al revés: como si la
+lista en el prompt fuera el diseño. No lo es.
+
+**Qué dice la decisión.** El prompt **no** lleva la lista de glosas del catálogo. Está en
+`../sign-ai-android/docs/PLAN-MEDICION.md` §3 (líneas 96-180), con el análisis. Las dos
+razones:
+
+1. **Va contra el plan de pruebas.** `../sign-ai-docs/plan-pruebas/01-diseno/llm/general.md:31-33`
+   dice, del prompt: *"No incluye la lista de las 50 glosas del catálogo, así que el modelo
+   puede inventar glosas. Las que no existen las marca como no disponibles el validador."*
+2. **No escala**, y el mecanismo que hace falta ya está: **RF-CAT-02** (`:348-354`) pone la
+   verificación en el validador, y **RF-NLP-02** (`:255-262`) dice que la salida del modelo
+   *"todavía no ha sido validada contra el catálogo de señas, esa verificación ocurre en un
+   módulo distinto."*
+
+**Qué hace el código hoy, que es lo contrario.** `app/main.py:74` le pasa
+`catalog_repository.vocabulary()` al `LLMClient`; ese método devuelve **todas** las glosas
+(`app/validation/catalog_repository.py:55-62`), y `app/nlp/llm_client.py:149-150` las
+inyecta en el prompt, que se manda como mensaje de sistema en cada llamada (`:180`).
+
+**Qué sale y qué se queda.**
+
+| | Qué | Por qué |
+|---|---|---|
+| **Sale** | La lista de glosas del prompt, y las tres reglas que la mencionan: `app/nlp/llm_client.py:81-84` y `:91-92` | D-7 |
+| **Se queda** | `_repair_glosses` (`app/nlp/llm_client.py:206`) y `_merge_fragments` (`:238`), que consultan el vocabulario con `normalize_gloss` contra un diccionario: es O(1) | Es lo que evita que "cómo estás" vuelva como `TÚ, ESTAR, CÓMO` |
+| **Se queda** | `ValidatorServiceImpl._validate_gloss` (`app/validation/validator_service_impl.py:17-21`) | Es el mecanismo de RF-CAT-02 y de RF-CAT-03 |
+| **Se queda** | La regla de que una glosa puede ser de varias palabras, con el ejemplo de `COMO ESTAS` | Se conserva como ejemplo concreto, sin decir de dónde sale |
+
+**No toca ningún diagrama, y el SDD ni el SRS se oponen.** Se comprobó en Overleaf el
+2026-10-21: el SDD (`v212`, 550 líneas) y el SRS (`v524`, 1495 líneas) **no mencionan el
+prompt ni el vocabulario cerrado** en ninguna línea. `docs/sdd.md` describe a
+`LLMClient.transform(text)` como "devolver la lista de glosas" y nada más. En el SRS, lo
+único que hay del vocabulario es del **sistema**, no del prompt: *"No soporta vocabulario
+abierto"* (`:228` y `:1389`) y el catálogo en memoria para validar sin consultar la base
+(`:1212` y `:1266`). Todo eso sigue siendo cierto con D-7.
+
+**Lo que falta medir.** La Fase 2 del plan de la app: la reparación es lo que cubre el
+riesgo, y hay que medirlo con las 28 frases antes de afirmarlo en la tesis. Ver
+`docs/performance.md` §9.
+
+**Las anotaciones que se corrigieron el 2026-10-21**, para que en ningún lado quede escrito
+que el prompt puede llevar la lista:
+
+| Dónde | Qué decía |
+|---|---|
+| `CLAUDE.md` | "El prompt de glosas usa el catálogo como vocabulario cerrado", como invariante |
+| `app/nlp/llm_client.py:47-59` | el comentario de cabecera, los tres puntos de "the fix has three parts" |
+| `app/main.py:70-72` y `:74` | el comentario que dice que el vocabulario va al prompt, y la llamada que lo pasa |
+| `docs/performance.md` §9 | el §9 rescatado, que lo daba por bueno |
+| `docs/sdd-changes.md` | la lista de lo que se trajo de `develop` |
+| `docs/CAMBIOSBACKEND.md` | la nota del cherry-pick `db1fa69` |
+| `docs/sessions/2026-10-15-vuelta-al-flujo-por-oraciones.md` | la tabla de lo que se trajo |
+| `../sign-ai-android/openspec/sessions/2026-10-14-conectar-stt-y-backend-real.md` | la nota del prompt nuevo |
+| `../sign-ai-android/Revisión de develop.md` | los dos puntos del prompt |
+| `../sign-ai-docs/plan-pruebas/01-diseno/llm/general.md:31-33` | la limitación, que ya es el diseño |
+
+### 10.4 Lo que no nos compete
+
+Está pendiente, pero **no lo vamos a llenar desde acá**. Queda anotado para que el owner sepa
+que existe y para que la *Memoria* lo recoja como trabajo futuro.
+
+| Qué | Dónde | Por qué no es nuestro |
+|---|---|---|
+| La §3 del SRS ("Requerimientos Específicos") | Overleaf SRS `main.tex:1435-1477` | Son veinte subtítulos de la plantilla de un juego. Es el punto 41 del contraste |
+| La portada del SDD | Overleaf SDD `main.tex:101-110` | Tiene el `[PENDIENTE DE COMPLETAR]`, "Falta hoja de portada acá" y los párrafos azules de instrucción. Es el punto 43 |
+| La portada del SRS | Overleaf SRS `main.tex:99-119` | Tiene `[Nombre del proyecto]`, `[Nombre de la empresa]`, `[Fecha]`, `[Versión del documento]`, `[Logos]` y `[Autores]`, y el pie dice "IronWorks -- Ingeniería de Sistemas PUJ" |
+| Los casos de uso CU-01 a CU-05 | No están en ningún documento | **68 líneas** del v0.16 los nombran y **ningún archivo del repo de documentos los define**. Los llenamos hasta donde alcancen los repos; definirlos es otra cosa |
+
+### 10.5 Lo que se borró
+
+| Qué | Dónde | Por qué |
+|---|---|---|
+| `auditoria-flujo-2026-10-15.md` | `../sign-ai-docs/` | Era **el primer contraste**, del 15 de octubre. Está commiteado y no se tocaba desde el 16. Todo lo que tenía está en este documento |
+| `texto-overleaf-pendiente.md` | `../sign-ai-docs/modificaciones/` | Era la lista de textos para pegar en Overleaf. **Todo lo que tenía ya se pegó**, así que el archivo solo servía para confundir. Decisión del owner, 2026-10-21 |
+| `SignAI_Requerimientos_Consolidados_v0.15.docx` | `../sign-ai-docs/documentos/requerimientos/` | La versión en Word del mismo documento. Lo había hecho **pandoc el 12 de agosto** (se sabe por los metadatos: el autor es "Un-named", el default de pandoc) y **nunca se actualizó**: seguía en la v0.15, sin RF-NLP-05, RF-UI-08 ni RF-STT-05, y todavía con RNF-POR-03 y RNF-BD-02, que en la v0.16 ya se fusionaron o se quitaron. Que en Word se lea la versión vieja, sin avisar, es el peor de los tres estados. **Decisión del owner, 2026-10-21: se borra** y el documento vive solo en Markdown. Queda la nota en el `.md` |
+
+**Lo que se rescató antes de borrarlo** (el 2026-10-21, el mismo día):
+
+| Qué estaba en el archivo borrado | Dónde quedó |
+|---|---|
+| El §9, "Escalabilidad del prompt": el prompt lleva el vocabulario completo, el costo es lineal con el corpus y se paga en cada llamada, con la tabla de 50 / 500 / 5 000 glosas, y el aviso de que `_repair_glosses` y `_merge_fragments` **no** hay que tocarlos porque son O(1) | **`docs/performance.md` §9**, nueva. El código se reverificó: `self._prompt` se arma una vez en `app/nlp/llm_client.py:149` y se manda como mensaje de sistema en `:180`. **Ojo:** la sección quedó anotada el mismo día con la decisión **D-7** (owner, 2026-10-16), que dice que esa lista **sale** del prompt. Ver §10.3 |
+| El §7, la decisión de diseño del modo en vivo (opción A: el micrófono queda prendido, cada frase pasa por el divisor de oraciones, y se pierde empezar a representar antes de terminar la primera oración) | Ya estaba en `docs/CAMBIOS.md`, `docs/MODO-EN-VIVO.md` y `tools/TIEMPO-REAL.md` de la app. Lo que faltaba era el puntero, y se corrigió |
+| El §6, el plan por repositorio | El plan se ejecutó entero. Su estado es el §10 de este documento, y el resumen por repo está en `docs/CAMBIOSBACKEND.md` (backend), `docs/CAMBIOS.md` y `docs/MODO-EN-VIVO.md` (app) |
+
+**Las referencias que quedaron colgando** y se corrigieron el 2026-10-21: diez en el repo de la
+app (una en el código, `MicMode.kt`, y nueve en `docs/CAMBIOS.md`, `docs/MODO-EN-VIVO.md`,
+`docs/PLAN-MEDICION.md`, `tools/TIEMPO-REAL.md`, `tools/medir-primera-sena.py`,
+`openspec/specs/ui/spec.md` y `openspec/sessions/README.md`) y una en
+`docs/sdd-changes.md`. **Se dejaron sin tocar** las cuatro que están en logs de sesión
+(`openspec/sessions/2026-10-15-flujo-oraciones-android.md`,
+`openspec/sessions/2026-10-16-latencia-y-decisiones.md` ×2 y
+`docs/sessions/2026-10-15-vuelta-al-flujo-por-oraciones.md`): un log de sesión es el registro
+de lo que pasó ese día, y no se reescribe.
+
+### 10.6 Lo que se encontró revisando
+
+**El 2026-10-20**, al verificar los tres documentos leyendo los archivos, apareció una cosa
+que no estaba anotada: **la tabla de software del SRS todavía decía FastAPI 0.115 y LangChain
+1.4.6**, cuando las versiones medidas el 2026-10-18 dentro de la imagen eran **0.143.0** y
+**1.4.5**. Es el punto 20 del contraste. El owner lo pegó el mismo día 20 de octubre.
+
+**El 2026-10-21**, al releer las cuatro fuentes enteras para esta actualización, aparecieron
+las diferencias que están en §10.2 como puntos 4 a 12. La más seria es la **#8**: el
+registro de cambios pendientes del SDD describe cosas que ya se aplicaron. Las demás son
+números desactualizados en los registros y una contradicción entre RF-UI-06 y la app.
+
+**Lo que se corrigió en esta misma actualización**, porque estaba en este documento y era
+mentira:
+
+| Qué decía | Qué es verdad |
+|---|---|
+| "faltan las doce PNG nuevas" en Overleaf (§11) | **Las doce están subidas**, y son las nuevas: verificado por hash |
+| "Cuarenta y cuatro filas: 35 Hecho" (§10.1) | **45 filas: 36 Hecho** |
+| "se reescribieron veintiocho requerimientos" (§10.1) | **Treinta y siete** |
+| "quince de los sesenta y seis" (§10.1) | **Quince de los setenta y uno** |
+| "los once bloques" de la trazabilidad (§10.1) | **Trece** |
+| "las 11 correcciones de `docs/sdd.md`" | **11 secciones**, que son 32 bloques de párrafo. Además tocaron §7.4, §8.2 y §8.3, que no estaban en la orden de trabajo original |
+
+**Las citas por número de línea que se movieron** (2026-10-21). Al escribir la §9 de
+`docs/performance.md` y al anotar el plan de pruebas, algunos archivos cambiaron de largo y
+las citas por línea quedaron apuntando a otra cosa. Se corrigieron todas:
+
+| Cita | Antes | Ahora |
+|---|---|---|
+| `docs/sdd-changes.md:371` → `docs/performance.md` | `:618-623` | **`:676-681`** |
+| `docs/sdd-changes.md:433` → `docs/performance.md` | `:688-693` | **`:756`** |
+| `../sign-ai-android/docs/PLAN-MEDICION.md:216` → `docs/CAMBIOSBACKEND.md` | `:183-185` | **`:186-188`** |
+| `../sign-ai-android/docs/PLAN-MEDICION.md:425` → `llm/general.md` | `:38` | **`:44`** |
+| `../sign-ai-android/openspec/sessions/2026-10-16-latencia-y-decisiones.md:93` | `docs/performance.md:621-623` | **`SignAiBottomBar.kt:114-115`**, que es donde está la cita textual |
+
+La última estaba mal desde antes: el texto *"intercalados, el `index` de las oraciones deja de
+corresponder al orden en que llegaron"* nunca estuvo en `performance.md`, estaba en el
+comentario del código de la app.
+
+**Las nueve citas corregidas en la revisión de cierre** (2026-10-21, al releer este documento
+entero y abrir cada archivo citado). Todas apuntaban a una línea Nearby:
+
+| Cita | Apuntaba a | Donde está |
+|---|---|---|
+| `app/nlp/llm_client.py:146-148` | la asignación de `self.vocabulary` | **`:149-150`**, que es donde se arma el prompt |
+| `app/nlp/llm_client.py:78-81` y `:88-89` | dos reglas del prompt | **`:81-84` y `:91-92`**, que son las tres reglas que mencionan el vocabulario |
+| `app/nlp/llm_client.py:177` | el mensaje de sistema | **`:180`** |
+| `app/nlp/llm_client.py:203` y `:235` | `_repair_glosses` y `_merge_fragments` | **`:206` y `:238`** |
+| `app/main.py:69` | `catalog_repository.vocabulary()` | **`:74`** |
+| `app/main.py:65-68` | el comentario del vocabulario | **`:70-72`**, y el bloque de los tres puntos es `:47-59` |
+| `app/persistence/001_create_catalog.sql:5` | un archivo que no está ahí | **`app/persistence/migrations/001_create_catalog.sql:5`** (faltaba `migrations/`) |
+| `...v0.16.md:185` y `:182` | el `(TODO:)` y la descripción de RF-INT-COM-03 | **`:189` y `:186`** |
+| `trazabilidad.md:22-25` | la frase de los dos interruptores | **`:24-26`** |
+
+Además, dos afirmaciones que estaban mal enteras:
+
+| Qué decía | Qué es verdad |
+|---|---|
+| "`fastapi`, `uvicorn`, `pydantic` y `asyncpg` **sin versión**" | **Nueve de las once** dependencias están sin versión. Solo `spacy` (con su rango) y `es_core_news_md` (con su rueda exacta) están fijadas |
+| "Analizadores estáticos: no hay `.github/` ni `tools/`" | No hay `.github/` —o sea, no hay integración continua— pero **`tools/` sí existe**: trae `verificar-conexiones-stt.py`. Lo que no hay es configuración de mypy ni de ruff en ninguna parte |
+
+**Los números de §10.1, reverificados con script** el 2026-10-21 (no a ojo): el registro de
+`modificaciones/requerimientos.md` tiene **45 filas** (36 Hecho, 4 Acordado, 4 Bloqueado, 1
+Propuesto); el v0.16 tiene **71 requerimientos** (66 RF/RNF y 5 RD), contra **66** del v0.15;
+**6** son nuevos, **1** se eliminó (RNF-POR-03) y **37** reescribieron su texto; **15** tienen
+`(TODO:)`; y la trazabilidad asigna los requisitos a **13 bloques**. Todo coincide con lo que
+§10.1 afirma.
+
+---
+
+## 11. Dónde sigue cada cosa
 
 | Si el trabajo toca… | Cargá |
 |---|---|
 | Un frame del WebSocket o un nombre de métrica | `../sign-ai-android/.opencode/skills/contrato-websocket/SKILL.md` — el contrato se lee en los dos lados antes de cambiarlo |
 | Un nombre de clase o método que el SDD define | `.claude/skills/signai-sdd-conformance/SKILL.md` |
 | El contrato completo con la app | `docs/android-integration.md` §3.1 y §4 |
-| Qué se decidió ya entre el código y los documentos del backend | `docs/sdd-changes.md` |
+| Qué se decidió ya entre el código y los documentos del backend | `docs/sdd-changes.md` — **con lo que quedó viejo, ver §10.2 punto 8** |
 | Qué cambió en el flujo por oraciones | `docs/CAMBIOSBACKEND.md` |
 | Latencias y efecto de cada optimización | `docs/performance.md` |
-| Los requisitos del proyecto y sus cambios pendientes | `../sign-ai-docs/documentos/requerimientos/` y `../sign-ai-docs/modificaciones/requerimientos.md` |
-| El diseño del proyecto | `docs/sdd.md` (**desactualizado**, ver §1) y el SDD de Overleaf (**más desactualizado todavía**) |
-| Los diagramas | `../sign-ai-docs/diagramas/draw.io` es la fuente, y es la buena. Los `.png` de `docs/diagrams/` de este repo y los de Overleaf son el juego viejo (§1.2) |
+| Los requisitos del proyecto | `../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md` — internamente v0.16 |
+| El estado de cada cambio de los requerimientos | `../sign-ai-docs/modificaciones/requerimientos.md` — **45 filas**, con el estado de cada una |
+| El estado de la ejecución de la alineación | Este documento, §10 |
+| El diseño del proyecto | `docs/sdd.md` (alineado con el backend el 2026-10-20) y el SDD de Overleaf (`v212`, texto alineado y las doce PNG nuevas subidas) |
+| Los diagramas | `../sign-ai-docs/diagramas/draw.io` es la fuente, y es la buena. Los tres juegos —el de ahí, el de `docs/diagrams/` de este repo y el de `images/` en Overleaf— son **el mismo archivo** |
