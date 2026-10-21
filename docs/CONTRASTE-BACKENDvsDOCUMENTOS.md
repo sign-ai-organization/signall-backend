@@ -1303,6 +1303,7 @@ esa lectura; no con lo que se recuerda de la sesión anterior.
 | **El historial de `docs/sdd.md`** | `docs/sdd.md:9-14` | Le faltaba la fila del 20/10/2026. El contenido del SDD del backend ya estaba alineado con el código desde el 20 de octubre, pero su tabla de historial solo tenía la del 19 de agosto: el documento contaba una historia distinta a la del SDD de Overleaf sobre el mismo día. Se copió la fila de Overleaf (`main.tex:131`, v212) tal cual, cambiando `\textit{Texto listo}` por `*Texto listo*`. Hecho el 2026-10-21 |
 | **`docs/sdd-changes.md`** | `docs/sdd-changes.md` | Las siete entradas que seguían diciendo "pendiente de reflejar en el SDD" se verificaron una por una contra el código, los diagramas y el texto del SDD. Seis están **aplicadas** desde el 20/10/2026 y su línea de estado se reescribió diciendo qué se hizo, dónde y cuándo; una quedó a medias y se documentó como entrada nueva del 2026-10-21. Las dos entradas que son registro de trabajo (15/10 y 16/10) se dejaron intactas, con su pendiente de remedir `rt_first_sign_ms`. Hecho el 2026-10-21 |
 | **La revisión de cierre de este mismo documento** | `docs/CONTRASTE-BACKENDvsDOCUMENTOS.md` | Se leyó entero y se corrigieron **nueve citas por número de línea** que apuntaban a otra cosa, más una afirmación sobre las dependencias fijadas y otra sobre las herramientas de análisis estático. Los números de §10.1 se reverificaron con script, no a ojo. Hecho el 2026-10-21 |
+| **El trabajo de octubre, integrado en `main`** | Los cuatro repos | El 2026-10-21 el owner decidió que `flujo-oraciones` fuera el nuevo `main`. En este repo fue un **fast-forward** (`979e99d` → `6842ce9`), sin conflictos y sin reescribir historia. `develop` quedó con el árbol de `main` mediante un commit de merge con dos padres, que conserva los 8 commits del camino por fragmentos en su historia. El punto de retorno quedó en `respaldo/main-2026-10-21`, que apunta al `main` viejo. En los otros tres repos: `sign-ai-docs` (`18457be` → `f0d673c`, desde `docs-contraste-2026-10-19`), `sign-ai-android` (`587ed04` → `2d8c757`, con el merge de `origin/main` que ya traía) y `sign-ai-stt` (`7e724d8` → `41d9390`) |
 
 ### 10.2 Lo que falta
 
@@ -1327,7 +1328,7 @@ Se dejan en la tabla como están, pero no se trabajan: no son trabajo, son decis
 | 9 | **La fila del historial del v0.16 dice "ocho TODO"** | `../sign-ai-docs/...v0.16.md:32` | Hay **quince** `(TODO:)` en el archivo. La fila del historial quedó corta |
 | 10 | **Dos filas del registro contradicen el documento** | `../sign-ai-docs/modificaciones/requerimientos.md:43` (#16) y `:47` (#20) | Las dos dicen "el texto del requisito se queda como está", pero RNF-MNT-04 y RNF-REL-03 **sí** cambiaron de texto. Una de las dos cosas está mal |
 | 11 | **RF-UI-06 dice "un selector con dos opciones"** | `../sign-ai-docs/...v0.16.md:410` | La app tiene **dos interruptores** en la barra inferior, no un selector. La trazabilidad ya lo dice (`../sign-ai-docs/plan-pruebas/00-bases/trazabilidad.md:24-26`); el requisito no. También es lo que dejó el SRS con una descripción de los modos que no es la del código |
-| 12 | **`AGENTS.md` describe mal el estado del árbol** | `AGENTS.md`, sección "Estado del repo" | Dice "15 archivos modificados y 2 sin trackear". Al cierre de esta sesión son **22 modificados, 1 borrado y 0 sin trackear** en este repo. El número se mueve con cada tanda, así que conviene ponerlo con la fecha y no como un hecho fijo |
+  | 12 | **`AGENTS.md` describe mal el estado del árbol** | `AGENTS.md`, sección "Estado del repo" | Dice "15 archivos modificados y 2 sin trackear". Al cierre de la sesión del 21 de octubre eran **22 modificados, 1 borrado y 0 sin trackear**, y después de commitear y pasar `flujo-oraciones` a `main` (2026-10-21) el árbol quedó **limpio**. El número se mueve con cada tanda, así que conviene ponerlo con la fecha y no como un hecho fijo |
 | 13 | **La §3 del SRS, las dos portadas y los casos de uso CU-01 a CU-05** | Ver §10.4 | No nos compete. Quedan anotadas para que el owner sepa que están ahí |
 | 14 | **La lista de clases de la §7.1 no coincide con su propio diagrama** | `docs/sdd.md:192-210` contra la Figura 5 | La lista dice `lookup(...): List<Segment>?`, `store(..., segments: List<Segment>)` y tres atributos en `NLPServiceImpl`, **sin `EmbeddingModel`**. El diagrama de al lado dice `List<String>`, `glosses: List<String>`, cuatro atributos y `EmbeddingModel` con `embed()`. El SDD se contradice dentro de la misma sección, y la narrativa de 17 líneas más abajo ya está con la versión nueva. **Documentado** en `docs/sdd-changes.md` (entrada del 2026-10-21); **no se aplicó**, porque la regla del repo es anotar el cambio del SDD y que lo aplique el owner |
 | 15 | **Queda una referencia suelta a "la SRS v0.15"** | `docs/plan-implementacion-backend.md:25` | El SRS de Overleaf se versiona con los números de Overleaf (v159, v436, v524); **"v0.15" es la versión del documento de requerimientos**, no la del SRS. Está dentro de una frase que recuerda que el punto ya estaba identificado antes. Es la **última** referencia a "v0.15" que queda viva en los cuatro repos: las otras dos están en logs de sesión, que no se reescriben |
@@ -1368,22 +1369,108 @@ todavía no existe.
 
 ### 10.3 Los cambios de código que faltan
 
-Cada punto es un cambio del backend que depende de una decisión ya tomada. **Ninguno está
-hecho**: se verificó uno por uno en `app/`, `requirements.txt` y `tools/`.
+Cada punto es un cambio del backend. **Ninguno está hecho**: se verificó uno por uno en
+`app/`, `requirements.txt` y `tools/`, y se reverificó el 2026-10-21 con el código ya en
+`main`.
 
-| Qué | Dónde debería estar | Estado real verificado el 2026-10-21 |
-|---|---|---|
-| `llm_timeout_ms = 5000` y `max_retries = 1` | `app/config/settings.py:32` | **Sigue en `10000`, y no hay `max_retries`** |
-| Tiempo máximo de la base (5 s) y un reintento | `app/persistence/` | **No existe** |
-| Identificador de turno en `segment` y en `done` | `app/controller/controller.py` | **No existe**. El `done` solo se manda en el camino feliz (`:164`) |
-| `done` cuando la traducción falla | `app/controller/controller.py` | **No existe**: en el camino del error no se cierra el turno |
-| Leer `semantic_category` | `app/` | **Solo está en la migración** (`app/persistence/migrations/001_create_catalog.sql:5`); el código no lo lee en ningún `.py` |
-| `UPSERT` de la caché | `app/persistence/` | **No existe** |
-| Sacar el texto de los logs del servidor | `app/controller/controller.py:147`, `:155`, `:161`, `app/nlp/nlp_service_impl.py:59` y `:65`, `app/nlp/segmenter/sentence_segmenter.py:31` | **El texto se sigue escribiendo** (`logger.info("Phrase received: %r -> translating", text)`). Es lo que pide el `(TODO:)` de RNF-SEC-03 |
-| Validar el audio que llega por el canal | `app/controller/` | **No está** |
-| Analizadores estáticos (mypy, ruff) | No hay `.github/` (o sea, no hay integración continua) | **No hay**. `tools/` existe, pero trae un solo script (`verificar-conexiones-stt.py`); no hay configuración de mypy ni de ruff en ninguna parte |
-| Dependencias fijadas | `requirements.txt` | **Nueve de las once** están sin versión: `fastapi`, `uvicorn[standard]`, `pydantic`, `pydantic-settings`, `asyncpg`, `sentence-transformers`, `langchain`, `langchain-openai` y `websockets`. Solo `spacy` (con su rango) y `es_core_news_md` (con su rueda exacta) están fijados |
-| **Quitar el vocabulario cerrado del prompt (D-7)** | `app/nlp/llm_client.py:149-150` y las tres reglas de `:81-84` y `:91-92` | **No está hecho.** El prompt sigue recibiendo el catálogo entero: `catalog_repository.vocabulary()` (`app/main.py:74`) se inyecta en `self._prompt`. El SDD no dice nada del contenido del prompt, así que no toca ningún diagrama. Ver `docs/performance.md` §9 |
+**El owner decidió el 2026-10-21 que este punto NO se hace por ahora:**
+
+| Fuera de alcance por ahora | Por qué |
+|---|---|
+| **Sacar el texto de los logs del servidor** (`app/controller/controller.py:147`, `:154`, `:155`, `:161`, `app/nlp/nlp_service_impl.py:59`, `:65`, `:85`, `app/nlp/segmenter/sentence_segmenter.py:31`) | El owner quiere **todos los logs, con el texto**, mientras se mide. El `(TODO:)` de RNF-SEC-03 sigue en pie y el texto se sigue escribiendo: `logger.info("Phrase received: %r -> translating", text)`. **Una sesión que implemente esta tabla no toca los logs** |
+
+Los demás puntos van con la decisión que los respalda y **sí** se implementan:
+
+| # | Qué | Dónde debería estar | Estado real verificado el 2026-10-21 | Decisión |
+|---|---|---|---|---|
+| 1 | **Quitar el vocabulario cerrado del prompt (D-7)** | `app/nlp/llm_client.py:149-150` y las tres reglas de `:81-84` y `:91-92` | **No está hecho.** El prompt sigue recibiendo el catálogo entero: `catalog_repository.vocabulary()` (`app/main.py:74`) se inyecta en `self._prompt`. El SDD no dice nada del contenido del prompt, así que no toca ningún diagrama. Ver `docs/performance.md` §9 y el §10.3 bis de este documento | **D-7**, owner, 2026-10-16 |
+| 2 | `llm_timeout_ms = 5000` y `max_retries = 1` | `app/config/settings.py:32` | **Sigue en `10000`, y no hay `max_retries`** | owner, 2026-10-18 (punto 37 del contraste) |
+| 3 | Tiempo máximo de la base (5 s) y un reintento | `app/persistence/` | **No existe**. Además, la excepción en el arranque del backend no está controlada: si la base no contesta, el proceso no levanta | owner, 2026-10-18 (punto 29) |
+| 4 | Identificador de turno en `segment` y en `done` | `app/controller/controller.py` | **No existe**. El `done` solo se manda en el camino feliz (`:164`) | owner, 2026-10-18 (punto 39) |
+| 5 | `done` cuando la traducción falla | `app/controller/controller.py` | **No existe**: en el camino del error no se cierra el turno | owner, 2026-10-18 (punto 39) |
+| 6 | Leer `semantic_category` | `app/validation/catalog_repository.py:38` y el campo en `Gloss` | **Solo está en la migración** (`app/persistence/migrations/001_create_catalog.sql:5`); el `SELECT` es `gloss, glb_animation_path` y el código no lee la columna en ningún `.py` | **A**, owner: leerla. No rompe el diagrama, porque la imagen 7.3 de `../sign-ai-docs` ya la lista (punto 11 de §3) |
+| 7 | `UPSERT` de la caché | `app/nlp/semantic_cache.py:225` | **No existe**: el `store()` hace un `INSERT` simple y la tabla no tiene restricción única sobre `(original_text, phrase_type)` | **A y B**, owner: `UPSERT` sobre `(original_text, phrase_type)` y no guardar respuestas vacías (punto 38 de §3) |
+| 8 | Analizadores estáticos (mypy, ruff) | No hay `.github/` (o sea, no hay integración continua) | **No hay**. `tools/` existe, pero trae un solo script (`verificar-conexiones-stt.py`); no hay configuración de mypy ni de ruff en ninguna parte | RNF-MNT-03 lo pide |
+| 9 | Dependencias fijadas | `requirements.txt` | **Nueve de las once** están sin versión: `fastapi`, `uvicorn[standard]`, `pydantic`, `pydantic-settings`, `asyncpg`, `sentence-transformers`, `langchain`, `langchain-openai` y `websockets`. Solo `spacy` (con rango) y `es_core_news_md` (con rueda exacta) están fijados | RNF-MNT-04 lo pide |
+
+#### 10.3.1 Cómo se implementa cada uno
+
+**1. D-7, quitar el vocabulario cerrado del prompt.** Es el más serio y el que tiene el
+análisis escrito (§10.3 bis, `docs/performance.md` §9 y `../sign-ai-android/docs/PLAN-MEDICION.md`
+§3). Tres cosas:
+
+- `app/nlp/llm_client.py:149-150`: `self._prompt` se arma con
+  `", ".join(sorted(set(self.vocabulary.values())))`. **La lista sale.**
+- `app/main.py:74`: se saca el argumento `catalog_repository.vocabulary()` al `LLMClient`.
+  **El `LLMClient` sigue recibiendo el vocabulario**, porque lo necesita para `_repair_glosses`
+  y `_merge_fragments`; lo que cambia es que ya no va al prompt.
+- Las tres reglas del prompt que mencionan "the vocabulary" (`:81-84` y `:91-92`) se reescriben
+  sin hablar de la lista. El ejemplo de "COMO ESTAS" como glosa de varias palabras **se
+  conserva**, como ejemplo concreto y sin decir de dónde sale.
+
+**Lo que se queda, y no hay que tocar:** `_repair_glosses` (`:206`), `_merge_fragments` (`:238`)
+y `ValidatorServiceImpl._validate_gloss` (`app/validation/validator_service_impl.py:17-21`).
+Los tres son O(1) y escalan sin problema.
+
+**2. `llm_timeout_ms` y `max_retries`.** Los dos van en `app/config/settings.py:32`, que es
+donde vive cualquier valor cuantitativo. Los dos números salen de la decisión, no de una
+medición.
+
+**3. Tiempo máximo de la base y reintento.** En `app/persistence/`: un timeout de 5 segundos
+por consulta más un reintento. El peor caso son unos 10 segundos, por debajo de los 15 del
+reloj de la aplicación. Además, la excepción en el arranque tiene que estar controlada: hoy,
+si la base no contesta, el proceso no levanta.
+
+**4 y 5. Identificador de turno y `done` en el error.** Los dos en
+`app/controller/controller.py`. **El punto 4 cambia el contrato del WebSocket**: antes de
+tocarlo hay que leer `../sign-ai-android/.opencode/skills/contrato-websocket/SKILL.md`, y
+después hay que actualizar el otro lado (`../sign-ai-android`) o decir explícitamente qué
+queda pendiente de ese lado. El identificador lo pone la aplicación y sube desde 1 en cada
+conexión.
+
+**6. Leer `semantic_category`.** `app/validation/catalog_repository.py:38` hoy pide
+`gloss, glb_animation_path`; se agrega la columna y el campo en `Gloss`. La decisión fue
+leerla, para que el código quede de acuerdo con el diagrama y no al revés.
+
+**7. `UPSERT` de la caché.** En `app/nlp/semantic_cache.py:225`, el `store()` hoy hace un
+`INSERT` simple. Tiene que pasar a ser un `UPSERT` sobre `(original_text, phrase_type)`, y
+tiene que dejar de guardar respuestas vacías. **Eso pide una migración**: la tabla
+(`app/persistence/migrations/002_create_semantic_cache.sql`) no tiene restricción única
+sobre `(original_text, phrase_type)`, y el `UPSERT` necesita una contra la que entrar en
+conflicto. Y el plan de pruebas de `../sign-ai-docs` hay que actualizarlo, porque hoy
+describe el defecto como si fuera el comportamiento.
+
+**8 y 9. Analizadores estáticos y dependencias fijadas.** `mypy` y `ruff` con su
+configuración, y las nueve dependencias sin versión de `requirements.txt` fijadas a las
+versiones con las que corre el proyecto. Las dos que ya están fijadas (`spacy` y
+`es_core_news_md`) se quedan como están.
+
+#### 10.3.2 Lo que NO se implementa, y por qué
+
+- **Validar el audio que llega por el canal** (`app/controller/`): **no tiene decisión
+  tomada.** No se implementa; queda como pregunta abierta.
+- **Sacar el texto de los logs del servidor**: **aplazado por el owner el 2026-10-21.** Se
+  quieren todos los logs, con el texto, mientras se mide.
+
+#### 10.3.3 Verificación
+
+```bash
+docker compose up -d --build
+docker compose exec backend python -m scripts.verify_client_frames
+docker compose exec backend python -m scripts.verify_sentence_segmenter
+```
+
+Los scripts se corren **como módulo** (`python -m scripts.x`), no como
+`python scripts/x.py`: en el segundo caso `sys.path[0]` es `/app/scripts` y `import app` no
+resuelve.
+
+Cada comportamiento nuevo necesita su propio `scripts/verify_*.py`, que es la prueba de
+regresión de esa pieza.
+
+**La trampa de D-7:** cambiar el prompt **no** invalida `semantic_cache`. Las glosas viejas
+siguen en Neon y salen por `SemanticCache HIT`, así que el prompt nuevo no se ejecuta y
+parece que el arreglo no sirvió. Hay que correr `DELETE FROM semantic_cache;` y reiniciar el
+backend. Es caché derivada y se reconstruye sola.
 
 ### 10.3 bis El prompt no debe llevar la lista de glosas (D-7)
 
