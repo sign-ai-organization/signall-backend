@@ -616,3 +616,111 @@ cierra el turno **también en el camino del error**, y eso está en
 
 **Estado:** documentado; **no se aplicó**, por la regla del repo.
 **Fecha:** 2026-10-21
+
+---
+
+## Las métricas de latencia dicen de dónde salió la respuesta (2026-10-21)
+
+El SRS y los requisitos piden **dos rangos** de latencia, no uno: uno para la
+frase que resolvió la caché semántica y otro para la que tuvo que llamar al
+modelo (RNF-DES-01, RNF-DES-03 en
+`../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md:443-468`).
+Hasta ahora `/metrics` no podía separarlos: el acierto y el fallo de la caché
+solo existían como una línea del log
+(`app/nlp/nlp_service_impl.py`, `SemanticCache HIT` / `MISS`), así que el
+número publicado era el promedio de dos escenarios que no son comparables.
+
+Esto no cambia el contrato con la app: no cambia ningún frame, ni su nombre,
+ni su forma. Solo cambia **qué se publica en `/metrics`**.
+
+### 1. `rt_first_sign_ms`, `rt_phrase_total_ms` y `rt_sentence_delay_ms` llevan la etiqueta `source`
+
+**Qué dice cada fuente:**
+
+| Fuente | Dice |
+|---|---|
+| RNF-DES-01 y RNF-DES-03 | Dos rangos: caché y LLM, medidos aparte |
+| El SRS (`main.tex:848-857`) | El tiempo hasta la primera seña se mide en dos tramos, uno por parte |
+| `docs/sdd.md:362` | Describe las tres métricas, **sin** decir cómo se parte un caso del otro |
+| El código | Las tres publicaban una sola serie, sin etiqueta |
+
+**Por qué cambia:** con la etiqueta, `rt_first_sign_ms{source="cache"}` y
+`rt_first_sign_ms{source="llm"}` son los dos rangos que piden los requisitos,
+y se leen de `/metrics` sin abrir un log. La etiqueta va en las tres porque
+miden el mismo reloj: separar una y no las otras deja tres números que no se
+comparan entre sí.
+
+La etiqueta de una oración es la de **esa** oración. La de una frase es `llm`
+en cuanto una de sus oraciones necesitó el modelo: una frase cuya primera
+oración salió de la caché y la segunda no, de todos modos esperó al modelo.
+
+**Qué habría que cambiar:** `docs/sdd.md:362`, para decir que las tres
+llevan la etiqueta `source` con los valores `cache` y `llm`.
+
+**Lo que hay que saber al leer los números viejos:** la línea base de
+`docs/performance.md` (p50 273 ms / p95 422 ms, del 2026-10-15) se midió con
+la caché **vacía**, o sea que hoy corresponde a
+`rt_first_sign_ms{source="llm"}`. La serie sin etiqueta ya no existe: un
+panel que pregunte `rt_first_sign_ms` a secas deja de encontrar nada.
+
+### 2. `rt_cache_total{source="exact"|"semantic"|"miss"}`
+
+Contador nuevo. Los tres casos se contaban por separado en el log y ahora se
+cuentan en `/metrics`:
+
+| `source` | Qué es |
+|---|---|
+| `exact` | El texto normalizado ya estaba en la caché. No cuesta embedding. |
+| `semantic` | Una frase suficientemente parecida. Cuesta el embedding y la búsqueda. |
+| `miss` | No hubo coincidencia: la frase fue al modelo. |
+
+La diferencia entre `exact` y `semantic` es de dos órdenes de magnitud
+(`cache_lookup_ms` p50 48 ms medido el 2026-10-16), así que contarlos juntos
+oculta justo lo que hay que ver.
+
+### 3. `rt_turn_queue_ms`
+
+Histograma nuevo: cuánto esperó la frase entre que salió del socket del
+cliente y que su traducción empezó.
+
+**Por qué importa:** el reloj de `rt_first_sign_ms` arrancaba en
+`handle_text`, que corre **después** de que la tarea tome el lock de
+`_PhraseTranslator` (`app/controller/router.py`). Con dos sesiones, la
+segunda frase esperaba sin que ninguna métrica lo mostrara: la latencia subía
+y `/metrics` no lo decía.
+
+### 4. `rt_phrase_sentences` pasa de gauge a histograma
+
+**Qué dice cada fuente:**
+
+| Fuente | Dice |
+|---|---|
+| `docs/sdd.md:362` | "un histograma de cuántas oraciones tiene cada frase (`rt_phrase_sentences`)" |
+| `AGENTS.md:134` | "histograma de oraciones por frase" |
+| `docs/CAMBIOSBACKEND.md:77` | "el histograma de oraciones por frase" |
+| El código | Era un **gauge** (`app/controller/controller.py`), y además se reiniciaba en cada frase |
+
+**Por qué cambia:** el código era el que estaba equivocado, no el SDD. Un
+gauge solo guarda el valor de la última frase, así que no guardaba ninguna
+distribución. Ahora es un histograma y las cuatro fuentes dicen lo mismo.
+
+### Lo que quedó afuera, y por qué
+
+- **`llm_ms` sigue mezclando una llamada con reintento con una que salió a la
+  primera.** Medido el 2026-10-21: una llamada que falló y se reintentó dejó
+  una muestra de 10 458 ms en el mismo histograma donde una exitosa dejó
+  778 ms. Sin un contador de reintentos, el p50 de `llm_ms` mezcla dos
+  cosas. Queda para otra ronda.
+- **El tramo del STT sigue sin medirse en el backend.** Es el tramo más largo
+  del viaje (3,7 s de 4,0 s según `docs/performance.md` §7) y el backend lo
+  ve sin instrumentarlo: ve el audio salir y el `final` volver. Medirlo es
+  `rt_stt_leg_ms`, y es la pieza que falta para que el backend muestre el
+  viaje entero desde que la persona empieza a hablar.
+- **La espera por el segmentador y la entrega al cliente** (`rt_segmentation_ms`,
+  `rt_segment_ready_ms`, `rt_segment_send_ms`) tampoco están. El segmentador
+  es síncrono y corre sobre el event loop (`app/nlp/segmenter/`).
+
+**Estado:** documentado; **no se aplicó al SDD**, por la regla del repo. El
+código sí está implementado y verificado con
+`scripts/verify_metrics_sources.py`.
+**Fecha:** 2026-10-21

@@ -19,6 +19,33 @@ class PipelineTrace:
         sentence = self.sentences[index]
         return {"text": sentence["text"], "source": sentence["source"], "steps_ms": _rounded(sentence["steps_ms"])}
 
+    def sentence_source(self, index: int) -> str | None:
+        """Where the translation of sentence `index` came from.
+
+        `cache` when the semantic cache answered it, `llm` when the language
+        model did. The index is the one the orchestrator yields, and the
+        sentences are appended in the order their tasks start, which is the
+        order the tasks were created.
+
+        A mismatch returns None instead of raising: a metric must never be the
+        thing that breaks a translation.
+        """
+        if 0 <= index < len(self.sentences):
+            return self.sentences[index]["source"]
+        return None
+
+    def phrase_source(self) -> str:
+        """Where the phrase as a whole came from.
+
+        A phrase is `llm` as soon as one of its sentences needed the model.
+        That is the scenario the SRS asks to be measured apart from the cached
+        one: a phrase whose first sentence came from the cache and whose second
+        one did not still waited for the model to answer.
+        """
+        if any(sentence["source"] == "llm" for sentence in self.sentences):
+            return "llm"
+        return "cache"
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "steps_ms": _rounded(self.steps_ms),

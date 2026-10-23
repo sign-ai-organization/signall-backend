@@ -23,6 +23,7 @@ import logging
 import asyncpg
 import numpy as np
 
+from app.metrics import metrics
 from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.models import Fingerprint
 from app.nlp.text_normalizer import normalize
@@ -180,6 +181,24 @@ class SemanticCache:
 
         The 0.05 threshold is calibrated for whole phrases, where "cómo estás"
         and "¿cómo estás?" really are the same sign.
+
+        Where the answer came from is counted, because that is what turns one
+        latency into the two the SRS asks for: a phrase the cache resolved and
+        a phrase that needed the model. It only existed as a line in the log,
+        so `/metrics` could not tell the two scenarios apart and could only
+        publish their average, which is neither of them.
+        """
+        glosses, source = await self._lookup(text, fingerprint)
+        metrics.counter("rt_cache_total", labels={"source": source})
+        return glosses
+
+    async def _lookup(self, text: str, fingerprint: Fingerprint) -> tuple[list[str] | None, str]:
+        """The answer and where it came from: `exact`, `semantic` or `miss`.
+
+        `exact` is the normalized text already in the cache, which costs no
+        embedding at all; `semantic` is a close enough phrase, which costs the
+        embedding and the similarity search. The difference is two orders of
+        magnitude, so both are worth counting apart.
         """
         normalized = normalize(text)
         category = fingerprint.category.value
@@ -190,7 +209,7 @@ class SemanticCache:
                 if index is not None:
                     row = index.exact.get(normalized)
                     if row is not None:
-                        return list(index.glosses[row])
+                        return list(index.glosses[row]), "exact"
 
             with trace_step("cache.embed"):
                 embedding = await self._embed_async(normalized)
@@ -203,14 +222,15 @@ class SemanticCache:
             if match is not None:
                 glosses, distance = match
                 if distance <= self._similarity_threshold:
-                    return list(glosses)
-            return None
+                    return list(glosses), "semantic"
+            return None, "miss"
 
         if self._pool is None:
             # No database: nothing to look up. The phrase goes to the model.
-            return None
+            return None, "miss"
 
-        return await self._lookup_neon(normalized, category)
+        found = await self._lookup_neon(normalized, category)
+        return found, "semantic" if found is not None else "miss"
 
     async def store(self, text: str, fingerprint: Fingerprint, glosses: list[str]) -> None:
         if not glosses:
