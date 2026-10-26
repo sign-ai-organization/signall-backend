@@ -21,12 +21,20 @@ sign-ai-organization/
 
 ### Opción recomendada: Docker, un solo comando
 
-En `sign-ai-backend/.env` debe estar
-`STT_WS_URL=ws://stt:8000/ws/transcribe` (`stt` es el nombre del
-servicio dentro de Docker; `localhost` no funciona aquí). Luego:
+`docker-compose.yml` deja el backend en la red de compose, así que el STT se
+resuelve por el nombre del servicio: `STT_WS_URL=ws://stt:8000/ws/transcribe`
+(ya es el default; `localhost` no funciona ahí, porque dentro de ese contenedor
+es el propio contenedor). Luego:
 
 ```bash
 sign-ai-backend> docker compose up --build
+```
+
+Si el modelo del LLM corre en Ollama sobre la máquina y el firewall del host
+filtra el tráfico del bridge, usar el override de red de host:
+
+```bash
+sign-ai-backend> docker compose -f docker-compose.yml -f docker-compose.host.yml up --build
 ```
 
 Este comando levanta los dos servicios: el backend (puerto **8080**) y el

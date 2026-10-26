@@ -3,8 +3,10 @@
 **Fecha del contraste:** 2026-10-18 · **Backend:** `sign-ai-backend`, rama `flujo-oraciones`,
 commit `4b8b9b8` (sin mergear).
 
-**Última actualización: 2026-10-21**, después de releer las cuatro fuentes enteras y de
-corregir los números que no cuadraban. Este documento nació como el contraste; ahora es
+**Última actualización: 2026-10-26**, cuando el punto 33 se cerró: la red de compose pasó a
+ser el default y `network_mode: host` quedó como override en `docker-compose.host.yml`.
+Antes, **2026-10-21**: relectura de las cuatro fuentes enteras y corrección de los números
+que no cuadraban. Este documento nació como el contraste; ahora es
 también el registro de lo que se hizo. **Lo que se hizo y lo que falta está en
 [§10](#10-estado-de-la-ejecución--del-2026-10-19-al-2026-10-21).**
 
@@ -376,13 +378,17 @@ cálculo de embeddings y el segmentador bloquean unas decenas de milisegundos, y
 probado con varios clientes a la vez"*. La parte asíncrona está; con más de un cliente a la
 vez, no está medida. Eso es material para la ronda de pruebas, no un defecto.
 
-**Punto 33 — RNF-POR-02 y `network_mode: host`: B, y el requisito se cumple completo.**
+**Punto 33 — RNF-POR-02 y `network_mode: host`: A desde el 2026-10-26.**
 
-> **Corrección de esta sesión.** Una primera versión de este análisis decía que
-> `network_mode: host` "no es confiable en Windows y macOS". **Eso era incorrecto.** Las
-> versiones recientes de Docker Desktop lo soportan. Queda registrado porque el error iba en
-> la dirección contraria a la que llegó el punto, y porque la versión buena de la respuesta es
-> la que importa.
+> **Corrección doble, y la segunda es la que importa.** Una primera versión de este análisis
+> decía que `network_mode: host` "no es confiable en Windows y macOS": **eso era incorrecto**,
+> las versiones recientes de Docker Desktop lo soportan. Pero la conclusión a la que se llegó
+> después —dejarlo como default y documentar la restricción— **tampoco era la correcta**: el
+> owner hizo notar el 2026-10-26 que el propio RNF-POR-02 ya preveía quitar el modo host, y que
+> la portabilidad es un criterio del requisito, no un detalle a documentar. El código se alineó
+> con el documento y no al revés. Las dos correcciones quedan registradas porque el error de
+> este punto es el mismo en los dos sentidos: suponer que la configuración de esta máquina es
+> la configuración del proyecto.
 
 **El hecho.** Docker Desktop corre los contenedores dentro de una máquina virtual (WSL2 en
 Windows). Desde **Docker Desktop 4.34 (enero de 2025)** soporta redes de host, con una
@@ -397,38 +403,31 @@ opción que hay que activar en *Settings → Resources → Network*.
 **Pendiente de verificar en la máquina del equipo:** que la versión instalada tenga esa
 opción. No se midió.
 
-**Lo único que se rompe en Windows y macOS** es el acceso al modelo local. Con red de host,
-el `127.0.0.1` del contenedor apunta al interior de la máquina virtual, no a Windows ni a
-macOS. Y **tiene solución limpia:** poner Ollama como un servicio opcional del mismo
-`docker-compose.yml`, activado por perfil, para que viva en el mismo espacio de nombres que
-el backend y sea alcanzable en las tres plataformas:
+**Lo que se hizo, el 2026-10-26.** La red de compose es el default y el modo host quedó como
+override, en un archivo aparte, para quien use un modelo local:
 
-```yaml
-# Solo se levanta cuando se llama: docker compose --profile local up
-ollama:
-  image: ollama/ollama
-  profiles: ["local"]
-  ports: ["11434:11434"]
-```
+| Archivo | Qué hace |
+|---|---|
+| `docker-compose.yml` | Backend en la red de compose, `ports: ["8080:8080"]` publicado, `extra_hosts: ["host.docker.internal:host-gateway"]` para llegar a un servidor de modelos del host, y el STT por nombre de servicio (`ws://stt:8000/ws/transcribe`), que ya era el default de `app/config/settings.py` y de `.env.example` |
+| `docker-compose.host.yml` | Override: `network_mode: host`, con `ports` y `extra_hosts` anulados (`!reset`, porque son incompatibles con la red del host) y `STT_WS_URL` / `LLM_BASE_URL` apuntando a `127.0.0.1`, donde el nombre del servicio no resuelve |
+| `.env.example` | El default del STT ahora resuelve; el bloque del LLM documenta las dos direcciones y el comando que levanta cada una |
 
-El STT no sufre esto: su puerto `8000` está publicado en el mismo espacio de nombres, así que
-`127.0.0.1:8000` funciona igual en las tres plataformas. Y el puerto 8080 del backend también
-sale publicado.
+**La medición que obligó al override, 2026-10-26.** En esta máquina (Linux, Docker 29.9.2,
+`ufw` activo) un contenedor en el bridge por defecto **no alcanza el host**: `ufw` filtra el
+tráfico del bridge hacia el host, así que `host.docker.internal:11434` y `172.17.0.1:11434`
+dan timeout —y el 5672 publicado de otro contenedor también—, mientras que la salida a
+internet del mismo contenedor funciona (`1.1.1.1:80` responde). Ollama escucha en `*:11434`,
+o sea que el bind no era la causa, y por eso "que escuche en `0.0.0.0`" no alcanza: es lo que
+el comentario viejo del compose ya decía. Consecuencia práctica: **en esta máquina el camino
+diario es el override**; el default es el que se lleva a otra máquina.
 
-**Lo que hay que hacer** (nada de esto toca diagramas):
-
-| # | Qué | Dónde |
-|---|---|---|
-| 1 | Documentar la condición de la versión: "cualquier motor de contenedores en su versión que soporte redes de host; Docker Desktop 4.34 o posterior en Windows y macOS" | RNF-POR-02, criterio de aceptación |
-| 2 | Cambiar "no dependa de un proveedor de nube o **sistema operativo de host específico**" por "no dependa de un proveedor de nube ni de un **entorno de desarrollo** concreto: el repositorio documenta la configuración necesaria" | RNF-POR-02, descripción |
-| 3 | Escribir la dirección del STT en el `.env.example`, con un comentario que diga que en este despliegue es `127.0.0.1:8000` y no el nombre del servicio | `.env.example` |
-| 4 | Meter Ollama como servicio opcional del compose, con perfil | `docker-compose.yml` |
-
-**Por qué los puntos 1 y 2 no bajan la vara.** El punto 2 es una corrección de una premisa
-que nunca fue cierta: el problema real de `docker-compose.yml` no es el sistema operativo,
-es que el repositorio no documenta qué tiene que poner el usuario. Eso sí se arregla, y con
-una línea. El punto 1 agrega una condición que el motor de contenedores cumple en las tres
-plataformas.
+**Lo que sigue sin resolverse solo en Windows y macOS** es el acceso al modelo local. Con la
+red de compose, `host.docker.internal` es alcanzable en Docker Desktop sin tocar nada, así que
+el default ya cubre ese caso; la solución que se había propuesto antes —Ollama como servicio
+opcional con perfil `local`— **sigue sin aplicarse** y no es necesaria para cerrar el punto:
+el requisito pide que el backend se despliegue como una unidad portable, y eso ahora se
+cumple con el default. Queda como mejora opcional, para no duplicar el modelo de 2,5 GB en
+una máquina que ya lo tiene en el host.
 
 **Punto 34 — TLS / WSS y el proxy inverso: B.**
 
@@ -606,30 +605,29 @@ probar. Lo que cambia es que el SDD diga cuál de los dos es el camino real del 
 
 ### 2.3 El punto 33 — `network_mode: host`
 
-**Qué es.** Docker normalmente mete cada contenedor en su propia red privada, y se hablan
-por nombre (`stt`, `backend`). Este repo **no hace eso**: `docker-compose.yml:20` pone el
-backend directamente en la red de la máquina, con `network_mode: host`.
+**Qué era.** Docker normalmente mete cada contenedor en su propia red privada, y se hablan
+por nombre (`stt`, `backend`). Hasta el 2026-10-26 este repo **no hacía eso**:
+`docker-compose.yml` ponía el backend directamente en la red de la máquina, con
+`network_mode: host`.
 
-**Qué se gana.** El backend alcanza cualquier cosa de la máquina del desarrollador sin
+**Qué se ganaba.** El backend alcanzaba cualquier cosa de la máquina del desarrollador sin
 configurar nada: un Ollama en `127.0.0.1:11434`, una base local, el STT en el puerto
 publicado `127.0.0.1:8000`. Es lo que permite trabajar sin internet con un modelo local.
 
-**Qué se pierde.**
+**Qué se perdía.**
 
-| Se pierde | Consecuencia concreta |
+| Se perdía | Consecuencia concreta |
 |---|---|
-| Aislamiento del contenedor | Dos proyectos en la misma máquina se pelean el puerto 8080 |
-| Portabilidad | En Docker Desktop (macOS/Windows) `network_mode: host` no se comporta igual; el `Dockerfile` y el compose están escritos para Linux |
-| El nombre del servicio | `settings.py:61` trae `ws://stt:8000/ws/transcribe` por default y **no resuelve** en la red del host. El `.env` local lo sobreescribe a `127.0.0.1:8000`. Si el `.env` falta o se regenera desde el ejemplo, el backend no alcanza el STT |
+| Portabilidad | En Docker Desktop (macOS/Windows) el modo host necesita una opción que hay que prender y `127.0.0.1` deja de ser "esta máquina": apunta adentro de la máquina virtual |
+| El nombre del servicio | `stt` no resuelve en la red del host, así que el default de `settings.py` y de `.env.example` era inútil y el `.env` tenía que pisarlo |
+| Aislamiento | Dos proyectos en la misma máquina se pelean el puerto 8080 |
 
-**Qué dicen los documentos.** RNF-POR-02 pide que el backend se despliegue como una unidad
-en cualquier máquina con el motor de contenedores. El SRS §6.2 y la imagen 6.2 dibujan dos
-contenedores Docker en una máquina, **sin decir qué red usan**, así que la imagen no
-choca con el código: es compatible con las dos opciones.
-
-**Qué hay que hacer.** Documentar la restricción. Volver a la red de compose obligaría a
-resolver el STT de otra forma **y** rompería el acceso al Ollama local, que es lo que
-permite trabajar sin internet.
+**Cómo está desde el 2026-10-26.** El default es la red de compose, con el 8080 publicado y
+el STT por nombre de servicio; el modo host quedó en `docker-compose.host.yml` como override
+para quien use un modelo local que el firewall no deje alcanzar. La medición y el detalle
+están en el punto 33 de §2. Lo que se conserva del análisis: **la imagen 6.2 dibuja dos
+contenedores sin decir qué red usan**, así que ninguna de las dos configuraciones choca con
+el diagrama.
 
 ### 2.4 El punto 37 — `rt_first_sign_ms`, los dos casos a detalle
 
@@ -704,7 +702,7 @@ adapta el documento** (cambiar el SRS, el SDD o los documentos del repo). La col
 | **30** | RNF-AV-03 pide avisar "en un par de segundos". Hoy son 3 intentos de 10 s, porque `max_retries` no está escrito | `max_retries=1` y `llm_timeout_ms=5000` | Cambiar el requisito al plazo que el cliente ya tiene | **A**, que es §6.3 opción B | No | **A** |
 | **31** | RNF-MNT-03 pide analizadores estáticos. No hay ninguno. Y `CLAUDE.md` exige inglés sin excepción y quedan comentarios en español en cinco archivos | Configurar `ruff`, que de paso hace cumplir la regla de inglés | Relajar el requisito a revisión de código | **A.** Aviso: `app/metrics.py` tiene ~20 líneas de prosa en español y es el archivo que más se lee del repo. La traducción es mecánica y no toca el diagrama | No | **A** |
 | **32** | RNF-MNT-04 pide dependencias fijadas. `requirements.txt` no fija nueve de ellas | Fijar versiones | Relajar el requisito | **A** | No | **A** |
-| **33** | RNF-POR-02 pide un contenedor portable. `docker-compose.yml:20` usa **`network_mode: host`**. Explicado en §2.3 | Volver a la red de compose: rompe el acceso al Ollama local | Declarar la restricción en el documento | **B.** La imagen 6.2 dibuja dos contenedores sin especificar la red, así que **no hay que tocar el diagrama** | No | **B** |
+| **33** | RNF-POR-02 pide un contenedor portable. Hasta el 2026-10-26 `docker-compose.yml` usaba **`network_mode: host`**. Explicado en §2.3 | Hecho: red de compose por defecto, `8080` publicado, y el modo host en `docker-compose.host.yml` | Nada: el requisito ya pedía esto | **A.** La imagen 6.2 dibuja dos contenedores sin especificar la red, así que **no hay que tocar el diagrama** | No | **A**, cerrado el 2026-10-26 |
 | **34** | RF-INT-COM-03 y el SRS piden TLS y **WSS**. El backend no termina TLS. La app en release **solo** acepta `wss://` | Poner un proxy inverso con TLS delante del backend | Documentar que el cifrado lo termina el despliegue | **Ver §7.2.** Pero lo que hay que saber es que **ninguno de los 12 diagramas tiene un nodo de proxy**: el `«WSS»` está en la *flecha* de la 6.2 y en la arista `[Android, WSS]` de la C4-1. Poner proxy = nodo nuevo en **6.2, C4-2 y C4-1**. Documentar = **cero diagramas** | **Sí, si es A** (tres diagramas). No si es B | **Pendiente**, con el análisis en §7.2 |
 | **35** | RF-NLP-02 dice que al modelo se le entrega "la frase completa". Lo que llega es **una oración** | No aplica | Aclarar el requisito | **B** | No | **B** |
 | **36** | RF-CAT-03 dice que el sistema responde "Seña no disponible". El backend marca `available: false` y lo dice la app. Y 18 de las 50 glosas vienen con `available: true` y ruta inexistente | Que el catálogo diga si la animación existe y el backend lo mande | Aclarar el SRS para que cubra el segundo caso y decir que el aviso lo pone la app | **B**, y con este encuadre **el diagrama no se toca**: el 6.3 tiene `Glosa existe en el catalogo?` con dos salidas (disponible / "seña no disponible"), y las dos siguen siendo ciertas. El segundo caso —la glosa existe pero el archivo no— lo detecta la app, que ya lo resolvió | No | **B**, con esa condición |
@@ -1197,7 +1195,7 @@ once.
 | **7** el `store` en segundo plano | B | Ninguno. El paso 14 de la 7.2 ya lo dice |
 | **23** límite de solicitudes por cliente | B, con medición | Ninguno |
 | **26** concurrencia y cola de sesiones | B, con la justificación escrita | Ninguno |
-| **33** `network_mode: host` y RNF-POR-02 | B | Ninguno |
+| **33** red de compose y RNF-POR-02 | A desde el 2026-10-26 | Ninguno |
 | **34** TLS, WSS y el proxy inverso | B, con 🔶 TODO | Ninguno |
 | **36** "Seña no disponible" | B, con 🔶 TODO | Ninguno. Las dos ramas del 6.3 siguen siendo ciertas |
 | **37** el nombre `rt_first_sign_ms` | B, con los dos tramos en el SRS | Ninguno |
@@ -1340,7 +1338,7 @@ cambia ni una línea.** El detalle está verificado el 2026-10-21.
 
 | Pieza | Qué es | Dónde |
 |---|---|---|
-| **El proxy** | **Caddy** sirve de proxy inverso con un archivo de configuración: escucha en el 443 con TLS y le pasa todo al backend en el 8080. El backend ya corre con `network_mode: host`, así que no estorba | Host de desarrollo |
+| **El proxy** | **Caddy** sirve de proxy inverso con un archivo de configuración: escucha en el 443 con TLS y le pasa todo al backend en el 8080. El backend publica el 8080, así que el proxy lo alcanza en `127.0.0.1:8080` si corre en el host, o como `backend:8080` si corre como un contenedor de la misma red de compose | Host de desarrollo |
 | **El certificado** | El teléfono tiene que confiar en él. El `network_security_config.xml` de la app (el de `release`, `sign-ai-android/app/src/main/res/xml/network_security_config.xml`) prohíbe el texto en claro pero **no confía en los certificados instalados por el usuario**: falta el `<certificates src="user"/>`. Sin esa línea, el teléfono rechaza la conexión aunque el proxy esté perfecto. La herramienta estándar es `mkcert`, que genera la CA local y la instala en el teléfono | **Repo de la app**, que desde acá es de solo lectura |
 | **La URL** | `-Psignai.backendWsUrl=wss://…`. En `release` solo se acepta si empieza por `wss://`; el default es `wss://backend.invalid/ws/translate`, que no resuelve | `sign-ai-android/app/build.gradle.kts` |
 
