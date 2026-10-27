@@ -724,3 +724,53 @@ distribución. Ahora es un histograma y las cuatro fuentes dicen lo mismo.
 código sí está implementado y verificado con
 `scripts/verify_metrics_sources.py`.
 **Fecha:** 2026-10-21
+
+---
+
+## 2026-10-27 — El host pasa de dos contenedores a tres: entra el proxy inverso que termina el TLS
+
+**Dónde:** `docs/sdd.md` §6.2 (Vista Física, `:105` y `:114` antes del
+cambio) y §8.2 (Contenedores, `:396`); los diagramas
+`sdd-6.2-vista-fisica-despliegue.drawio` y `sdd-c4-2-contenedores.drawio`.
+
+**Qué dicen las fuentes:**
+
+| Fuente | Dice |
+|---|---|
+| SRS v0.16, `RF-INT-COM-03` | el tráfico que sale del dispositivo va cifrado |
+| SRS v0.16, `RF-INT-COM-06` | el canal de comunicación usa TLS |
+| SDD §6.2, antes del cambio | "dividido en **dos** contenedores Docker" y un solo canal `«WSS»` del Android al Backend |
+| SDD §8.2, antes del cambio | "El Backend y el STT Container corren en contenedores Docker separados" |
+| El despliegue, hasta el 2026-10-26 | un solo proceso de backend escuchando `0.0.0.0:8080` en claro |
+| `docs/CONTRASTE-BACKENDvsDOCUMENTOS.md` §7.2, punto 34 | los diagramas pedían el canal `«WSS»` pero ningún diagrama tenía el nodo que lo termina |
+
+**Por qué cambia:** el requisito no se cumple con una etiqueta en la flecha. El
+cifrado lo termina una pieza, y esa pieza es un tercer contenedor. Se decidió
+ponerlo (decisión 1 de `docs/plan-proxy-tls.md`): Caddy en red de host, que
+escucha en el 443 con un certificado de mkcert y reenvía en claro al backend por
+`127.0.0.1:8080`. El backend no cambia: sigue escuchando donde escuchaba y no
+sabe que el proxy existe.
+
+**Qué se aplicó, en las dos copias del SDD (local y Overleaf), el 2026-10-27:**
+
+- §6.2: la lista de elementos del host pasa de dos a **tres** contenedores, con
+  **Reverse Proxy** (`«execution environment»` Docker, Caddy) descrito como el
+  que termina el TLS en el 443 y reenvía por loopback; el canal del Android pasa
+  a terminar en el proxy y no en el Backend.
+- §6.2: el párrafo del cliente dice que el canal es **WSS** y que termina en el
+  proxy inverso, y el del equipo dice **tres** contenedores y cuál es cada uno.
+- §8.2: la primera frase del Android Client lo conecta al **Reverse Proxy** por
+  WSS en el 443, y aclara que el tramo proxy → Backend va en claro por loopback
+  y no sale del equipo.
+- §8.2: el párrafo de contenedores nombra los tres y dice que **solo el proxy**
+  atiende el tráfico que viene de la aplicación.
+
+**Lo que no se dice en el SDD y sí en el SRS:** que el certificado es de una
+autoridad de **laboratorio** y que hay que instalar su CA en el teléfono. Eso
+vive en el SRS §3.1.4 y en los requerimientos de adaptación del sitio, porque es
+un paso de despliegue y no una decisión de arquitectura. Si se quiere en el SDD,
+es una frase más en §6.2.
+
+**Estado:** **aplicado al SDD el 2026-10-27**, en `docs/sdd.md` y en el Overleaf,
+y reflejado en las Figuras 2 y 11 (PNG regeneradas el mismo día).
+**Fecha:** 2026-10-27

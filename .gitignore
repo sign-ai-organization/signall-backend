@@ -5,3 +5,10 @@ __pycache__/
 # Caches of the static analyzers (ruff, mypy).
 .ruff_cache/
 .mypy_cache/
+
+# Local TLS material of the `caddy` service in `docker-compose.host.yml`:
+# the private key and the lab CA must never enter the repository. The
+# directory itself stays tracked so the bind mount has a source on a fresh
+# clone; the files are reissued with mkcert (docs/plan-proxy-tls.md, phase 1).
+deploy/certs/*
+!deploy/certs/.gitkeep

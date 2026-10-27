@@ -82,6 +82,12 @@ Comprobar desde el navegador del teléfono:
 ws://<host>:8080/ws/translate
 ```
 
+Con el proxy que se levanta para la demo, la app habla `wss://` contra el 443 y el
+backend sigue viendo `ws://127.0.0.1:8080` por loopback: el frame no cambia, cambia
+el transporte. El build `demo` de la app ya apunta a
+`wss://127.0.0.1:8443/ws/translate` (`adb reverse tcp:8443 tcp:443`); el detalle está
+en `docs/plan-proxy-tls.md`.
+
 - Una conexión por sesión de conversación. Se abre al activar el
   micrófono y se mantiene mientras se habla.
 - Si al conectar el STT no está disponible, el backend envía un mensaje
