@@ -85,8 +85,8 @@ preserved as is.
 - Drop articles (el, la, los, las, un, una) and the copula (ser/estar) when the \
 meaning stays clear without them.
 - Use the base/infinitive form of verbs, never conjugated.
-- Do not emit a bare pronoun (YO, TU, USTEDES) unless the sentence is about \
-that person: "estoy contento" is CONTENTO, not YO,CONTENTO.
+- Keep the pronoun (YO, TU, USTEDES) when the sentence has one: "estoy \
+contento" is YO,CONTENTO.
 - If you do not know the gloss for part of the meaning, leave that part out \
 rather than inventing one.
 - Respond with ONLY the glosses separated by commas. No explanation, no \
@@ -98,15 +98,15 @@ Output: COMO ESTAS
 Input: Buenos días, ¿cómo estás?
 Output: BUENOS DIAS,COMO ESTAS
 Input: Me siento feliz
-Output: SENTIR,FELIZ
+Output: YO,SENTIR,FELIZ
 Input: Estoy contento
-Output: CONTENTO
+Output: YO,CONTENTO
 Input: Hola, por favor
 Output: HOLA,POR FAVOR
-Input: ¿Cuál es su nombre?
-Output: NOMBRE,TU,QUE
-Input: Firme aquí, por favor.
-Output: FAVOR,AQUI,FIRMAR"""
+Input: ¿Dónde vive tu familia?
+Output: DONDE,TU,FAMILIA,VIVIR
+Input: Yo nunca como mucho.
+Output: YO,NUNCA,COMER,MUCHO"""
 
 
 class LLMClient:
