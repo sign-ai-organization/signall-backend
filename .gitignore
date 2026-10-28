@@ -12,3 +12,11 @@ __pycache__/
 # clone; the files are reissued with mkcert (docs/plan-proxy-tls.md, phase 1).
 deploy/certs/*
 !deploy/certs/.gitkeep
+
+# APKs and the download page published by
+# `../sign-ai-android/tools/wifi/publicar-apk.sh` and served by `caddy` at
+# `/apk/` (docs/plan-wifi.md, phase 2). They are build artifacts: only the
+# directory stays tracked, so the bind mount has a source on a fresh clone and
+# Docker does not create it owned by root.
+deploy/apk/*
+!deploy/apk/.gitkeep

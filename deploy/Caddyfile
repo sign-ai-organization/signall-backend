@@ -24,5 +24,21 @@
 :443 {
 	tls /etc/caddy/certs/lab.pem /etc/caddy/certs/lab-key.pem
 
-	reverse_proxy 127.0.0.1:8080
+	# Static download of the Android APK (`docs/plan-wifi.md`, phase 2). It has to
+	# be a `handle` block and not a bare directive: Caddy orders `handle` blocks by
+	# path specificity, so `/apk/*` wins over the catch-all. A top-level
+	# `reverse_proxy` would match everything first and the 404 would be hard to
+	# read.
+	#
+	# The directory is a bind mount (`docker-compose.host.yml`) filled by
+	# `../sign-ai-android/tools/wifi/publicar-apk.sh`. `handle_path` strips the
+	# `/apk` prefix, so `/apk/` serves `index.html` from the root below.
+	handle_path /apk/* {
+		root * /srv/apk
+		file_server
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:8080
+	}
 }

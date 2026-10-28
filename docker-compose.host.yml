@@ -54,6 +54,9 @@ services:
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./deploy/certs:/etc/caddy/certs:ro
+      # APKs published by ../sign-ai-android/tools/wifi/publicar-apk.sh and
+      # downloaded by the phone from https://<host>/apk/ (docs/plan-wifi.md).
+      - ./deploy/apk:/srv/apk:ro
       - caddy-data:/data
       - caddy-config:/config
 
