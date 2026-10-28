@@ -1,27 +1,39 @@
 services:
   backend:
     build: .
-    # Host networking, not the bridge, for two reasons:
+    # Compose network plus a published port: this is what RNF-POR-02 asks for,
+    # because the service behaves the same on Linux, on macOS and on Windows with
+    # Docker Desktop, and does not depend on the engine supporting host networks.
     #
-    #  1. The STT service is reached on 127.0.0.1:8000 (its published port)
-    #     instead of by the "stt" service name, which only resolves on a
-    #     user-defined bridge.
-    #  2. A local LLM server (Ollama on 11434, LM Studio on 1234) is reachable
-    #     straight away. Docker installs a DROP policy for traffic from the
-    #     bridge to the host, so a container on a bridge cannot open a socket to
-    #     a model server bound on the host's loopback or even on the bridge
-    #     gateway — verified: same container, HTTP 200 with --network host and a
-    #     timeout with the default bridge. That is why the docs elsewhere say
-    #     "listen on 0.0.0.0"; on this machine it is not sufficient.
+    # Inside this network `localhost` is the container itself, so the STT is
+    # addressed by its service name: `ws://stt:8000/ws/transcribe`, which is the
+    # default in `app/config/settings.py` and in `.env.example`. The address does
+    # not need to be overridden in `.env` anymore.
     #
-    # The Dockerfile binds 0.0.0.0:8080, which with the previous `ports:
-    # "8080:8080"` published the same thing, so this does not expose anything
-    # that was not already reachable.
-    network_mode: host
+    # A model server running on the *host* (Ollama on 11434, LM Studio on 1234) is
+    # reached through `host.docker.internal`, declared below as an alias of the
+    # bridge gateway. It works out of the box on Docker Desktop. On Linux the
+    # bridge-to-host path is filtered by the host firewall: with `ufw` active
+    # (verified on the thesis machine, 2026-10-26) `172.17.0.1:11434` and
+    # `host.docker.internal:11434` both time out from a bridge container even
+    # though the same container reaches the internet. When that happens there are
+    # two ways out: open the firewall for the docker0 subnet, or run the backend
+    # on the host network with `docker-compose.host.yml`, which is the same file
+    # this backend used before and is documented there.
+    #
+    # The Dockerfile binds 0.0.0.0:8080, and `8080:8080` publishes exactly what
+    # `network_mode: host` exposed before, so the Android client (10.0.2.2 in the
+    # emulator) is unaffected.
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
 
-  # STT service (Whisper), lives in a separate repo (sign-ai-stt.
+  # STT service (Whisper), lives in a separate repo (sign-ai-stt).
+  # Its port stays published because the tooling on the host reaches it at
+  # 127.0.0.1:8000 (`tools/verificar-conexiones-stt.py`, `scripts/fixtures/`).
   stt:
     build: ../sign-ai-stt
     ports:

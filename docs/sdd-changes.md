@@ -616,3 +616,161 @@ cierra el turno **también en el camino del error**, y eso está en
 
 **Estado:** documentado; **no se aplicó**, por la regla del repo.
 **Fecha:** 2026-10-21
+
+---
+
+## Las métricas de latencia dicen de dónde salió la respuesta (2026-10-21)
+
+El SRS y los requisitos piden **dos rangos** de latencia, no uno: uno para la
+frase que resolvió la caché semántica y otro para la que tuvo que llamar al
+modelo (RNF-DES-01, RNF-DES-03 en
+`../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md:443-468`).
+Hasta ahora `/metrics` no podía separarlos: el acierto y el fallo de la caché
+solo existían como una línea del log
+(`app/nlp/nlp_service_impl.py`, `SemanticCache HIT` / `MISS`), así que el
+número publicado era el promedio de dos escenarios que no son comparables.
+
+Esto no cambia el contrato con la app: no cambia ningún frame, ni su nombre,
+ni su forma. Solo cambia **qué se publica en `/metrics`**.
+
+### 1. `rt_first_sign_ms`, `rt_phrase_total_ms` y `rt_sentence_delay_ms` llevan la etiqueta `source`
+
+**Qué dice cada fuente:**
+
+| Fuente | Dice |
+|---|---|
+| RNF-DES-01 y RNF-DES-03 | Dos rangos: caché y LLM, medidos aparte |
+| El SRS (`main.tex:848-857`) | El tiempo hasta la primera seña se mide en dos tramos, uno por parte |
+| `docs/sdd.md:362` | Describe las tres métricas, **sin** decir cómo se parte un caso del otro |
+| El código | Las tres publicaban una sola serie, sin etiqueta |
+
+**Por qué cambia:** con la etiqueta, `rt_first_sign_ms{source="cache"}` y
+`rt_first_sign_ms{source="llm"}` son los dos rangos que piden los requisitos,
+y se leen de `/metrics` sin abrir un log. La etiqueta va en las tres porque
+miden el mismo reloj: separar una y no las otras deja tres números que no se
+comparan entre sí.
+
+La etiqueta de una oración es la de **esa** oración. La de una frase es `llm`
+en cuanto una de sus oraciones necesitó el modelo: una frase cuya primera
+oración salió de la caché y la segunda no, de todos modos esperó al modelo.
+
+**Qué habría que cambiar:** `docs/sdd.md:362`, para decir que las tres
+llevan la etiqueta `source` con los valores `cache` y `llm`.
+
+**Lo que hay que saber al leer los números viejos:** la línea base de
+`docs/performance.md` (p50 273 ms / p95 422 ms, del 2026-10-15) se midió con
+la caché **vacía**, o sea que hoy corresponde a
+`rt_first_sign_ms{source="llm"}`. La serie sin etiqueta ya no existe: un
+panel que pregunte `rt_first_sign_ms` a secas deja de encontrar nada.
+
+### 2. `rt_cache_total{source="exact"|"semantic"|"miss"}`
+
+Contador nuevo. Los tres casos se contaban por separado en el log y ahora se
+cuentan en `/metrics`:
+
+| `source` | Qué es |
+|---|---|
+| `exact` | El texto normalizado ya estaba en la caché. No cuesta embedding. |
+| `semantic` | Una frase suficientemente parecida. Cuesta el embedding y la búsqueda. |
+| `miss` | No hubo coincidencia: la frase fue al modelo. |
+
+La diferencia entre `exact` y `semantic` es de dos órdenes de magnitud
+(`cache_lookup_ms` p50 48 ms medido el 2026-10-16), así que contarlos juntos
+oculta justo lo que hay que ver.
+
+### 3. `rt_turn_queue_ms`
+
+Histograma nuevo: cuánto esperó la frase entre que salió del socket del
+cliente y que su traducción empezó.
+
+**Por qué importa:** el reloj de `rt_first_sign_ms` arrancaba en
+`handle_text`, que corre **después** de que la tarea tome el lock de
+`_PhraseTranslator` (`app/controller/router.py`). Con dos sesiones, la
+segunda frase esperaba sin que ninguna métrica lo mostrara: la latencia subía
+y `/metrics` no lo decía.
+
+### 4. `rt_phrase_sentences` pasa de gauge a histograma
+
+**Qué dice cada fuente:**
+
+| Fuente | Dice |
+|---|---|
+| `docs/sdd.md:362` | "un histograma de cuántas oraciones tiene cada frase (`rt_phrase_sentences`)" |
+| `AGENTS.md:134` | "histograma de oraciones por frase" |
+| `docs/CAMBIOSBACKEND.md:77` | "el histograma de oraciones por frase" |
+| El código | Era un **gauge** (`app/controller/controller.py`), y además se reiniciaba en cada frase |
+
+**Por qué cambia:** el código era el que estaba equivocado, no el SDD. Un
+gauge solo guarda el valor de la última frase, así que no guardaba ninguna
+distribución. Ahora es un histograma y las cuatro fuentes dicen lo mismo.
+
+### Lo que quedó afuera, y por qué
+
+- **`llm_ms` sigue mezclando una llamada con reintento con una que salió a la
+  primera.** Medido el 2026-10-21: una llamada que falló y se reintentó dejó
+  una muestra de 10 458 ms en el mismo histograma donde una exitosa dejó
+  778 ms. Sin un contador de reintentos, el p50 de `llm_ms` mezcla dos
+  cosas. Queda para otra ronda.
+- **El tramo del STT sigue sin medirse en el backend.** Es el tramo más largo
+  del viaje (3,7 s de 4,0 s según `docs/performance.md` §7) y el backend lo
+  ve sin instrumentarlo: ve el audio salir y el `final` volver. Medirlo es
+  `rt_stt_leg_ms`, y es la pieza que falta para que el backend muestre el
+  viaje entero desde que la persona empieza a hablar.
+- **La espera por el segmentador y la entrega al cliente** (`rt_segmentation_ms`,
+  `rt_segment_ready_ms`, `rt_segment_send_ms`) tampoco están. El segmentador
+  es síncrono y corre sobre el event loop (`app/nlp/segmenter/`).
+
+**Estado:** documentado; **no se aplicó al SDD**, por la regla del repo. El
+código sí está implementado y verificado con
+`scripts/verify_metrics_sources.py`.
+**Fecha:** 2026-10-21
+
+---
+
+## 2026-10-27 — El host pasa de dos contenedores a tres: entra el proxy inverso que termina el TLS
+
+**Dónde:** `docs/sdd.md` §6.2 (Vista Física, `:105` y `:114` antes del
+cambio) y §8.2 (Contenedores, `:396`); los diagramas
+`sdd-6.2-vista-fisica-despliegue.drawio` y `sdd-c4-2-contenedores.drawio`.
+
+**Qué dicen las fuentes:**
+
+| Fuente | Dice |
+|---|---|
+| SRS v0.16, `RF-INT-COM-03` | el tráfico que sale del dispositivo va cifrado |
+| SRS v0.16, `RF-INT-COM-06` | el canal de comunicación usa TLS |
+| SDD §6.2, antes del cambio | "dividido en **dos** contenedores Docker" y un solo canal `«WSS»` del Android al Backend |
+| SDD §8.2, antes del cambio | "El Backend y el STT Container corren en contenedores Docker separados" |
+| El despliegue, hasta el 2026-10-26 | un solo proceso de backend escuchando `0.0.0.0:8080` en claro |
+| `docs/CONTRASTE-BACKENDvsDOCUMENTOS.md` §7.2, punto 34 | los diagramas pedían el canal `«WSS»` pero ningún diagrama tenía el nodo que lo termina |
+
+**Por qué cambia:** el requisito no se cumple con una etiqueta en la flecha. El
+cifrado lo termina una pieza, y esa pieza es un tercer contenedor. Se decidió
+ponerlo (decisión 1 de `docs/plan-proxy-tls.md`): Caddy en red de host, que
+escucha en el 443 con un certificado de mkcert y reenvía en claro al backend por
+`127.0.0.1:8080`. El backend no cambia: sigue escuchando donde escuchaba y no
+sabe que el proxy existe.
+
+**Qué se aplicó, en las dos copias del SDD (local y Overleaf), el 2026-10-27:**
+
+- §6.2: la lista de elementos del host pasa de dos a **tres** contenedores, con
+  **Reverse Proxy** (`«execution environment»` Docker, Caddy) descrito como el
+  que termina el TLS en el 443 y reenvía por loopback; el canal del Android pasa
+  a terminar en el proxy y no en el Backend.
+- §6.2: el párrafo del cliente dice que el canal es **WSS** y que termina en el
+  proxy inverso, y el del equipo dice **tres** contenedores y cuál es cada uno.
+- §8.2: la primera frase del Android Client lo conecta al **Reverse Proxy** por
+  WSS en el 443, y aclara que el tramo proxy → Backend va en claro por loopback
+  y no sale del equipo.
+- §8.2: el párrafo de contenedores nombra los tres y dice que **solo el proxy**
+  atiende el tráfico que viene de la aplicación.
+
+**Lo que no se dice en el SDD y sí en el SRS:** que el certificado es de una
+autoridad de **laboratorio** y que hay que instalar su CA en el teléfono. Eso
+vive en el SRS §3.1.4 y en los requerimientos de adaptación del sitio, porque es
+un paso de despliegue y no una decisión de arquitectura. Si se quiere en el SDD,
+es una frase más en §6.2.
+
+**Estado:** **aplicado al SDD el 2026-10-27**, en `docs/sdd.md` y en el Overleaf,
+y reflejado en las Figuras 2 y 11 (PNG regeneradas el mismo día).
+**Fecha:** 2026-10-27

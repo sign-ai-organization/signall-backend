@@ -94,14 +94,26 @@ class _PhraseTranslator:
         self._lock = asyncio.Lock()
         self._tasks: set[asyncio.Task[None]] = set()
 
-    def submit(self, text: str, turn: Any = None) -> None:
-        """Start translating [text] without waiting for it."""
-        task = asyncio.create_task(self._translate(text, turn), name="translate-phrase")
+    def submit(self, text: str, turn: Any = None, received_at: float | None = None) -> None:
+        """Start translating [text] without waiting for it.
+
+        `received_at` is when the frame came out of the client's socket. It is
+        what makes the wait measurable: the translation does not start until
+        this task gets the lock, and until then the user is waiting on
+        something no metric showed.
+        """
+        task = asyncio.create_task(self._translate(text, turn, received_at), name="translate-phrase")
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-    async def _translate(self, text: str, turn: Any = None) -> None:
+    async def _translate(self, text: str, turn: Any = None, received_at: float | None = None) -> None:
         async with self._lock:
+            if received_at is not None:
+                metrics.histogram(
+                    "rt_turn_queue_ms",
+                    (time.perf_counter() - received_at) * 1000,
+                    "Espera de la frase desde que llego hasta que empieza a traducirse",
+                )
             await self._controller.handle_text(text, turn)
 
     def cancel_all(self) -> list[asyncio.Task[None]]:
@@ -157,7 +169,9 @@ async def _forward_audio(
             continue
 
         if frame.kind == TEXT_FRAME:
-            translator.submit(frame.text, frame.turn)
+            # `busy_since` is the moment the frame came out of the socket, so
+            # it doubles as the arrival time of the phrase.
+            translator.submit(frame.text, frame.turn, busy_since)
         else:
             await controller.handle_end()
         metrics.histogram(*_busy(busy_since))

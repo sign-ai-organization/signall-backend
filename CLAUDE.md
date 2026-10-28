@@ -98,10 +98,14 @@ el usuario. Es él quien decide cuándo y cómo aplicar el cambio al SDD.
   Es un caché derivado, se reconstruye solo con la primera frase de cada una.
 - **El proveedor del LLM es configurable, no fijo.** `LLM_BASE_URL` vacío =
   OpenAI. Apuntándolo a un servidor local (Ollama, LM Studio, vLLM) corre el
-  mismo prompt sin API key ni costo. Desde Docker en Linux el servicio
-  necesita `extra_hosts: ["host.docker.internal:host-gateway"]` (ya está en
-  `docker-compose.yml`) y el servidor local tiene que escuchar fuera de
-  `127.0.0.1` (Ollama: `OLLAMA_HOST=0.0.0.0:11434`).
+  mismo prompt sin API key ni costo. El backend va en la red de compose, así que
+  el servidor local se alcanza por `host.docker.internal`
+  (`extra_hosts: ["host.docker.internal:host-gateway"]`, ya en
+  `docker-compose.yml`) y tiene que escuchar fuera de `127.0.0.1` (Ollama:
+  `OLLAMA_HOST=0.0.0.0:11434`). Si el firewall del host filtra el tráfico que
+  viene del bridge —con `ufw` activo pasa, medido el 2026-10-26— el camino es
+  `docker-compose.host.yml`: pone el backend en la red del host y deja
+  `127.0.0.1:11434` al alcance sin tocar el firewall.
 - **Cambiar de modelo puede no cambiar nada.** Con el prompt de glosas frasales
   ambos modelos (`gpt-4o-mini` y `qwen3:4b-instruct`) siguen partiendo algunas
   frases, y por eso `_repair_glosses` existe: el prompt solo no alcanza.

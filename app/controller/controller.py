@@ -180,7 +180,7 @@ class Controller:
         if self.debug_trace_enabled:
             await self.websocket.send_json({"type": "trace", "steps_ms": trace.to_dict()["steps_ms"]})
         await self.send_done()
-        self._record_phrase_timings(text)
+        self._record_phrase_timings(text, trace)
         self._turn = None
 
     async def handle_end(self) -> None:
@@ -224,6 +224,12 @@ class Controller:
     async def send_segment(self, index: int, total: int, segment: ValidatedSegment, trace: PipelineTrace) -> None:
         if self._phrase_started_at is not None:
             since_phrase_ms = (time.monotonic() - self._phrase_started_at) * 1000
+            # The source says where the answer came from, and it is what turns
+            # one latency into the two the SRS asks for: the one of a phrase
+            # the cache resolved and the one of a phrase that needed the
+            # model. Without it the two scenarios only live apart in the log,
+            # and `/metrics` shows their average, which is neither.
+            labels = {"source": trace.sentence_source(index) or "unknown"}
             if self._first_segment_at is None:
                 self._first_segment_at = time.monotonic()
                 # Kept under its old name on purpose: this is the headline
@@ -235,11 +241,13 @@ class Controller:
                     "rt_first_sign_ms",
                     since_phrase_ms,
                     "Primera oración enviada menos frase recibida",
+                    labels,
                 )
             metrics.histogram(
                 "rt_sentence_delay_ms",
                 since_phrase_ms,
                 "Oración enviada menos frase recibida",
+                labels,
             )
         self._sentences_sent += 1
         self._glosses_sent += len(segment.glosses)
@@ -275,7 +283,7 @@ class Controller:
 
     # -------------------------------------------------------------- metrics
 
-    def _record_phrase_timings(self, text: str) -> None:
+    def _record_phrase_timings(self, text: str, trace: PipelineTrace) -> None:
         """Close the phrase's metrics and publish them.
 
         The reference point is when the client sent the phrase, which is RNF-DES-01's
@@ -289,8 +297,20 @@ class Controller:
         metrics.counter("rt_phrases_total")
         metrics.counter("rt_sentences_total", self._sentences_sent)
         metrics.counter("rt_glosses_total", self._glosses_sent)
-        metrics.histogram("rt_phrase_total_ms", total_ms, "Ultima oración enviada menos frase recibida")
-        metrics.gauge("rt_phrase_sentences", self._sentences_sent)
+        metrics.histogram(
+            "rt_phrase_total_ms",
+            total_ms,
+            "Ultima oración enviada menos frase recibida",
+            {"source": trace.phrase_source()},
+        )
+        # A histogram, not a gauge: the question it answers is how the
+        # sentences are distributed across phrases, and a gauge only holds the
+        # last one. The SDD has always described it as a histogram.
+        metrics.histogram(
+            "rt_phrase_sentences",
+            float(self._sentences_sent),
+            "Oraciones por frase",
+        )
 
         logger.info(
             "phrase done: text=%r sentences=%d glosses=%d total=%.0fms",

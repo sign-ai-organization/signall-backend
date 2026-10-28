@@ -1,0 +1,65 @@
+# Host network for the backend, as an override. Not the default: `docker-compose.yml`
+# runs it on the compose network, which is the portable configuration.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.host.yml up --build
+#
+# Why this file exists. With the compose network, a model server that only listens
+# on the host is reached through `host.docker.internal`, and on Linux the
+# bridge-to-host path is filtered by the host firewall. On the thesis machine
+# (ufw active, 2026-10-26) a bridge container gets a timeout for `172.17.0.1:11434`
+# and for `host.docker.internal:11434`, while the same container reaches the
+# internet. With the host network, the backend's own loopback is the machine's
+# loopback, so `127.0.0.1:11434` (Ollama) and `127.0.0.1:8000` (the STT's published
+# port) work without touching the firewall.
+#
+# What it costs, and why it is not the default: it needs an engine with host-network
+# support (on Docker Desktop 4.34 or later it is an option in Settings → Resources →
+# Network), and on macOS and Windows `127.0.0.1` points inside the container
+# machine, not at the host.
+services:
+  backend:
+    network_mode: host
+    # `network_mode: host` and published ports are mutually exclusive, so the
+    # base file's mapping is dropped instead of merged.
+    ports: !reset []
+    # `extra_hosts` is not accepted on the host network either; the alias has no
+    # meaning there, because the loopback is already the machine's.
+    extra_hosts: !reset []
+    environment:
+      # On the host network the service name does not resolve (`stt` only exists
+      # on the compose network), so the STT is addressed through the port it
+      # publishes.
+      STT_WS_URL: ws://127.0.0.1:8000/ws/transcribe
+      # Delete this line if the model is on the cloud instead of the host: an
+      # empty `LLM_BASE_URL` means OpenAI and the value from `.env` applies.
+      LLM_BASE_URL: http://127.0.0.1:11434/v1
+
+  # TLS termination in front of `backend`. Design: docs/plan-proxy-tls.md.
+  #
+  # It has to share the host network for the same reason the backend does: the
+  # upstream of `deploy/Caddyfile` is `127.0.0.1:8080`, and only on the host
+  # network is that the backend's loopback instead of the container's. The
+  # backend is untouched and keeps listening on `0.0.0.0:8080`.
+  #
+  # `deploy/certs/` is not in git (`.gitignore`): on a fresh clone it only holds
+  # `.gitkeep`, so the service fails at start until the certificate is issued
+  # with mkcert (phase 1 of the plan). That is on purpose — a proxy without a
+  # certificate must not come up silently in clear.
+  caddy:
+    image: caddy:2.11.7-alpine
+    network_mode: host
+    restart: unless-stopped
+    depends_on:
+      - backend
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/certs:/etc/caddy/certs:ro
+      # APKs published by ../sign-ai-android/tools/wifi/publicar-apk.sh and
+      # downloaded by the phone from https://<host>/apk/ (docs/plan-wifi.md).
+      - ./deploy/apk:/srv/apk:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

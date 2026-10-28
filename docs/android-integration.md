@@ -21,12 +21,20 @@ sign-ai-organization/
 
 ### Opción recomendada: Docker, un solo comando
 
-En `sign-ai-backend/.env` debe estar
-`STT_WS_URL=ws://stt:8000/ws/transcribe` (`stt` es el nombre del
-servicio dentro de Docker; `localhost` no funciona aquí). Luego:
+`docker-compose.yml` deja el backend en la red de compose, así que el STT se
+resuelve por el nombre del servicio: `STT_WS_URL=ws://stt:8000/ws/transcribe`
+(ya es el default; `localhost` no funciona ahí, porque dentro de ese contenedor
+es el propio contenedor). Luego:
 
 ```bash
 sign-ai-backend> docker compose up --build
+```
+
+Si el modelo del LLM corre en Ollama sobre la máquina y el firewall del host
+filtra el tráfico del bridge, usar el override de red de host:
+
+```bash
+sign-ai-backend> docker compose -f docker-compose.yml -f docker-compose.host.yml up --build
 ```
 
 Este comando levanta los dos servicios: el backend (puerto **8080**) y el
@@ -73,6 +81,12 @@ Comprobar desde el navegador del teléfono:
 ```
 ws://<host>:8080/ws/translate
 ```
+
+Con el proxy que se levanta para la demo, la app habla `wss://` contra el 443 y el
+backend sigue viendo `ws://127.0.0.1:8080` por loopback: el frame no cambia, cambia
+el transporte. El build `demo` de la app ya apunta a
+`wss://127.0.0.1:8443/ws/translate` (`adb reverse tcp:8443 tcp:443`); el detalle está
+en `docs/plan-proxy-tls.md`.
 
 - Una conexión por sesión de conversación. Se abre al activar el
   micrófono y se mantiene mientras se habla.

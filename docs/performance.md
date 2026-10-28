@@ -764,3 +764,38 @@ después hablar de mejora o de lo contrario.
   que se asumía: una fila de la caché no es gratis). `rt_read_loop_busy_ms` es
   el trabajo por frame del bucle de lectura del socket, que es el cuarto actor
   y el que estaba trabando el micrófono.
+
+## El TLS del proxy no mueve la latencia por frase (2026-10-27)
+
+**Qué cambió:** desde hoy el teléfono habla `wss://` contra un Caddy en el 443,
+que termina el TLS y reenvía en claro a `127.0.0.1:8080`. El backend no se tocó.
+El plan completo está en `docs/plan-proxy-tls.md`.
+
+**Por qué se mide:** cifrar un enlace puede costar caro si el handshake entra en
+la latencia de cada frase o si cada frame paga una vuelta de crypto. RNF-DES-01
+compara contra un presupuesto, así que la pregunta es una sola: ¿se movió el
+número?
+
+**Cómo:** Redmi Note 9S por USB, APK `demo` contra
+`wss://127.0.0.1:8443/ws/translate` (`adb reverse tcp:8443 tcp:443`), mismo LLM
+(`qwen3:4b-instruct` en Ollama local) y la caché semántica caliente. Los tiempos
+del teléfono salen de `SignAiMetrics` en logcat; los del NLP, del `Pipeline
+trace` del backend.
+
+| Qué | Sin cifrar (2026-10-26) | Con TLS (2026-10-27) |
+|---|---|---|
+| Frase en caché ("hola gracias") | 86 ms | 40 y 41 ms |
+| Frase nueva por LLM, total | 345 ms (`llm` 307,9 ms) | 325,3 y 370,3 ms (`llm` 291,2 y 272,7 ms) |
+| Envío → primera seña, LLM | 417 ms | 358 y 406 ms |
+| Handshake TLS | — | 3,4–6,5 ms en la máquina (`curl`); ~73 ms desde el teléfono |
+
+**Conclusión:** el TLS no cambia el p50. El handshake ocurre una vez por sesión,
+al abrir la app, y cae debajo del splash del avatar; por mensaje solo se cifran
+unos cientos de bytes. La diferencia entre las dos corridas está dentro del ruido
+de frases distintas y de un backend distinto en cada una.
+
+**Lo que sí apareció, y no es del enlace:** la primera frase por LLM después de un
+rato sin tráfico tardó 6.778 ms, con `llm` de 6.400 ms y `cache.embed` de 317,8 ms
+(23–43 ms en caliente). Ollama había descargado el modelo y el embedder estaba
+frío. En una demo eso se ve como "la primera frase se colgó" y no se arregla con
+TLS ni con el proxy.

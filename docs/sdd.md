@@ -101,17 +101,18 @@ Para la Vista Física del Sistema se usa un diagrama de despliegue, ya que permi
 
 Elementos del diagrama:
 - **Android Device** («device», Android 8.0+ / API 26+) contiene el **Android Client**.
-  - Canal `«WSS» translation session (audio + results)` hacia el Backend. Los archivos de animación GLB van dentro del APK, así que no hay ningún canal aparte para descargarlos.
-- **Demo / Dev Host** («device», máquina personal con GPU RTX 3050), que contiene dos contenedores Docker:
+  - Canal `«WSS» translation session (audio + results)` hacia el Reverse Proxy, que escucha en el puerto 443. Los archivos de animación GLB van dentro del APK, así que no hay ningún canal aparte para descargarlos.
+- **Demo / Dev Host** («device», máquina personal con GPU RTX 3050), que contiene tres contenedores Docker:
+  - **Reverse Proxy** («execution environment» Docker, Caddy): termina el TLS en el puerto 443 y reenvía el tráfico al Backend por la interfaz de loopback.
   - **Backend Container** («execution environment» Docker): Controller, Orchestrator, NLPService, ValidatorService, CatalogRepository.
   - **STT Container** («execution environment» Docker): STT Service (faster-whisper). Protocolo entre Backend y STT: WebSocket en `/ws/transcribe`.
 - Servicios en la nube:
   - **External LLM API** («cloud service», pay-per-use, OpenAI `gpt-4o-mini`), conectado desde el Backend por HTTPS.
   - **Neon PostgreSQL** («cloud service», managed DB), conectado desde el Backend mediante protocolo PostgreSQL sobre TLS.
 
-El cliente Android corre en el dispositivo del usuario (Android 8.0 o superior) y se comunica con el backend por un único canal: el WebSocket, que transporta tanto el audio como los resultados de la traducción. Las animaciones de las 50 señas van incluidas en el propio APK, de modo que el cliente no necesita pedirlas al servidor.
+El cliente Android corre en el dispositivo del usuario (Android 8.0 o superior) y se comunica con el backend por un único canal: una conexión WebSocket segura (WSS), que transporta tanto el audio como los resultados de la traducción. Ese canal termina en el proxy inverso del equipo servidor, que escucha en el puerto 443 y es la puerta de entrada del tráfico que viene del dispositivo. Las animaciones de las 50 señas van incluidas en el propio APK, de modo que el cliente no necesita pedirlas al servidor.
 
-El backend corre en un mismo equipo físico, una máquina personal, dividido en dos contenedores Docker: el contenedor del backend, que agrupa Controller, Orchestrator, NLPService, ValidatorService y CatalogRepository, y el contenedor del Servicio STT, que corre aparte por su consumo de GPU y VRAM.
+El backend corre en un mismo equipo físico, una máquina personal, dividido en tres contenedores Docker: el del proxy inverso, que termina el TLS en el puerto 443 y reenvía el tráfico al backend por la interfaz de loopback; el del backend, que agrupa Controller, Orchestrator, NLPService, ValidatorService y CatalogRepository; y el del Servicio STT, que corre aparte por su consumo de GPU y VRAM.
 
 El backend se comunica además con dos servicios en la nube: la API del LLM externo, por HTTPS, y Neon PostgreSQL, mediante el protocolo nativo de PostgreSQL sobre TLS.
 
@@ -389,11 +390,11 @@ El diagrama de contenedores muestra los bloques tecnológicos que componen el si
 
 ![Figura 11: Diagrama de contenedores del sistema (C4 Nivel 2)](diagrams/sdd-c4-2-contenedores.drawio.png)
 
-El Android Client se comunica con el Backend por un único canal: el WebSocket, que transporta el audio y devuelve el resultado de la traducción. Los archivos de animación GLB van dentro de la aplicación, así que no hay ningún canal aparte para descargarlos.
+El Android Client se comunica con el Reverse Proxy por un único canal: una conexión WebSocket segura (WSS) sobre el puerto 443, que transporta el audio y devuelve el resultado de la traducción. El proxy termina el TLS y reenvía esa misma conexión al Backend en claro por la interfaz de loopback, en el puerto 8080, de modo que ese tramo no sale del equipo. Los archivos de animación GLB van dentro de la aplicación, así que no hay ningún canal aparte para descargarlos.
 
 El Backend, a su vez, se comunica con el STT Container para transcribir el audio y con PostgreSQL para leer y escribir el catálogo de señas y el caché semántico. Hacia afuera, envía el texto transcrito a la API del LLM externo para transformarlo en glosas.
 
-El Backend y el STT Container corren en contenedores Docker separados, mientras que PostgreSQL es una instancia gestionada en Neon.
+El Backend, el STT Container y el Reverse Proxy corren en contenedores Docker separados, mientras que PostgreSQL es una instancia gestionada en Neon. Solo el proxy atiende el tráfico que viene de la aplicación: el Backend recibe del proxy por la interfaz de loopback.
 
 ### 8.3. Componentes
 
