@@ -30,6 +30,11 @@ services:
       - "host.docker.internal:host-gateway"
     env_file:
       - .env
+      # Optional development overrides (a local Ollama, for example). Compose
+      # ignores the file when it does not exist, so a fresh clone without
+      # `.env.local` runs the official configuration.
+      - path: .env.local
+        required: false
 
   # STT service (Whisper), lives in a separate repo (sign-ai-stt).
   # Its port stays published because the tooling on the host reaches it at

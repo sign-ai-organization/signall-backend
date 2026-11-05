@@ -154,7 +154,21 @@ async def _forward_audio(
 
         chunk = message.get("bytes")
         if chunk is not None:
-            await controller.handle_audio_chunk(chunk)
+            if not await controller.handle_audio_chunk(chunk):
+                metrics.histogram(*_busy(busy_since))
+                # The session ends here: a client that sends a fragment that is
+                # not audio is not going to start sending audio on the next one,
+                # and keeping the socket open only lets it keep doing it.
+                await _try_send_error(controller, "El audio recibido no es válido.")
+                # Closed explicitly instead of leaving it to the end of the
+                # handler: the close frame is what tells a standard client that
+                # the session ended on purpose, and without it the socket can
+                # stay open on the other side. 1008 is "policy violation".
+                try:
+                    await websocket.close(code=1008)
+                except Exception:
+                    logger.debug("the socket was already closed", exc_info=True)
+                break
             metrics.histogram(*_busy(busy_since))
             continue
 
@@ -210,6 +224,7 @@ async def translation_session(websocket: WebSocket) -> None:
         websocket.app.state.orchestrator,
         stt_client,
         debug_trace_enabled=settings.debug_trace_enabled,
+        audio_max_chunk_bytes=settings.audio_max_chunk_bytes,
     )
     translator = _PhraseTranslator(controller)
 

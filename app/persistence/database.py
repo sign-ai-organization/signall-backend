@@ -49,13 +49,16 @@ async def create_pool(
     max_size: int,
     max_inactive_connection_lifetime: float = 0,
     command_timeout_seconds: float | None = None,
+    connect_timeout_seconds: float | None = None,
 ) -> asyncpg.Pool:
     """The pool, with a ceiling on every statement it runs.
 
     `command_timeout_seconds` is asyncpg's default timeout for the statements
     of a connection: a query that goes over it is cancelled and raises. It is
     what turns "the database stopped answering" into an error the caller can
-    see, instead of a phrase that never comes back.
+    see, instead of a phrase that never comes back. `connect_timeout_seconds`
+    does the same for each connection: a database that accepts TCP and then
+    stalls cannot hold the start-up for the operating system's timeout.
     """
     return await asyncpg.create_pool(
         database_url,
@@ -63,6 +66,7 @@ async def create_pool(
         max_size=max_size,
         max_inactive_connection_lifetime=max_inactive_connection_lifetime,
         command_timeout=command_timeout_seconds,
+        timeout=connect_timeout_seconds,
         init=_warm_up_connection,
     )
 
@@ -73,6 +77,7 @@ async def open_pool(
     max_size: int,
     max_inactive_connection_lifetime: float = 0,
     command_timeout_seconds: float | None = None,
+    connect_timeout_seconds: float | None = None,
     policy: RetryPolicy | None = None,
 ) -> asyncpg.Pool | None:
     """Open the pool, or return None when the database is not reachable.
@@ -95,6 +100,7 @@ async def open_pool(
                 max_size,
                 max_inactive_connection_lifetime,
                 command_timeout_seconds,
+                connect_timeout_seconds,
             ),
             effective_policy,
             "could not open the database pool",

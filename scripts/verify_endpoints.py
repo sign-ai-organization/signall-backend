@@ -1,0 +1,115 @@
+"""Verifies what `/health` and `/metrics.json` publish.
+
+Two decisions of the owner (2026-11-03):
+
+- **`/metrics.json` does not publish internal addresses.** It has no
+  authentication and it is read from a phone during a demo, so the host and the
+  port of the LLM and of the STT are replaced with `***`. The scheme and the
+  path stay, because they identify the endpoint without saying which machine
+  serves it.
+- **`/health` says whether the catalog is loaded.** A backend that started
+  without its catalog is answering, but it cannot translate: every gloss comes
+  out as unavailable. Reporting `ok` in that state hides a failure the operator
+  can still fix by restarting the service, so the status becomes `degraded`.
+
+This script needs neither Neon nor the network: the state of the app is filled
+with doubles and the endpoint functions are called directly. Run it with
+
+    python -m scripts.verify_endpoints
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+
+os.environ.setdefault("DATABASE_URL", "postgresql://user:pass@localhost/db")
+os.environ.setdefault("LLM_API_KEY", "test")
+os.environ.setdefault("LLM_MODEL", "gpt-4o-mini")
+os.environ["LLM_BASE_URL"] = "http://host.docker.internal:11434/v1"
+os.environ["STT_WS_URL"] = "ws://stt:8000/ws/transcribe"
+
+from app.config.settings import settings  # noqa: E402
+from app.main import _redact_url, app, health, metrics_json  # noqa: E402
+
+failures: list[str] = []
+
+
+def check(name: str, got, expected) -> None:
+    ok = got == expected
+    print(f"  {'PASS' if ok else 'FAIL'}  {name}")
+    if not ok:
+        print(f"        expected: {expected!r}")
+        print(f"        got:      {got!r}")
+        failures.append(name)
+
+
+def check_that(name: str, ok: bool, detail: str = "") -> None:
+    print(f"  {'PASS' if ok else 'FAIL'}  {name}")
+    if not ok:
+        if detail:
+            print(f"        {detail}")
+        failures.append(name)
+
+
+class FakeCache:
+    is_loaded = True
+    row_count = 12
+
+
+class FakeCatalog:
+    def __init__(self, glosses: int) -> None:
+        self.cache = {f"GLS-{i:02d}": object() for i in range(glosses)}
+
+
+def main() -> None:
+    print("\nan address keeps the scheme and the path, not the machine")
+    check("the LLM endpoint", _redact_url("http://host.docker.internal:11434/v1"), "http://***/v1")
+    check("the STT endpoint", _redact_url("ws://stt:8000/ws/transcribe"), "ws://***/ws/transcribe")
+    check("an empty address stays empty", _redact_url(""), "")
+    check("a value that is not a URL is hidden", _redact_url("not a url"), "***")
+    check("credentials do not survive", _redact_url("http://user:pass@db:5432/db"), "http://***/db")
+
+    print("\n/metrics.json does not publish an internal address")
+    app.state.semantic_cache = FakeCache()
+    payload = metrics_json()
+    config = payload["config"]
+    check("the LLM address is hidden", config["llm_base_url"], "http://***/v1")
+    check("the STT address is hidden", config["stt_ws_url"], "ws://***/ws/transcribe")
+    check("the model name still travels", config["llm_model"], settings.llm_model)
+    for secret in ("host.docker.internal", "11434", "stt:", "8000"):
+        check_that(f"the payload does not contain {secret!r}", secret not in str(payload))
+
+    print("\n/health reports a loaded catalog as ok")
+    app.state.catalog_repository = FakeCatalog(50)
+    app.state.stt_config = {"silence_timeout_ms": 1500}
+    body = health()
+    check("the status", body["status"], "ok")
+    check("the catalog is loaded", body["catalog_loaded"], True)
+    check("and the count is published", body["catalog_glosses"], 50)
+    check("the cache still travels", body["cache_rows"], 12)
+    check("and the STT configuration too", body["silence_timeout_ms"], 1500)
+
+    print("\n/health reports an empty catalog as degraded")
+    app.state.catalog_repository = FakeCatalog(0)
+    body = health()
+    check("the status", body["status"], "degraded")
+    check("the catalog is not loaded", body["catalog_loaded"], False)
+    check("and the count is zero", body["catalog_glosses"], 0)
+
+    print("\n/health does not break before the state exists")
+    del app.state.catalog_repository
+    del app.state.semantic_cache
+    body = health()
+    check("the status", body["status"], "degraded")
+    check("the count", body["catalog_glosses"], 0)
+
+    print()
+    if failures:
+        print(f"FAILED {len(failures)}: {', '.join(failures)}")
+        sys.exit(1)
+    print("all OK")
+
+
+if __name__ == "__main__":
+    main()

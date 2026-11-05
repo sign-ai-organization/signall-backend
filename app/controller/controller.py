@@ -80,11 +80,13 @@ class Controller:
         orchestrator: Orchestrator,
         stt_client: SttServiceClient,
         debug_trace_enabled: bool = False,
+        audio_max_chunk_bytes: int = 32768,
     ) -> None:
         self.websocket = websocket
         self.orchestrator = orchestrator
         self.stt_client = stt_client
         self.debug_trace_enabled = debug_trace_enabled
+        self.audio_max_chunk_bytes = audio_max_chunk_bytes
         self._audio_bytes = 0
         self._audio_chunks = 0
         self._audio_rms_total = 0.0
@@ -99,13 +101,29 @@ class Controller:
 
     # ----------------------------------------------------------------- audio
 
-    async def handle_audio_chunk(self, chunk: bytes) -> None:
+    async def handle_audio_chunk(self, chunk: bytes) -> bool:
         """Forward one chunk of client audio to the STT, untouched.
 
         The bytes go across exactly as they arrived: no resampling, no header,
         no framing. Reassembling into the 30 ms units the VAD works on is the
         STT's job.
+
+        RNF-SEC-02: the chunk is checked before it is forwarded. An empty
+        chunk, an odd number of bytes (PCM16 samples are two bytes each) or a
+        chunk bigger than `audio_max_chunk_bytes` is not a capture fragment, and
+        forwarding it pushes garbage into the STT or lets one client make the
+        backend send an arbitrary amount of data. The caller closes the session
+        when this returns False; the reason is counted in
+        `audio_chunks_rejected_total`.
+
+        Returns True when the chunk was forwarded.
         """
+        reason = self._audio_chunk_rejection(chunk)
+        if reason is not None:
+            metrics.counter("audio_chunks_rejected_total", labels={"reason": reason})
+            logger.warning("Rejected audio chunk: reason=%s bytes=%d", reason, len(chunk))
+            return False
+
         await self.stt_client.send_audio(chunk)
         self._audio_bytes += len(chunk)
         self._audio_chunks += 1
@@ -119,6 +137,22 @@ class Controller:
         self._audio_rms_total += rms
         metrics.gauge("session_audio_rms", self._audio_rms_total / self._audio_chunks)
         metrics.histogram("audio_rms", rms, "Nivel RMS por fragmento de audio entrante")
+        return True
+
+    def _audio_chunk_rejection(self, chunk: bytes) -> str | None:
+        """The reason a chunk is not acceptable, or None when it is.
+
+        Kept as a separate method so the three rules can be read on their own
+        and the reason travels as a metric label instead of a log the operator
+        has to count by hand.
+        """
+        if not chunk:
+            return "empty"
+        if len(chunk) % 2:
+            return "odd_length"
+        if len(chunk) > self.audio_max_chunk_bytes:
+            return "too_large"
+        return None
 
     def audio_stats(self) -> tuple[int, float]:
         """(bytes, mean rms) captured in this session. For tests and diagnosis."""

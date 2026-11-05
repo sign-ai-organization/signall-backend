@@ -4,6 +4,7 @@ import logging
 import time
 import urllib.request
 from contextlib import asynccontextmanager
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
         settings.db_pool_max_size,
         settings.db_pool_max_inactive_connection_lifetime_seconds,
         command_timeout_seconds=settings.db_command_timeout_seconds,
+        connect_timeout_seconds=settings.db_connect_timeout_seconds,
         policy=retry_policy,
     )
     db_keep_alive = DatabaseKeepAlive(
@@ -64,6 +66,7 @@ async def lifespan(app: FastAPI):
         preload=settings.semantic_cache_preload,
         max_rows=settings.semantic_cache_max_rows,
         retry_policy=retry_policy,
+        acquire_timeout_seconds=settings.db_acquire_timeout_seconds,
     )
     await semantic_cache.load_all()
 
@@ -97,6 +100,10 @@ async def lifespan(app: FastAPI):
     app.state.orchestrator = Orchestrator(nlp_service, validator_service)
     app.state.db_keep_alive = db_keep_alive
     app.state.semantic_cache = semantic_cache
+    # `/health` has to be able to say that the catalog is empty, because an
+    # empty catalog is not a healthy translation service: every gloss comes out
+    # as unavailable and the app shows "Seña no disponible" for everything.
+    app.state.catalog_repository = catalog_repository
     metrics.gauge("cache_rows", semantic_cache.row_count)
     metrics.gauge("cache_loaded", 1 if semantic_cache.is_loaded else 0)
     metrics.gauge("catalog_glosses", len(catalog_repository.cache))
@@ -186,10 +193,18 @@ app.include_router(controller_router)
 @app.get("/health")
 def health() -> dict[str, object]:
     cache = getattr(app.state, "semantic_cache", None)
+    catalog = getattr(app.state, "catalog_repository", None)
+    catalog_glosses = len(catalog.cache) if catalog else 0
+    # A backend that started without its catalog is answering, but it cannot
+    # translate: every sign comes out as unavailable. Saying "ok" in that state
+    # hides a failure the operator can still fix by restarting the service.
+    catalog_loaded = catalog_glosses > 0
     return {
-        "status": "ok",
+        "status": "ok" if catalog_loaded else "degraded",
         "cache_loaded": bool(cache and cache.is_loaded),
         "cache_rows": cache.row_count if cache else 0,
+        "catalog_loaded": catalog_loaded,
+        "catalog_glosses": catalog_glosses,
         # Mirrored from the STT so the Android debug overlay can show it: the app
         # does not talk to the STT (see `_watch_stt_config`).
         **getattr(app.state, "stt_config", {}),
@@ -209,6 +224,22 @@ def prometheus_metrics() -> str:
     return metrics.render()
 
 
+def _redact_url(url: str) -> str:
+    """Keep the scheme and the path, hide the host and the port.
+
+    `/metrics.json` has no authentication and is read from a phone during a
+    demo, so the internal addresses are not published. The path is kept because
+    it identifies the endpoint (`/v1`, `/ws/transcribe`) without saying which
+    machine serves it.
+    """
+    if not url:
+        return ""
+    parts = urlsplit(url)
+    if not parts.scheme or not parts.netloc:
+        return "***"
+    return f"{parts.scheme}://***{parts.path}"
+
+
 @app.get("/metrics.json")
 def metrics_json() -> dict[str, object]:
     cache = getattr(app.state, "semantic_cache", None)
@@ -216,11 +247,11 @@ def metrics_json() -> dict[str, object]:
         **metrics.snapshot(),
         "config": {
             "llm_model": settings.llm_model,
-            "llm_base_url": settings.llm_base_url,
+            "llm_base_url": _redact_url(settings.llm_base_url),
             "semantic_cache_preload": settings.semantic_cache_preload,
             "semantic_cache_threshold": settings.semantic_cache_similarity_threshold,
             "sentence_segmenter_enabled": settings.sentence_segmenter.enabled,
-            "stt_ws_url": settings.stt_ws_url,
+            "stt_ws_url": _redact_url(settings.stt_ws_url),
         },
         "cache": {
             "loaded": bool(cache and cache.is_loaded),

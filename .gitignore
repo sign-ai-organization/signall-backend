@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 .env
+# Development-only overrides: they win over `.env` and are not versioned.
+# The template is `.env.local.example`.
+.env.local
 # Caches of the static analyzers (ruff, mypy).
 .ruff_cache/
 .mypy_cache/

@@ -104,6 +104,7 @@ class SemanticCache:
         preload: bool = True,
         max_rows: int = 20000,
         retry_policy: RetryPolicy | None = None,
+        acquire_timeout_seconds: float = 5.0,
     ) -> None:
         # None means the database was unreachable at start-up: the cache then
         # lives only in memory and nothing is persisted.
@@ -113,6 +114,7 @@ class SemanticCache:
         self._preload = preload
         self._max_rows = max_rows
         self._retry_policy = retry_policy or RetryPolicy()
+        self._acquire_timeout_seconds = acquire_timeout_seconds
         self._indexes: dict[str, _PhraseTypeIndex] = {}
         self._lock = asyncio.Lock()
         self._rows = 0
@@ -301,7 +303,7 @@ class SemanticCache:
         (migration 004).
         """
         with trace_step("store.acquire"):
-            conn = await pool.acquire()
+            conn = await pool.acquire(timeout=self._acquire_timeout_seconds)
         try:
             with trace_step("store.query"):
                 await conn.execute(
@@ -361,7 +363,7 @@ class SemanticCache:
         category: str,
     ) -> asyncpg.Record | None:
         with trace_step("cache.acquire"):
-            conn = await pool.acquire()
+            conn = await pool.acquire(timeout=self._acquire_timeout_seconds)
         try:
             with trace_step("cache.query"):
                 return await conn.fetchrow(

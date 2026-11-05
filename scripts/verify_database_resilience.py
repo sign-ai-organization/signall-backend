@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+import time
 
 os.environ.setdefault("DATABASE_URL", "postgresql://user:pass@localhost/db")
 os.environ.setdefault("LLM_API_KEY", "test")
@@ -27,6 +28,7 @@ os.environ.setdefault("LLM_MODEL", "gpt-4o-mini")
 
 import asyncpg  # noqa: E402
 from app.config.settings import settings  # noqa: E402
+from app.nlp.semantic_cache import SemanticCache  # noqa: E402
 from app.persistence import database  # noqa: E402
 from app.persistence.database import RetryPolicy, open_pool, run_with_retry  # noqa: E402
 from app.validation.catalog_repository import CatalogRepository  # noqa: E402
@@ -65,6 +67,8 @@ class FailingPool:
 async def main() -> None:
     print("\nthe configured numbers")
     check("the ceiling of a query is 5 s", settings.db_command_timeout_seconds, 5.0)
+    check("the ceiling of opening a connection is 5 s", settings.db_connect_timeout_seconds, 5.0)
+    check("the ceiling of waiting for a free connection is 5 s", settings.db_acquire_timeout_seconds, 5.0)
     check("a failed query is tried again once", settings.db_max_retries, 1)
 
     print("\nthe pool gets the ceiling")
@@ -83,10 +87,12 @@ async def main() -> None:
             10,
             0,
             command_timeout_seconds=settings.db_command_timeout_seconds,
+            connect_timeout_seconds=settings.db_connect_timeout_seconds,
         )
     finally:
         asyncpg.create_pool = original_create_pool  # type: ignore[assignment]
     check("the pool is created with the ceiling", captured.get("command_timeout"), 5.0)
+    check("and with the connect ceiling", captured.get("timeout"), 5.0)
 
     print("\na failed query is tried again")
     attempts = {"count": 0}
@@ -133,6 +139,61 @@ async def main() -> None:
         pool is None,
         "open_pool should return None when the database is unreachable",
     )
+
+    print("\na database that accepts TCP and then stalls does not hold the start-up")
+    # A local server that accepts the connection and never answers the
+    # PostgreSQL handshake. Without a connect ceiling this waits for the
+    # operating system's timeout; with it, it gives up in the configured time.
+    async def never_answer(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+        try:
+            await asyncio.sleep(2)
+        finally:
+            writer.close()
+
+    stalled = await asyncio.start_server(never_answer, "127.0.0.1", 0)
+    stalled_port = stalled.sockets[0].getsockname()[1]
+    started = time.perf_counter()
+    stalled_pool = await open_pool(
+        f"postgresql://user:pass@127.0.0.1:{stalled_port}/db",
+        5,
+        10,
+        0,
+        connect_timeout_seconds=0.5,
+        policy=RetryPolicy(retries=0, delay_seconds=0),
+    )
+    elapsed = time.perf_counter() - started
+    # `close()` releases the port; `wait_closed()` would wait for the handler
+    # that is deliberately still holding the connection open.
+    stalled.close()
+    check_that("the pool gives up", stalled_pool is None)
+    check_that(
+        f"and it uses the ceiling, not the operating system one ({elapsed:.2f} s)",
+        0.3 <= elapsed < 3.0,
+    )
+
+    print("\nwaiting for a free connection has a ceiling too")
+    recorded: list[float | None] = []
+
+    class RecordingConnection:
+        async def fetchrow(self, *_args, **_kwargs):
+            return None
+
+    class RecordingPool:
+        async def acquire(self, timeout: float | None = None):
+            recorded.append(timeout)
+            return RecordingConnection()
+
+        async def release(self, _conn) -> None:
+            return None
+
+    cache = SemanticCache(
+        RecordingPool(),  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
+        settings.semantic_cache_similarity_threshold,
+        acquire_timeout_seconds=settings.db_acquire_timeout_seconds,
+    )
+    await cache._fetch_nearest(RecordingPool(), [0.0], "affirmative")  # type: ignore[arg-type]
+    check("the pool is asked to wait at most 5 s", recorded, [5.0])
 
     print("\nthe catalog survives a database that does not answer")
     failing = FailingPool()

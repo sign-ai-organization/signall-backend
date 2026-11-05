@@ -561,9 +561,7 @@ identificador es **opaco**: el backend no lo parsea, no lo compara y no lo
 genera, así que en el SDD conviene decir "el identificador que manda el
 cliente" y no "un entero".
 
-**Estado:** documentado; **no se aplicó**, por la regla del repo. El
-contrato con la app sí está actualizado, en `docs/android-integration.md`
-§3.2 y §4.
+**Estado:** **aplicado** al SDD el 2026-11-03 (§7.1 y §7.2): `handleText(text, turn)` y la explicación de que el identificador es opcional y opaco. El contrato con la app está en `docs/android-integration.md` §3.2 y §4.
 **Fecha:** 2026-10-21
 
 ### 2. `Gloss` lleva la categoría semántica del catálogo
@@ -590,7 +588,8 @@ diagrama no se toca.
 glosa). Es **aditivo**: el parser de la app ignora lo que no conoce, así que
 un cliente viejo no se rompe. La app no lo usa todavía.
 
-**Estado:** documentado; **no se aplicó**, por la regla del repo.
+**Estado:** **aplicado** al SDD el 2026-11-03 (§7.1): `Gloss` y `CatalogEntry`
+tienen `semanticCategory`.
 **Fecha:** 2026-10-21
 
 ### 3. El `done` también se manda cuando la traducción falla
@@ -614,7 +613,7 @@ documenta el camino que funciona. Lo que sí hay que escribir es que el `done`
 cierra el turno **también en el camino del error**, y eso está en
 `docs/android-integration.md` §4.
 
-**Estado:** documentado; **no se aplicó**, por la regla del repo.
+**Estado:** **aplicado** al SDD el 2026-11-03 (§7.2, paso 23 y narrativa).
 **Fecha:** 2026-10-21
 
 ---
@@ -720,9 +719,9 @@ distribución. Ahora es un histograma y las cuatro fuentes dicen lo mismo.
   `rt_segment_ready_ms`, `rt_segment_send_ms`) tampoco están. El segmentador
   es síncrono y corre sobre el event loop (`app/nlp/segmenter/`).
 
-**Estado:** documentado; **no se aplicó al SDD**, por la regla del repo. El
-código sí está implementado y verificado con
-`scripts/verify_metrics_sources.py`.
+**Estado:** **aplicado** al SDD el 2026-11-03 (§7.5): la etiqueta `source` y
+la explicación de los dos tramos de `rt_first_sign_ms`. El código está
+verificado con `scripts/verify_metrics_sources.py`.
 **Fecha:** 2026-10-21
 
 ---

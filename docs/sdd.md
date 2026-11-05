@@ -164,7 +164,7 @@ Clases y elementos principales:
   - Atributos: `orchestrator: Orchestrator`, `sttClient: SttServiceClient`
   - Métodos:
     - `+ handleAudioChunk(chunk: ByteArray): void`
-    - `+ handleText(text: String): void`
+    - `+ handleText(text: String, turn: Any): void`
     - `+ handleEnd(): void`
     - `+ handleTranscript(text: String, isFinal: Boolean): void`
     - `+ sendTranscript(text: String, isFinal: Boolean): void`
@@ -178,7 +178,7 @@ Clases y elementos principales:
 - **«interface» ValidatorService** — `+ validate(segments: List<Segment>): List<ValidatedSegment>` (detalle completo en el diagrama de Validación y Catálogo)
 - **ValidatedSegment** (detalle completo en diagrama de NLP)
 
-Controller mantiene una referencia a `Orchestrator` y a `SttServiceClient`, y expone tres métodos de entrada: `handleAudioChunk(chunk)` recibe cada fragmento de audio que llega del cliente Android y lo reenvía a `SttServiceClient`; `handleText(text)` recibe el texto que hay que traducir y lo entrega a Orchestrator; y `handleEnd()` reenvía al servicio de STT la señal de fin de captura, para que cierre el tramo de audio en curso. La transcripción que vuelve del servicio de STT llega a `handleTranscript(text, isFinal)`, que la reenvía a la aplicación sin traducirla, porque el cliente es quien decide qué texto se traduce. Hacia el cliente, Controller emite `sendTranscript(text, isFinal)`, `sendSegment(index, total, segment)` y `sendError(message)`. El único disparador de la traducción es `handleText`: cuando el texto llega por el canal de traducción, Controller lo entrega a Orchestrator a través de `translateStream(text)`.
+Controller mantiene una referencia a `Orchestrator` y a `SttServiceClient`, y expone tres métodos de entrada: `handleAudioChunk(chunk)` recibe cada fragmento de audio que llega del cliente Android, lo revisa y lo reenvía a `SttServiceClient`; `handleText(text, turn)` recibe el texto que hay que traducir y lo entrega a Orchestrator; y `handleEnd()` reenvía al servicio de STT la señal de fin de captura, para que cierre el tramo de audio en curso. El segundo parámetro de `handleText` es el identificador de turno que pone el cliente: el backend lo copia, sin interpretarlo, en los frames `segment`, `done` y `error` de esa frase, para que la aplicación pueda descartar la respuesta de una frase que ya no le interesa. Es opcional: un cliente que no lo manda recibe los frames sin el campo, como antes de que existiera. `handleAudioChunk` descarta un fragmento vacío, uno con un número impar de bytes o uno mayor que el máximo configurado, y en ese caso el Controller cierra la sesión en vez de reenviarlo al STT (RNF-SEC-02). La transcripción que vuelve del servicio de STT llega a `handleTranscript(text, isFinal)`, que la reenvía a la aplicación sin traducirla, porque el cliente es quien decide qué texto se traduce. Hacia el cliente, Controller emite `sendTranscript(text, isFinal)`, `sendSegment(index, total, segment)` y `sendError(message)`. El único disparador de la traducción es `handleText`: cuando el texto llega por el canal de traducción, Controller lo entrega a Orchestrator a través de `translateStream(text)`.
 
 Orchestrator mantiene referencias a `NLPService` y `ValidatorService`, ambas como interfaces en vez de implementaciones concretas. Su método público `translateStream(text)` divide la frase en oraciones con `NLPService.split(text)` y lanza la traducción de todas a la vez, de forma concurrente, con `NLPService.transformSentence(sentence)`; después las va entregando a Controller en el orden en que aparecen dentro de la frase, con su número de posición y el total de oraciones. Cada oración se valida por separado con `ValidatorService.validate([segment])`, y el resultado, un `ValidatedSegment`, es lo que se devuelve. La estructura de `ValidatedSegment` se desarrolla más adelante en esta misma sección.
 
@@ -197,8 +197,8 @@ Clases y elementos principales:
 - **GlossAnalyzer**
   - `+ analyze(text: String): Fingerprint`
 - **SemanticCache**
-  - `+ lookup(text: String, fingerprint: Fingerprint): List<Segment>?`
-  - `+ store(text: String, fingerprint: Fingerprint, segments: List<Segment>): void`
+  - `+ lookup(text: String, fingerprint: Fingerprint): List<String>?`
+  - `+ store(text: String, fingerprint: Fingerprint, glosses: List<String>): void`
 - **LLMClient**
   - Atributos: `model: String`, `temperature: Double`, `timeoutMs: Int`
   - `+ transform(text: String): List<String>`
@@ -230,16 +230,16 @@ Clases y elementos principales:
   - `+ loadAll(): void`
   - `+ search(gloss: String): CatalogEntry?`
 - **CatalogEntry**
-  - Atributos: `gloss: String`, `glbPath: String`
+  - Atributos: `gloss: String`, `glbPath: String`, `semanticCategory: String`
 - **Gloss**
-  - Atributos: `text: String`, `available: Boolean`, `glbPath: String`
+  - Atributos: `text: String`, `available: Boolean`, `glbPath: String`, `semanticCategory: String`
 - **PhraseType** (referenciado desde el diagrama de NLP)
 - **ValidatedSegment**
   - Atributos: `type: PhraseType`, `glosses: List<Gloss>`
 
-`ValidatorServiceImpl` implementa la interfaz `ValidatorService` y depende de `CatalogRepository`, al que mantiene como atributo. Su único método, `validate(segments)`, recorre las glosas de cada segmento y, por cada una, llama a `CatalogRepository.search(gloss)`. `CatalogRepository` mantiene en memoria un mapa (`cache`, de tipo `Map<String, CatalogEntry>`) que se carga una sola vez con `loadAll()` al arrancar el backend; a partir de ahí, `search(gloss)` resuelve las búsquedas contra ese mapa en memoria en lugar de consultar PostgreSQL en cada solicitud. Cada `CatalogEntry` tiene dos atributos, `gloss` y `glbPath`.
+`ValidatorServiceImpl` implementa la interfaz `ValidatorService` y depende de `CatalogRepository`, al que mantiene como atributo. Su único método, `validate(segments)`, recorre las glosas de cada segmento y, por cada una, llama a `CatalogRepository.search(gloss)`. `CatalogRepository` mantiene en memoria un mapa (`cache`, de tipo `Map<String, CatalogEntry>`) que se carga una sola vez con `loadAll()` al arrancar el backend; a partir de ahí, `search(gloss)` resuelve las búsquedas contra ese mapa en memoria en lugar de consultar PostgreSQL en cada solicitud. Cada `CatalogEntry` tiene tres atributos, `gloss`, `glbPath` y `semanticCategory`.
 
-Con esa información, `ValidatorServiceImpl` construye un objeto `Gloss` por cada glosa, con tres atributos: `text`, `available` (si la glosa existe en el catálogo) y `glbPath` (la ruta de su animación, vacía si no está disponible). El resultado se agrupa en `ValidatedSegment`, que conserva el `type` del segmento original junto con la lista de `glosses`, ahora ya resueltas, y es esa lista de `ValidatedSegment` la que finalmente recibe Orchestrator.
+Con esa información, `ValidatorServiceImpl` construye un objeto `Gloss` por cada glosa, con cuatro atributos: `text`, `available` (si la glosa existe en el catálogo), `glbPath` (la ruta de su animación, vacía si no está disponible) y `semanticCategory` (la categoría que el corpus le asigna, copiada del `CatalogEntry`). El resultado se agrupa en `ValidatedSegment`, que conserva el `type` del segmento original junto con la lista de `glosses`, ahora ya resueltas, y es esa lista de `ValidatedSegment` la que finalmente recibe Orchestrator.
 
 ### 7.2. Comportamiento del Sistema
 
@@ -280,7 +280,7 @@ Secuencia (los 23 pasos numerados en el diagrama):
 20. `ValidatorServiceImpl` devuelve el `ValidatedSegment` a `Orchestrator`.
 21. **En el orden de las oraciones:** `Orchestrator` → `Controller`: `(index, total, ValidatedSegment)`.
 22. `Controller` → `Android Client`: el frame `segment`, con la oración traducida.
-23. `Controller` → `Android Client`: el frame `done`, cuando ya salió la última oración.
+23. `Controller` → `Android Client`: el frame `done`, cuando ya salió la última oración. También se envía cuando la traducción falla: el `done` cierra el turno, y sin él la aplicación espera su propio reloj de 15 s para reportar como fallida una frase que ya había fallado.
 
 Controller entrega el texto a Orchestrator mediante `translateStream(text)`, que divide la frase en oraciones con `NLPService.split(text)` y lanza la traducción de todas a la vez, de forma concurrente. Cada oración se traduce por separado: `NLPServiceImpl` invoca primero `GlossAnalyzer.analyze(sentence)`, el cual devuelve la huella gramatical de esa oración. Con esa huella, llama a `SemanticCache.lookup(sentence, fingerprint)`, que compara tanto el embedding de la oración como el tipo de frase de la huella contra lo ya guardado.
 
@@ -288,7 +288,7 @@ Si hay acierto en el caché, `NLPServiceImpl` reutiliza directamente las glosas 
 
 Orchestrator valida ese segmento con `ValidatorService.validate([segment])`. `ValidatorServiceImpl` recorre cada glosa del segmento y, por cada una, llama a `CatalogRepository.search(gloss)`. Cuando la glosa existe en el catálogo, arma un `Gloss` con `available=true` y la ruta de su animación; cuando no existe, lo arma con `available=false`. Terminado el recorrido, `ValidatorServiceImpl` devuelve el `ValidatedSegment` a Orchestrator.
 
-Orchestrator entrega entonces ese segmento a Controller, que lo envía al cliente con `sendSegment(index, total, segment)`. Las oraciones se entregan en el orden en que aparecen dentro de la frase, aunque se hayan traducido en paralelo, y cada una viaja con su número de posición y el total de oraciones. Cuando ya salió la última, Controller envía el aviso de fin de la traducción.
+Orchestrator entrega entonces ese segmento a Controller, que lo envía al cliente con `sendSegment(index, total, segment)`. Las oraciones se entregan en el orden en que aparecen dentro de la frase, aunque se hayan traducido en paralelo, y cada una viaja con su número de posición y el total de oraciones. Cuando ya salió la última, Controller envía el aviso de fin de la traducción. Ese aviso también sale cuando la traducción falla, después del frame `error`: el `done` es la señal de que el turno terminó, y la aplicación lo espera para volver a `Inactivo` sin agotar su propio tiempo límite.
 
 Antes de que arranque esta secuencia, `CatalogRepository` ya ejecutó `loadAll()` al iniciar el backend, por lo que las búsquedas de `search(gloss)` se resuelven contra el catálogo en memoria, sin consultar PostgreSQL en cada solicitud.
 
@@ -358,9 +358,9 @@ Desde `Reproduciendo`, la pantalla vuelve a `Inactivo` cuando la animación term
 
 ### 7.5. Instrumentación
 
-El backend mide su propio comportamiento y lo publica en dos formatos, para que el equipo de pruebas pueda caracterizar el sistema sin instrumentar la aplicación. El punto de acceso `GET /metrics` devuelve las métricas en el formato de texto de Prometheus, y el punto de acceso `GET /metrics.json` devuelve las mismas métricas en formato JSON, junto con la configuración del servidor. Ninguno de los dos exige autenticación.
+El backend mide su propio comportamiento y lo publica en dos formatos, para que el equipo de pruebas pueda caracterizar el sistema sin instrumentar la aplicación. El punto de acceso `GET /metrics` devuelve las métricas en el formato de texto de Prometheus, y el punto de acceso `GET /metrics.json` devuelve las mismas métricas en formato JSON, junto con la configuración del servidor. Ninguno de los dos exige autenticación, y por eso el de JSON no publica las direcciones internas: la del LLM y la del STT salen enmascaradas (`http://***/v1`, `ws://***/ws/transcribe`), conservando solo el esquema y la ruta. El punto de acceso `GET /health` responde si el catálogo se cargó y con cuántas glosas: un backend sin catálogo sigue contestando, pero no puede traducir, así que en ese estado el campo `status` vale `degraded` y no `ok`.
 
-Las métricas que describen el tiempo de respuesta del pipeline son las que empiezan por `rt_`: `rt_first_sign_ms` mide, desde que el backend recibe la frase, el tiempo que tarda en enviar la primera oración traducida; `rt_phrase_total_ms`, el que tarda en enviar la última; y `rt_sentence_delay_ms`, el de cada oración por separado. El nombre de la primera se conservó a propósito aunque mida solo hasta el envío de la primera oración, porque es la cifra que el proyecto publica como línea base y así se puede comparar. Hay contadores de frases, oraciones, glosas y errores (`rt_phrases_total`, `rt_sentences_total`, `rt_glosses_total`, `rt_phrase_errors_total`), un histograma de cuántas oraciones tiene cada frase (`rt_phrase_sentences`), el trabajo ocupado por cada trama de audio leída (`rt_read_loop_busy_ms`), el tiempo de la llamada al modelo de lenguaje (`llm_ms`, con el nombre del modelo como etiqueta) y el de la consulta a la caché (`cache_lookup_ms`). El número de sesiones abiertas se publica como `sessions_active`.
+Las métricas que describen el tiempo de respuesta del pipeline son las que empiezan por `rt_`: `rt_first_sign_ms` mide, desde que el backend recibe la frase, el tiempo que tarda en enviar la primera oración traducida; `rt_phrase_total_ms`, el que tarda en enviar la última; y `rt_sentence_delay_ms`, el de cada oración por separado. Las tres llevan la etiqueta `source`, con dos valores: `cache` cuando la oración se resolvió con la caché semántica y `llm` cuando necesitó el modelo. Son dos escenarios que no son comparables, y sin la etiqueta el número publicado es el promedio de los dos, que no describe a ninguno. `rt_first_sign_ms` es el **primer tramo** de la latencia extremo a extremo que define RNF-DES-01; el segundo tramo —desde que la aplicación recibe esa oración hasta que el avatar ejecuta la seña— se mide en la aplicación, no en el backend, y por eso los dos números se leen por separado. El nombre de la primera se conservó a propósito aunque mida solo hasta el envío de la primera oración, porque es la cifra que el proyecto publica como línea base y así se puede comparar. Hay contadores de frases, oraciones, glosas y errores (`rt_phrases_total`, `rt_sentences_total`, `rt_glosses_total`, `rt_phrase_errors_total`), un histograma de cuántas oraciones tiene cada frase (`rt_phrase_sentences`), el trabajo ocupado por cada trama de audio leída (`rt_read_loop_busy_ms`), el tiempo de la llamada al modelo de lenguaje (`llm_ms`, con el nombre del modelo como etiqueta) y el de la consulta a la caché (`cache_lookup_ms`). El número de sesiones abiertas se publica como `sessions_active`.
 
 Además de las métricas, cada frase deja una traza en memoria (`PipelineTrace`) que registra el tiempo que se pasó en cada paso del procesamiento: segmentación, huella gramatical, consulta a la caché, llamada al modelo de lenguaje, validación y total. Esa traza se escribe en el registro del servidor y, si la traza está activada, se envía además al cliente como un mensaje de tipo `trace`.
 

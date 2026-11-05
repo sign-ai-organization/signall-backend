@@ -4,7 +4,14 @@ from app.config.sentence_segmenter import SentenceSegmenterSettings
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_nested_delimiter="__")
+    # `.env.local` is optional and overrides `.env` when it exists. It is the
+    # file for a development-only provider (for example, a local Ollama), so a
+    # run against the official model never picks it up unless it is present.
+    model_config = SettingsConfigDict(
+        env_file=(".env", ".env.local"),
+        extra="ignore",
+        env_nested_delimiter="__",
+    )
 
     app_host: str = "127.0.0.1"
     app_port: int = 8080
@@ -13,6 +20,12 @@ class Settings(BaseSettings):
     # Send per-step pipeline timings to the client as a "trace" message.
     # Debug-only: keep it off for the production Android client.
     debug_trace_enabled: bool = False
+
+    # RNF-SEC-02: a client audio chunk has to be non-empty, an even number of
+    # bytes (PCM16 samples) and no larger than this. A normal 30 ms chunk at
+    # 16 kHz is 960 bytes; 32 KiB is about one second, so anything bigger is
+    # not a capture chunk and is rejected instead of being forwarded to the STT.
+    audio_max_chunk_bytes: int = 32768
 
     database_url: str
     db_pool_min_size: int = 5
@@ -24,6 +37,14 @@ class Settings(BaseSettings):
     # and the Android client gives up on its own after 15 s: the backend is the
     # one that has to report the failure first.
     db_command_timeout_seconds: float = 5.0
+    # Ceiling of opening one connection to the database. Without it, a database
+    # that accepts TCP but never completes the PostgreSQL handshake leaves the
+    # start-up waiting for the operating system's timeout.
+    db_connect_timeout_seconds: float = 5.0
+    # Ceiling of waiting for a free connection from the pool. The pool has
+    # min_size 5 and max_size 10, so this is a guard against a leaked connection,
+    # not the normal path.
+    db_acquire_timeout_seconds: float = 5.0
     # How many times a failed query is tried again. One retry covers a database
     # that is resuming from scale-to-zero; with the ceiling above, the worst
     # case is about 10 s, still under the client's 15 s.
