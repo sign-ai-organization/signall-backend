@@ -26,7 +26,7 @@ import numpy as np
 from app.metrics import metrics
 from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.models import Fingerprint
-from app.nlp.text_normalizer import normalize
+from app.nlp.text_normalizer import normalize, substitute_synonyms
 from app.observability.pipeline_trace import trace_step
 from app.persistence.database import RetryPolicy, run_with_retry
 
@@ -105,6 +105,7 @@ class SemanticCache:
         max_rows: int = 20000,
         retry_policy: RetryPolicy | None = None,
         acquire_timeout_seconds: float = 5.0,
+        synonym_pairs: list[tuple[str, str]] | None = None,
     ) -> None:
         # None means the database was unreachable at start-up: the cache then
         # lives only in memory and nothing is persisted.
@@ -115,6 +116,13 @@ class SemanticCache:
         self._max_rows = max_rows
         self._retry_policy = retry_policy or RetryPolicy()
         self._acquire_timeout_seconds = acquire_timeout_seconds
+        # `catalog_synonym`, folded into this cache's own normalization so
+        # "tengo mucha hambre" and "tengo muy hambre" (MUY is a synonym of
+        # MUCHO) land on the same key. CatalogRepository hands display
+        # spellings; this is the layer that knows how its own keys are built.
+        self._synonyms = {
+            normalize(synonym): normalize(canonical) for synonym, canonical in (synonym_pairs or [])
+        }
         self._indexes: dict[str, _PhraseTypeIndex] = {}
         self._lock = asyncio.Lock()
         self._rows = 0
@@ -161,7 +169,8 @@ class SemanticCache:
                 logger.warning("skipping malformed embedding for %r", row["original_text"])
                 continue
             index = self._indexes.setdefault(row["phrase_type"], _PhraseTypeIndex())
-            index.add(normalize(row["original_text"]), vector, list(row["glosses"]))
+            normalized = substitute_synonyms(normalize(row["original_text"]), self._synonyms)
+            index.add(normalized, vector, list(row["glosses"]))
             loaded += 1
 
         self._rows = loaded
@@ -202,7 +211,7 @@ class SemanticCache:
         embedding and the similarity search. The difference is two orders of
         magnitude, so both are worth counting apart.
         """
-        normalized = normalize(text)
+        normalized = substitute_synonyms(normalize(text), self._synonyms)
         category = fingerprint.category.value
 
         if self._loaded:
@@ -242,7 +251,7 @@ class SemanticCache:
             logger.warning("Not storing an empty answer for %r", text)
             return
 
-        normalized = normalize(text)
+        normalized = substitute_synonyms(normalize(text), self._synonyms)
         category = fingerprint.category.value
 
         with trace_step("store.embed"):

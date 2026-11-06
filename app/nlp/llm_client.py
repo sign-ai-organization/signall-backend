@@ -4,6 +4,7 @@ import re
 from langchain_openai import ChatOpenAI
 
 from app.metrics import metrics_timer
+from app.nlp.gloss_lexicon import insert_implicit_pronoun, resolve_inflection
 from app.validation.catalog_repository import normalize_gloss
 
 logger = logging.getLogger(__name__)
@@ -223,7 +224,7 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
                     ("human", text),
                 ]
             )
-        return self._repair_glosses(self._parse_glosses(response.content))
+        return self._repair_glosses(self._parse_glosses(response.content), text)
 
     async def warm_up(self) -> None:
         """One filler call, so the first real phrase does not pay for the load.
@@ -286,7 +287,7 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
             glosses.append(gloss)
         return glosses
 
-    def _repair_glosses(self, glosses: list[str]) -> list[str]:
+    def _repair_glosses(self, glosses: list[str], text: str) -> list[str]:
         """Map what the model said onto glosses that actually exist.
 
         No vocabulary means nothing to check against (e.g. tests), so the answer
@@ -304,6 +305,16 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
             if entry is not None:
                 repaired.append(entry)
                 continue
+
+            # A gloss the catalog does not have verbatim may still be one it
+            # has in a different inflection ("NINOS" for "NIÑO"). Try that
+            # before treating it as several glosses glued together.
+            entry = resolve_inflection(gloss, self.vocabulary)
+            if entry is not None:
+                logger.info("Resolved inflected gloss %r to catalog entry %r", gloss, entry)
+                repaired.append(entry)
+                continue
+
             # A gloss the catalog does not have may be several glosses glued
             # together ("HOLA BUENOS DIAS" with no commas). Splitting it is the
             # inverse of _merge_fragments and only succeeds when every word is
@@ -325,7 +336,8 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
 
         if dropped:
             logger.info("Dropped out-of-catalog glosses %s from %s", dropped, repaired)
-        return repaired
+
+        return insert_implicit_pronoun(text, repaired, self.vocabulary)
 
     def _split_into_glosses(self, gloss: str) -> list[str]:
         """Split a chunk that is really several glosses run together.

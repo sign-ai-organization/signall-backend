@@ -82,9 +82,9 @@ def main() -> None:
 
     # The repair is what covers the risk the closed vocabulary used to cover:
     # the model may answer with a sign that is not in the catalog.
-    repaired = client._repair_glosses(["ZUMBIDO", "TRUENO"])
+    repaired = client._repair_glosses(["ZUMBIDO", "TRUENO"], "zumbido trueno")
     check("a gloss of the catalog survives the repair", repaired == ["ZUMBIDO"], str(repaired))
-    repaired = client._repair_glosses(["TRUENO"])
+    repaired = client._repair_glosses(["TRUENO"], "trueno")
     # When nothing maps, the answer is kept as it came: an empty segment would
     # play nothing at all, and the validator is the one that marks a sign
     # outside the catalog as unavailable.

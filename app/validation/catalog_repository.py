@@ -42,6 +42,10 @@ class CatalogRepository:
         self._pool = pool
         self._retry_policy = retry_policy or RetryPolicy()
         self.cache: dict[str, CatalogEntry] = {}
+        # Display spelling pairs (synonym, canonical gloss), for callers that
+        # normalize on their own terms (`SemanticCache` folds whole sentences,
+        # not single glosses, so it cannot reuse `normalize_gloss` keys here).
+        self.synonym_pairs: list[tuple[str, str]] = []
 
     async def load_all(self) -> None:
         """Load the catalog into memory.
@@ -73,6 +77,54 @@ class CatalogRepository:
             )
             for row in rows
         }
+
+        await self._load_synonyms(pool)
+
+    async def _load_synonyms(self, pool: asyncpg.Pool) -> None:
+        """Folds `catalog_synonym` into the same vocabulary the glosses use.
+
+        A synonym is wired to the *same* `CatalogEntry` its canonical gloss
+        already has, so `vocabulary()` resolves it automatically and
+        `LLMClient._repair_glosses` needs no change for this rule (Fase 2,
+        decisión 4). The table may not exist yet on an older database; that
+        is not an error, it just means no synonym to load.
+        """
+        try:
+            rows = await run_with_retry(
+                lambda: pool.fetch(
+                    """
+                    SELECT cs.synonym, c.gloss
+                    FROM catalog_synonym cs
+                    JOIN catalog c ON c.id_sign = cs.id_sign
+                    """
+                ),
+                self._retry_policy,
+                "could not load catalog synonyms",
+            )
+        except asyncpg.UndefinedTableError:
+            logger.info("catalog_synonym does not exist yet; no synonyms loaded")
+            return
+
+        self.synonym_pairs = []
+        for row in rows:
+            canonical_key = normalize_gloss(row["gloss"])
+            canonical_entry = self.cache.get(canonical_key)
+            if canonical_entry is None:
+                logger.warning(
+                    "Synonym %r points to gloss %r, which is not in the catalog", row["synonym"], row["gloss"]
+                )
+                continue
+
+            synonym_key = normalize_gloss(row["synonym"])
+            if synonym_key in self.cache:
+                logger.warning(
+                    "Synonym %r collides with an existing catalog gloss; keeping the catalog entry",
+                    row["synonym"],
+                )
+                continue
+
+            self.cache[synonym_key] = canonical_entry
+            self.synonym_pairs.append((row["synonym"], row["gloss"]))
 
     def search(self, gloss: str) -> CatalogEntry | None:
         return self.cache.get(normalize_gloss(gloss))

@@ -67,6 +67,10 @@ async def lifespan(app: FastAPI):
         max_rows=settings.semantic_cache_max_rows,
         retry_policy=retry_policy,
         acquire_timeout_seconds=settings.db_acquire_timeout_seconds,
+        # `catalog_synonym` (Fase 2): two phrases that differ only in a
+        # catalog synonym ("tengo mucha hambre" / "tengo muy hambre") should
+        # land on the same cache key.
+        synonym_pairs=catalog_repository.synonym_pairs,
     )
     await semantic_cache.load_all()
 
