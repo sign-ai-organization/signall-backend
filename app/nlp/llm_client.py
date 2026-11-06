@@ -1,4 +1,5 @@
 import logging
+import re
 
 from langchain_openai import ChatOpenAI
 
@@ -87,10 +88,16 @@ meaning stays clear without them.
 - Use the base/infinitive form of verbs, never conjugated.
 - Keep the pronoun (YO, TU, USTEDES) when the sentence has one: "estoy \
 contento" is YO,CONTENTO.
+- Do not add anything the sentence does not say: no pronouns, no question \
+words, no greetings. "Mi hermano está feliz" is HERMANO,FELIZ, never \
+TU,HERMANO,FELIZ.
+- Do not drop a content word (nouns, verbs, adjectives, adverbs) to make the \
+list shorter: only the articles and the copula are dropped.
 - If you do not know the gloss for part of the meaning, leave that part out \
 rather than inventing one.
 - Respond with ONLY the glosses separated by commas. No explanation, no \
-classification, no separator other than a comma.
+classification, no preamble, no closing period, no separator other than a \
+comma.
 
 Examples:
 Input: ¿Cómo estás?
@@ -107,6 +114,31 @@ Input: ¿Dónde vive tu familia?
 Output: DONDE,TU,FAMILIA,VIVIR
 Input: Yo nunca como mucho.
 Output: YO,NUNCA,COMER,MUCHO"""
+
+
+# Markdown bullets, list numbering and wrapping quotes that models add around
+# an answer without being asked. They are never part of a gloss.
+_WRAPPING = "\"'`´“”‘’«»*•·-–—[]()"
+_LIST_NUMBER = re.compile(r"^\s*\d+\s*[.)-]\s*")
+
+
+def _clean_gloss(raw: str) -> str:
+    """Normalise one chunk of the model's answer into a gloss candidate.
+
+    Removes bullets, list numbering, wrapping quotes and the closing
+    punctuation; keeps inner spaces (a gloss like "COMO ESTAS" is one gloss).
+    """
+    gloss = _LIST_NUMBER.sub("", raw.strip())
+    # «Aquí están las glosas: HOLA, BUENOS DIAS» mete el preámbulo delante de la
+    # primera glosa cuando el modelo no separa con salto de línea. Un dos puntos
+    # nunca es parte de una glosa, así que se corta ahí.
+    if ":" in gloss:
+        gloss = gloss.rsplit(":", 1)[-1]
+    gloss = gloss.strip().strip(_WRAPPING).strip()
+    gloss = gloss.strip(".,;:!¡?¿…").strip()
+    gloss = gloss.strip(_WRAPPING).strip()
+    return " ".join(gloss.upper().split())
+
 
 
 class LLMClient:
@@ -210,8 +242,49 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
             logger.warning("LLM warm-up failed; the first real phrase will pay the model load", exc_info=True)
 
     def _parse_glosses(self, content: str) -> list[str]:
-        separator = "," if "," in content else None
-        return [gloss.strip().upper() for gloss in content.split(separator) if gloss.strip()]
+        """Turn the model's answer into a list of glosses, tolerating formatting.
+
+        The prompt asks for "comma-separated uppercase", but models drift: they
+        answer one gloss per line, close the list with a period, add a preamble
+        ("Aquí están las glosas:") or wrap everything in quotes. Those are
+        formatting, not translation, and treating them as glosses made whole
+        phrases come out as a single unplayable sign (measured on 2026-11-04:
+        "HOLA. BUENOS DIAS. BIENVENIDO." became one gloss instead of three).
+
+        What this does NOT do is split a two-word gloss: splitting only happens
+        on separators the model was told to use (comma, semicolon, line break)
+        or on sentence periods; spaces inside a gloss are left alone.
+        """
+        text = content.strip()
+        if not text:
+            return []
+
+        # Separators the prompt asks for, plus the ones models actually use.
+        text = text.replace("\r", "\n")
+        if "," in text:
+            pieces = text.split(",")
+        elif ";" in text:
+            pieces = text.split(";")
+        elif "\n" in text:
+            pieces = text.split("\n")
+        else:
+            # No explicit separator: sentences end with a period, and a gloss
+            # never contains one. Split there so "HOLA. BUENOS DIAS." is two.
+            pieces = re.split(r"(?<=[.!?…])\s+", text)
+            if len(pieces) == 1:
+                pieces = [text]
+
+        glosses: list[str] = []
+        for piece in pieces:
+            gloss = _clean_gloss(piece)
+            if not gloss:
+                continue
+            # A chunk that ends with ":" is a preamble, not a gloss.
+            if piece.strip().endswith(":"):
+                logger.info("Dropped preamble from the model answer: %r", piece.strip()[:80])
+                continue
+            glosses.append(gloss)
+        return glosses
 
     def _repair_glosses(self, glosses: list[str]) -> list[str]:
         """Map what the model said onto glosses that actually exist.
@@ -228,10 +301,19 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
         dropped: list[str] = []
         for gloss in glosses:
             entry = self.vocabulary.get(normalize_gloss(gloss))
-            if entry is None:
-                dropped.append(gloss)
-            else:
+            if entry is not None:
                 repaired.append(entry)
+                continue
+            # A gloss the catalog does not have may be several glosses glued
+            # together ("HOLA BUENOS DIAS" with no commas). Splitting it is the
+            # inverse of _merge_fragments and only succeeds when every word is
+            # a catalog gloss, so it cannot invent vocabulary.
+            pieces = self._split_into_glosses(gloss)
+            if pieces:
+                logger.info("Split out-of-catalog gloss %r into %s", gloss, pieces)
+                repaired.extend(pieces)
+            else:
+                dropped.append(gloss)
 
         # Every gloss unmappable: the model was answering about something the
         # dataset cannot sign. Returning the original keeps the old behaviour
@@ -244,6 +326,32 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
         if dropped:
             logger.info("Dropped out-of-catalog glosses %s from %s", dropped, repaired)
         return repaired
+
+    def _split_into_glosses(self, gloss: str) -> list[str]:
+        """Split a chunk that is really several glosses run together.
+
+        "HOLA BUENOS DIAS" with no commas is one chunk but three signs. A
+        greedy longest-match pass over the catalog puts it back together; it
+        returns [] unless *every* word lands on a catalog gloss, so a chunk
+        with a word the catalog does not have is left to the caller (which
+        drops it, as before).
+        """
+        words = gloss.split()
+        if len(words) < 2:
+            return []
+        out: list[str] = []
+        index = 0
+        while index < len(words):
+            for end in range(len(words), index, -1):
+                candidate = " ".join(words[index:end])
+                entry = self.vocabulary.get(normalize_gloss(candidate))
+                if entry is not None:
+                    out.append(entry)
+                    index = end
+                    break
+            else:
+                return []
+        return out
 
     def _merge_fragments(self, glosses: list[str]) -> list[str]:
         """Re-join adjacent single words that are really one phrasal gloss.

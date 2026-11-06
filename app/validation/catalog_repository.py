@@ -15,7 +15,13 @@ _ACCENTS = str.maketrans({"Á": "A", "É": "E", "Í": "I", "Ó": "O", "Ú": "U",
 # The glossing prompt asks for uppercase with no punctuation, but the dataset
 # spells its question words ¿QUÉ? / ¿CUÁNDO? / ¿CÓMO?. The catalog stores the
 # bare word, so the same marks are dropped on both sides of the lookup.
-_PUNCTUATION = str.maketrans("", "", "¿?")
+#
+# The sentence marks are dropped for a different reason (2026-11-05): a model
+# that ends its answer with a period ("HOLA, BUENOS DIAS.") used to produce a
+# gloss "BUENOS DIAS." that did not exist in the catalog, so the sign came out
+# as unavailable. Punctuation never distinguishes two glosses of this dataset,
+# and dropping it on both sides is what makes the lookup agree.
+_PUNCTUATION = str.maketrans("", "", "¿?.,;:!¡…")
 
 
 def normalize_gloss(gloss: str) -> str:
