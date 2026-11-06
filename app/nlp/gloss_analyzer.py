@@ -10,6 +10,15 @@ INTERROGATIVE_WORDS = {
     "por que", "para que",
 }
 
+# The same words spelled the way they are written when they ask a question.
+# The accent is what separates them from the relative pronoun in a declaration
+# ("cuando termine…"), and it is what makes a question without "?" detectable.
+_ACCENTED_INTERROGATIVE_WORDS = {
+    "qué", "cuál", "cuáles", "cómo", "dónde", "cuándo",
+    "quién", "quiénes", "cuánto", "cuánta", "cuántos", "cuántas",
+    "por qué", "para qué",
+}
+
 NEGATION_PARTICLES = {
     "no", "nunca", "jamas", "tampoco", "ni",
 }
@@ -53,6 +62,42 @@ def _has_interrogative_word(normalized_text: str) -> bool:
     return False
 
 
+def _starts_with_interrogative_word(original_text: str) -> bool:
+    """True when the sentence opens with an accented question word.
+
+    This is the signal that replaces the missing "?". Measured on the 100
+    sentences of CO-02 without punctuation (2026-11-05):
+
+    - requiring the interrogative word *anywhere* fixes the 20 content
+      questions but breaks 11 other sentences, because "que", "como", "donde"
+      and "cuando" are also relative pronouns in affirmatives ("la dirección
+      coincide con la que tenemos registrada", "cuando termine el trámite le
+      avisaremos");
+    - requiring it *at the start* but ignoring the accent fixes the same 20 and
+      breaks 3 ("cuando termine…", "quien firmó…", "donde vive usted no
+      afecta…");
+    - requiring it at the start **with the accent** fixes all 20 content
+      questions and breaks none: in Spanish the interrogative pronoun carries
+      the accent ("cuál", "dónde", "qué") and the relative one does not. It is
+      the same word, and the accent is what the language uses to tell them
+      apart.
+
+    The cost is that a transcript that arrives without accents keeps the old
+    behaviour instead of guessing. That is the safe side of the trade: an
+    unaccented "cuando" at the start of a declaration must stay affirmative.
+    A declaration whose subject is an interrogative clause ("Cómo se llama el
+    sistema no es relevante") still reads as a question; it is one of the edge
+    cases the fixture already marks as difficult, and telling it apart needs a
+    parser, not a word list.
+    """
+    words = re.findall(r"[a-záéíóúüñ]+", original_text.lower())
+    if not words:
+        return False
+    if words[0] in _ACCENTED_INTERROGATIVE_WORDS:
+        return True
+    return len(words) >= 2 and f"{words[0]} {words[1]}" in _ACCENTED_INTERROGATIVE_WORDS
+
+
 def _has_negation(normalized_text: str) -> bool:
     words = _tokenize(normalized_text)
     return any(word in NEGATION_PARTICLES for word in words)
@@ -84,7 +129,13 @@ class GlossAnalyzer:
         has_imperative = _has_imperative(normalized_text)
 
         signals: list[PhraseType] = []
-        if has_question_mark and has_interrogative_word:
+        # A content question without "?" is still a content question: Whisper
+        # often delivers the transcript with no punctuation. The question word
+        # at the start is the lexical signal; the mark is only a confirmation.
+        # YES_NO_QUESTION has no lexical marker at all in Spanish (it depends on
+        # intonation), so it still needs the "?" and without it stays as a
+        # documented limitation.
+        if has_interrogative_word and (has_question_mark or _starts_with_interrogative_word(text)):
             signals.append(PhraseType.CONTENT_QUESTION)
         elif has_question_mark:
             signals.append(PhraseType.YES_NO_QUESTION)
