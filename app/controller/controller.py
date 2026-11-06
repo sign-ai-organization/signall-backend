@@ -303,6 +303,20 @@ class Controller:
         logger.info("Sending error: %s", message)
         await self.websocket.send_json(self._with_turn({"type": "error", "message": message}))
 
+    async def send_capability(self, audio: bool, reason: str | None = None) -> None:
+        """Say what this session can do, without closing it.
+
+        `RNF-AV-03`: when the transcription service is down the client must keep
+        translating text. Closing the socket told the app "no connection" and it
+        stopped accepting text too, which is the failure this frame replaces.
+        The frame is additive: an older client ignores the unknown type, and an
+        older backend simply never sends it.
+        """
+        frame: dict[str, Any] = {"type": "capability", "audio": audio}
+        if reason:
+            frame["reason"] = reason
+        await self.websocket.send_json(frame)
+
     def _with_turn(self, frame: dict[str, Any]) -> dict[str, Any]:
         """Add the client's turn identifier to a frame, when there is one.
 

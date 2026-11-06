@@ -128,6 +128,7 @@ async def _forward_audio(
     websocket: WebSocket,
     controller: Controller,
     translator: _PhraseTranslator,
+    audio_available: bool = True,
 ) -> None:
     """Drain the client socket: audio to the STT, phrases to the translator.
 
@@ -139,6 +140,11 @@ async def _forward_audio(
 
     Phrases go to [translator] instead of being awaited here, so the audio keeps
     flowing while the language model works.
+
+    `audio_available` false means the transcription service is down: the audio
+    chunks are dropped and counted instead of being forwarded to a socket that
+    is not there. The text half of the same loop keeps working, which is what
+    `RNF-AV-03` asks for.
 
     `rt_read_loop_busy_ms` is the guard: it times the work done per frame —
     forwarding a chunk, parsing a control frame. Forwarding a chunk costs a few
@@ -154,6 +160,13 @@ async def _forward_audio(
 
         chunk = message.get("bytes")
         if chunk is not None:
+            if not audio_available:
+                # Sin servicio de voz no se reenvía nada. Descartar acá y no
+                # cerrar la sesión es el punto de S5: cerrarla dejaba al usuario
+                # sin texto también.
+                metrics.counter("rt_audio_dropped_no_stt_total")
+                metrics.histogram(*_busy(busy_since))
+                continue
             if not await controller.handle_audio_chunk(chunk):
                 metrics.histogram(*_busy(busy_since))
                 # The session ends here: a client that sends a fragment that is
@@ -231,13 +244,24 @@ async def translation_session(websocket: WebSocket) -> None:
     metrics.gauge("sessions_active", metrics.gauge_value("sessions_active") + 1)
     metrics.counter("sessions_total")
 
+    # `RNF-AV-03`: la caída del servicio de transcripción no cierra la sesión del
+    # cliente. Antes se mandaba un `error` y se salía; el cliente se quedaba sin
+    # sesión y no podía traducir **nada**, ni siquiera el texto que no necesita
+    # al STT. Ahora el socket sigue abierto, se avisa qué se puede hacer y el
+    # texto sigue funcionando.
+    audio_available = True
     try:
         await stt_client.connect()
     except Exception:
         logger.exception("Could not connect to the STT service")
-        await _try_send_error(controller, "El servicio de transcripción no está disponible.")
-        metrics.gauge("sessions_active", max(0.0, metrics.gauge_value("sessions_active") - 1))
-        return
+        audio_available = False
+        await _try_capability(controller, audio=False, reason="stt_unavailable")
+        metrics.counter("rt_sessions_without_stt_total")
+    else:
+        # Explícito también cuando todo está bien: es lo que le permite a la app
+        # volver a habilitar el micrófono en una sesión nueva después de una en
+        # la que el STT no estaba.
+        await _try_capability(controller, audio=True)
 
     # The two halves of a session: the client's socket and the STT's. Neither one
     # can finish on its own — `_forward_audio` only ends when the client goes
@@ -250,31 +274,43 @@ async def translation_session(websocket: WebSocket) -> None:
     # open forever. Measured with `tools/verificar-conexiones-stt.py`: 10
     # sessions, 20 connections that never came back.
     audio_task = asyncio.create_task(
-        _forward_audio(websocket, controller, translator),
+        _forward_audio(websocket, controller, translator, audio_available=audio_available),
         name="client-audio",
     )
-    transcript_task = asyncio.create_task(
-        _forward_transcripts(controller, db_keep_alive),
-        name="stt-transcripts",
+    # Sin STT no hay de dónde leer transcripciones: la tarea no se crea, en vez
+    # de crearla para que muera en el primer `receive()`.
+    transcript_task = (
+        asyncio.create_task(
+            _forward_transcripts(controller, db_keep_alive),
+            name="stt-transcripts",
+        )
+        if audio_available
+        else None
     )
 
+    tasks = {audio_task} if transcript_task is None else {audio_task, transcript_task}
     try:
-        await asyncio.wait({audio_task, transcript_task}, return_when=asyncio.FIRST_COMPLETED)
+        await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
     except Exception:
         logger.exception("Translation session failed")
         await _try_send_error(controller, "Ocurrió un error inesperado durante la sesión.")
     finally:
         translations = translator.cancel_all()
-        for task in (audio_task, transcript_task, *translations):
+        to_cancel = [audio_task, *translations]
+        if transcript_task is not None:
+            to_cancel.append(transcript_task)
+        for task in to_cancel:
             task.cancel()
-        await asyncio.gather(
-            audio_task,
-            transcript_task,
-            *translations,
-            return_exceptions=True,
-        )
+        await asyncio.gather(*to_cancel, return_exceptions=True)
         await stt_client.close()
         metrics.gauge("sessions_active", max(0.0, metrics.gauge_value("sessions_active") - 1))
+
+
+async def _try_capability(controller: Controller, audio: bool, reason: str | None = None) -> None:
+    try:
+        await controller.send_capability(audio, reason)
+    except Exception:
+        logger.exception("Could not tell the client what the session can do")
 
 
 async def _try_send_error(controller: Controller, message: str) -> None:
