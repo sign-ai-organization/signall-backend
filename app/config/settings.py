@@ -79,6 +79,16 @@ class Settings(BaseSettings):
     # esa, que es la peor forma de fallar. 0 lo desactiva.
     llm_warmup_enabled: bool = True
 
+    # Modelo de embeddings del caché semántico. Estaba fijo en el código
+    # (`DEFAULT_MODEL_NAME`), así que probar otra alternativa —`bge-m3`,
+    # `multilingual-e5-large`— exigía editar `embedding_model.py` y reconstruir
+    # la imagen. PR-CAC-01 pide comparar alternativas, y una comparación que
+    # necesita tocar el código no es una comparación: es un cambio de código
+    # por modelo. Cambiarlo obliga a vaciar `semantic_cache`, porque los
+    # vectores guardados son de otro espacio y la distancia entre ellos no
+    # significa nada.
+    embedding_model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"
+
     # Max cosine distance (pgvector <=>) between embeddings to count as a
     # semantic cache HIT. Lower = stricter match required.
     #

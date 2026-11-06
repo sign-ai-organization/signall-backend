@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI):
 
     semantic_cache = SemanticCache(
         pool,
-        EmbeddingModel(),
+        EmbeddingModel(settings.embedding_model_name),
         settings.semantic_cache_similarity_threshold,
         preload=settings.semantic_cache_preload,
         max_rows=settings.semantic_cache_max_rows,
@@ -248,6 +248,7 @@ def metrics_json() -> dict[str, object]:
         "config": {
             "llm_model": settings.llm_model,
             "llm_base_url": _redact_url(settings.llm_base_url),
+            "embedding_model": settings.embedding_model_name,
             "semantic_cache_preload": settings.semantic_cache_preload,
             "semantic_cache_threshold": settings.semantic_cache_similarity_threshold,
             "sentence_segmenter_enabled": settings.sentence_segmenter.enabled,
