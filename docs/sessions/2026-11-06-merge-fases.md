@@ -65,39 +65,72 @@ owner), backend reiniciado con `cache_rows: 0`, las 30 frases enviadas como
 `{"type":"text"}` por `ws://127.0.0.1:8080/ws/translate`, concatenando las glosas de
 todos los `segment` en orden hasta el `done`. Modelo `gpt-4o-mini`, temperatura 0.
 
-Resultado del pipeline completo (mergeado): **15/30 frases exactas (50 %), 126 glosas
-devueltas de 112 esperadas (112,5 %)**.
+Resultado del pipeline mergeado, **antes** del ajuste: **15/30 frases exactas (50 %), 126
+glosas devueltas de 112 esperadas (112,5 %)**.
 
 Para separar qué aporta cada regla se repitió la reparación sobre la misma respuesta del
 modelo, frase por frase y con el mismo segmentador, con y sin la regla del pronombre:
 
 | Configuración | Exactas |
 |---|---|
-| Respuesta cruda del modelo | 13/30 |
-| + flexión + sinónimos (sin pronombre) | **20/30** |
-| + pronombre implícito (pipeline completo) | **15/30** |
+| Respuesta cruda del modelo | 13-14/30 |
+| + flexión + sinónimos (sin pronombre) | **20-21/30** |
+| + pronombre implícito, como se mergeó | **15/30** |
+| + pronombre con el ajuste (abajo) | **22-23/30** |
 
 La capa de flexión y sinónimos sí funciona y suma **+7** frases exactas. La regla del
-pronombre **resta 5** y dispara sobre casos donde el sujeto no es el oyente:
+pronombre, tal como estaba, **restaba 5-6** porque disparaba sobre casos donde el sujeto
+no es el oyente:
 
-| Oración | Agrega | Problema |
+| Oración | Agregaba | Problema |
 |---|---|---|
 | `Mi abuelo nunca trabaja.` | YO | `mi` es posesivo de primera persona, no sujeto; FR-01 dice que `mi`/`su` no pasan a glosa |
-| `La mujer es juiciosa.` | TU | el sujeto es la mujer; se dispara por la cópula `es` |
+| `La mujer es juiciosa.` | TU | el sujeto es la mujer; se disparaba por la cópula `es` |
 | `La niña nunca está triste.` | TU | ídem por `está` |
 | `¿Quién es el hombre?` | TU | ídem por `es` |
 | `Por favor, come poco.` | TU | imperativo; FR-01 no usa TU en órdenes |
 
-Dispara bien en `¿Estás bien?`, `¿Estás triste?`, `¿Por qué estás triste?`,
+Disparaba bien en `¿Estás bien?`, `¿Estás triste?`, `¿Por qué estás triste?`,
 `¿cómo estás?` y `¿Tu hermano está aburrido?`.
 
-El plan preveía 17 → 26-28 de 30. Lo medido es 15 antes y 15 después: la mejora de la
-capa de vocabulario la cancela el pronombre. **Queda pendiente la decisión del owner**
-sobre acotar la regla (sacar `mi`/`mis` de primera persona, no tratar la cópula como
-verbo ambiguo cuando hay sujeto explícito, y decidir si una orden lleva TU).
+## Ajuste aplicado a la regla del pronombre (decisión del owner, 2026-11-06)
+
+Se acotó `app/nlp/gloss_lexicon.py` en dos puntos, sin tocar nada más:
+
+1. `mi` y `mis` salen de `_FIRST_PERSON_WORDS`: son posesivos que apuntan a otra persona,
+   no marcas de primera persona.
+2. La rama ambigua (tercera persona → TU) exige además el reflexivo `se`, que es lo que
+   esconde el sujeto. `¿Se siente mal?` y `Se siente muy bien.` siguen agregando TU;
+   `La mujer es juiciosa.` y `¿Quién es el hombre?` ya no.
+
+`scripts/verify_gloss_lexicon.py` ganó los dos casos nuevos y pasa completo.
+
+## Medición final de `PR-INT-02` (después del ajuste)
+
+Mismo método: caché vaciada, backend reconstruido y reiniciado, 30 frases por el
+WebSocket, `gpt-4o-mini`, temperatura 0.
+
+**22/30 frases exactas (73,3 %), 115 glosas devueltas de 112 esperadas (102,7 %).**
+
+Las 8 que no coinciden son, por origen:
+
+- **Modelo** (6): FR-01-006 omite NIÑO y CON GUSTO; FR-01-011 agrega COMO; FR-01-013
+  omite NOMBRE; FR-01-016 cambia el orden; FR-01-027 dice NIÑA donde el corpus pide NIÑO
+  (NIÑA es una glosa válida del catálogo, así que la flexión no la toca); FR-01-029
+  agrega SENTIR.
+- **Decisión del owner** (2): FR-01-010 y FR-01-024 agregan TU por la regla de la persona
+  ambigua, que es comportamiento correcto según la decisión 2 pero no coincide con las
+  glosas de referencia de FR-01, escritas antes de esa decisión.
+
+Comparado con la línea base del 2026-11-04 (15/30, 99 glosas), la Fase 2 suma **+7 frases
+exactas**. El plan preveía 26-28; falta que el modelo acierte esas 6 frases para llegar.
+
 
 ## Estado
 
-- Merge commiteado en `fix/fases1-3`; no se hizo push.
+- Merge y ajuste commiteados en `fix/fases1-3` y subidos a `origin/fix/fases1-3`.
 - El backend quedó corriendo con el código mergeado.
-- La caché semantic_cache quedó poblada con las 30 frases de la medición.
+- La caché `semantic_cache` quedó poblada con las 30 frases de la medición.
+- La app Android se instaló en el Redmi Note 9S apuntando a `ws://127.0.0.1:8080` con
+  `adb reverse tcp:8080 tcp:8080`; una prueba desde la app («Estoy muy cansado») devolvió
+  `YO, MUCHO`, primera seña en 982 ms.

@@ -12,13 +12,19 @@ Fase 2):
    (YO, TU) only when the model said it explicitly, but Spanish drops it
    constantly ("estoy contento" has no "yo"). If the sentence is
    grammatically second person and the glosses do not already have TU, one
-   is added; first person adds YO the same way. A sentence that uses the
-   third-person-singular verb form shared by "usted" and "él/ella" (e.g.
-   "¿Se siente mal?" — "siente" is also how "usted" conjugates) is
-   genuinely ambiguous between the two, and defaults to TU: the system
-   talks directly to the person rather than guessing a third party.
-   A sentence with no person marker at all (no pronoun, no conjugated verb)
-   is left untouched — there is nothing to attach a pronoun to.
+   is added; first person adds YO the same way. A sentence whose subject is
+   hidden by a reflexive verb (e.g. "¿Se siente mal?" — "siente" is also how
+   "usted" conjugates) is genuinely ambiguous between "usted" and "él/ella",
+   and defaults to TU: the system talks directly to the person rather than
+   guessing a third party. A sentence with no person marker at all (no
+   pronoun, no conjugated verb) is left untouched.
+
+   Two things this rule must NOT do, learned by measuring the 30 FR-01
+   phrases (2026-11-06): "mi"/"mis" are first-person possessives that point
+   at somebody else ("mi abuelo nunca trabaja" is not YO), and a third-person
+   verb with an explicit subject is not ambiguous ("la mujer es juiciosa" is
+   not TU). Only the reflexive "se" makes the subject invisible, so the
+   ambiguous case requires it.
 
 Neither rule touches `normalize_gloss` or the catalog/cache key: both work
 one layer above it, on the list of glosses `llm_client._repair_glosses`
@@ -37,15 +43,18 @@ _SECOND_PERSON_WORDS = {
     "estas", "tienes", "sientes", "vives", "quieres", "necesitas",
     "puedes", "vas", "eres", "comes", "trabajas", "hablas", "vienes",
 }
+# "mi"/"mis" are NOT here on purpose: they are possessives that point at
+# somebody else, not at the speaker ("mi abuelo nunca trabaja" is not YO).
 _FIRST_PERSON_WORDS = {
-    "yo", "mi", "mis",
+    "yo",
     "estoy", "tengo", "siento", "vivo", "quiero", "necesito",
     "puedo", "voy", "soy", "como", "trabajo", "hablo", "vengo",
 }
 # Third-person-singular present forms, which "usted" also uses ("¿usted
-# siente...?" and "¿él siente...?" conjugate the same way). Their presence
-# with no explicit pronoun is the ambiguous case decision 2 resolves: talk
-# directly to the person instead of guessing a third party.
+# siente...?" and "¿él siente...?" conjugate the same way). On their own they
+# are not ambiguous: "la mujer es juiciosa" has an explicit subject. The
+# ambiguity decision 2 resolves needs the reflexive "se" that hides the
+# subject ("¿Se siente mal?"), so the rule below also requires it.
 _AMBIGUOUS_VERB_WORDS = {
     "esta", "tiene", "siente", "vive", "quiere", "necesita",
     "puede", "va", "es", "come", "trabaja", "habla", "viene",
@@ -105,11 +114,12 @@ def insert_implicit_pronoun(text: str, glosses: list[str], vocabulary: dict[str,
         pronoun = "TU"
     elif words & _FIRST_PERSON_WORDS:
         pronoun = "YO"
-    elif words & _AMBIGUOUS_VERB_WORDS:
-        # "¿Se siente mal?": ambiguous between usted and él/ella. Talk
-        # directly to the person instead of assuming a third party (owner
-        # decision), rather than defaulting on sentences with no person
-        # marker at all.
+    elif words & _AMBIGUOUS_VERB_WORDS and "se" in words:
+        # "¿Se siente mal?": the reflexive hides the subject, so it is
+        # ambiguous between usted and él/ella. Talk directly to the person
+        # instead of assuming a third party (owner decision). Without the
+        # "se" the subject is explicit and there is nothing ambiguous:
+        # "la mujer es juiciosa" is not addressed to the listener.
         pronoun = "TU"
     else:
         return glosses

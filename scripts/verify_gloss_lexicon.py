@@ -68,6 +68,16 @@ def check_pronoun() -> None:
         ["TU", "MAL"],
     )
     check(
+        "a first-person possessive ('mi abuelo') does not add YO",
+        insert_implicit_pronoun("Mi abuelo nunca trabaja", ["FAMILIA"], VOCABULARY),
+        ["FAMILIA"],
+    )
+    check(
+        "a third-person verb with an explicit subject ('la mujer es') does not add TU",
+        insert_implicit_pronoun("La mujer es juiciosa", ["FAMILIA"], VOCABULARY),
+        ["FAMILIA"],
+    )
+    check(
         "already has a pronoun: left alone",
         insert_implicit_pronoun("Estoy contento", ["YO", "CONTENTO"], VOCABULARY),
         ["YO", "CONTENTO"],
