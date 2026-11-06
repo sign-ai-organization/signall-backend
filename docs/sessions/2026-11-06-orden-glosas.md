@@ -65,7 +65,23 @@ ninguna en las dos corridas.
 - **Afirmaciones con el verbo al final** (`USTEDES,FAMILIA,VIVIR`): la regla no las toca
   a propósito.
 
+## El caché semántico, medido de paso (misma ronda)
+
+Al medir FR-02 por el socket salieron **70/90** contra **75/90** del mismo pipeline con la
+caché salteada. La diferencia son **5 aciertos falsos del caché semántico**: las 90 frases
+de FR-02 son tres variantes de cada frase de FR-01 y se diferencian por un sustantivo, así
+que el caché devuelve las glosas de la variante vecina (pedía `HERMANO`, salió `TIO`; pedía
+`CONTENTO`, salió `FELIZ`; pedía `USTEDES`, salió `TU`). Es la misma familia de problema
+que la ronda del 2026-11-04 midió en el umbral (0,042 contra 0,05), ahora con cinco casos
+concretos. **No se tocó el umbral**: mueve `PR-CAC-*` y merece su propia medición.
+
 ## Estado
 
-- Commit con la capa de orden y sus tests.
+- Commits en `fix/fases1-3`, subidos a `origin/fix/fases1-3`: `d95bfde` (Fase 5),
+  `0748898` (flexión y pronombre), `e982cf4` (bitácora del prompt), `ca85480` (orden).
+- **`main` avanzó por fast-forward hasta el último commit de `fix/fases1-3`** el
+  2026-11-06, por pedido del owner: `main` era ancestro de la rama, así que no hubo merge
+  ni conflicto. `develop` queda atrás y no se tocó.
 - Backend reconstruido; la app instalada apunta a `ws://127.0.0.1:8080`.
+- La bitácora de la ronda en la app está en
+  `../sign-ai-android/openspec/sessions/2026-11-06-glosado-orden-y-prompt.md`.
