@@ -38,6 +38,17 @@ VOCABULARY = {
     normalize_gloss(gloss): gloss
     for gloss in ["NIÑO", "BIENVENIDO", "YO", "TU", "CONTENTO", "FAMILIA", "MAL"]
 }
+# The catalog has NIÑO *and* NIÑA, so the order of the candidates decides which
+# one wins. Kept apart from VOCABULARY so the older "gender" check still means
+# what it meant (a catalog with only the masculine).
+VOCABULARY_WITH_BOTH = {
+    **VOCABULARY,
+    normalize_gloss("NIÑA"): "NIÑA",
+    normalize_gloss("CON GUSTO"): "CON GUSTO",
+    normalize_gloss("COMO ESTAS"): "COMO ESTAS",
+    normalize_gloss("POR QUE"): "POR QUE",
+    normalize_gloss("TRISTE"): "TRISTE",
+}
 
 
 def check_inflection() -> None:
@@ -48,6 +59,23 @@ def check_inflection() -> None:
     check("NIÑA -> NIÑO (gender)", resolve_inflection("NIÑA", VOCABULARY), "NIÑO")
     check("a gloss already exact is not 'resolved' again", resolve_inflection("NIÑO", VOCABULARY), None)
     check("an unrelated word resolves to nothing", resolve_inflection("ZUMBIDO", VOCABULARY), None)
+    # With both genders in the catalog the order cannot be left to chance: the
+    # set this used to return made the answer depend on PYTHONHASHSEED.
+    check(
+        "NIÑAS -> NIÑA when the catalog has both genders",
+        resolve_inflection("NIÑAS", VOCABULARY_WITH_BOTH),
+        "NIÑA",
+    )
+    check(
+        "NINOS -> NIÑO when the catalog has both genders",
+        resolve_inflection("NINOS", VOCABULARY_WITH_BOTH),
+        "NIÑO",
+    )
+    check(
+        "NINAS -> NIÑA, not NIÑO",
+        resolve_inflection("NINAS", VOCABULARY_WITH_BOTH),
+        "NIÑA",
+    )
 
 
 def check_pronoun() -> None:
@@ -81,6 +109,16 @@ def check_pronoun() -> None:
         "already has a pronoun: left alone",
         insert_implicit_pronoun("Estoy contento", ["YO", "CONTENTO"], VOCABULARY),
         ["YO", "CONTENTO"],
+    )
+    check(
+        "after a question gloss: '¿por qué estás triste?'",
+        insert_implicit_pronoun("¿Por qué estás triste?", ["POR QUE", "TRISTE"], VOCABULARY_WITH_BOTH),
+        ["POR QUE", "TU", "TRISTE"],
+    )
+    check(
+        "a phrasal gloss that already carries the person gets no TU: '¿cómo estás?'",
+        insert_implicit_pronoun("¿Cómo estás?", ["COMO ESTAS"], VOCABULARY_WITH_BOTH),
+        ["COMO ESTAS"],
     )
     check(
         "no person marker at all: left alone",
