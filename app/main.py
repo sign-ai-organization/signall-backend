@@ -92,6 +92,10 @@ async def lifespan(app: FastAPI):
         # already marks a sign that is not in the catalog as unavailable. See
         # docs/performance.md section 9.
         catalog_repository.vocabulary(),
+        # The catalog's categories, for the order layer: the corpus closes a
+        # question with the verb and keeps TODOS next to the person, and telling
+        # a verb from a noun needs the category, not the spelling.
+        catalog_repository.categories(),
     )
 
     nlp_service = NLPServiceImpl(

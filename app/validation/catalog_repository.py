@@ -137,3 +137,13 @@ class CatalogRepository:
         into the prompt: decision D-7 (owner, 2026-10-16) took it out of it.
         """
         return {folded: entry.gloss for folded, entry in self.cache.items()}
+
+    def categories(self) -> dict[str, str]:
+        """The same folded keys, mapped to the catalog's semantic category.
+
+        `LLMClient` uses it to place the verb where the corpus places it, which
+        needs to tell a verb from a noun; the display spelling alone cannot.
+        Synonyms inherit the category of the gloss they point to, because they
+        are the same `CatalogEntry`.
+        """
+        return {folded: entry.semantic_category for folded, entry in self.cache.items()}

@@ -18,7 +18,7 @@ os.environ.setdefault("DATABASE_URL", "postgresql://user:pass@localhost/db")
 os.environ.setdefault("LLM_API_KEY", "test")
 os.environ.setdefault("LLM_MODEL", "gpt-4o-mini")
 
-from app.nlp.gloss_lexicon import insert_implicit_pronoun, resolve_inflection  # noqa: E402
+from app.nlp.gloss_lexicon import insert_implicit_pronoun, normalize_order, resolve_inflection  # noqa: E402
 from app.nlp.llm_client import LLMClient  # noqa: E402
 from app.validation.catalog_repository import normalize_gloss  # noqa: E402
 
@@ -132,6 +132,65 @@ def check_pronoun() -> None:
     )
 
 
+ORDER_GLOSSES = ["QUIEN", "VIVIR", "TU", "FAMILIA", "NIÑO", "TODOS", "TRABAJAR", "COMER", "USTEDES", "DONDE", "SENTIR"]
+ORDER_VOCABULARY = {normalize_gloss(gloss): gloss for gloss in ORDER_GLOSSES}
+ORDER_CATEGORIES = {
+    normalize_gloss(gloss): category
+    for gloss, category in [
+        ("QUIEN", "interrogativo"),
+        ("DONDE", "interrogativo"),
+        ("VIVIR", "verbo"),
+        ("COMER", "verbo"),
+        ("TRABAJAR", "verbo"),
+        ("SENTIR", "verbo"),
+        ("TU", "pronombre"),
+        ("USTEDES", "pronombre"),
+        ("FAMILIA", "sustantivo"),
+        ("NIÑO", "sustantivo"),
+        ("TODOS", "determinante"),
+    ]
+}
+
+
+def check_order() -> None:
+    print("\norder: the corpus closes a question with the verb and keeps TODOS with the person")
+    check(
+        "in a question, the verb goes last",
+        normalize_order(["QUIEN", "VIVIR", "TU", "FAMILIA"], ORDER_CATEGORIES),
+        ["QUIEN", "TU", "FAMILIA", "VIVIR"],
+    )
+    check(
+        "and after a pronoun subject",
+        normalize_order(["QUIEN", "COMER", "USTEDES"], ORDER_CATEGORIES),
+        ["QUIEN", "USTEDES", "COMER"],
+    )
+    check(
+        "a question that already closes with the verb is left alone",
+        normalize_order(["DONDE", "TU", "FAMILIA", "VIVIR"], ORDER_CATEGORIES),
+        ["DONDE", "TU", "FAMILIA", "VIVIR"],
+    )
+    check(
+        "TODOS joins the person before the verb",
+        normalize_order(["NIÑO", "TRABAJAR", "TODOS"], ORDER_CATEGORIES),
+        ["NIÑO", "TODOS", "TRABAJAR"],
+    )
+    check(
+        "and is left alone when it already is there",
+        normalize_order(["NIÑO", "TODOS", "TRABAJAR"], ORDER_CATEGORIES),
+        ["NIÑO", "TODOS", "TRABAJAR"],
+    )
+    check(
+        "a statement is never reordered: the corpus is not consistent there",
+        normalize_order(["ABUELO", "FAMILIA", "VIVIR"], ORDER_CATEGORIES),
+        ["ABUELO", "FAMILIA", "VIVIR"],
+    )
+    check(
+        "without categories nothing is moved",
+        normalize_order(["QUIEN", "VIVIR", "TU", "FAMILIA"], None),
+        ["QUIEN", "VIVIR", "TU", "FAMILIA"],
+    )
+
+
 def check_llm_client_integration() -> None:
     print("\nwired into LLMClient._repair_glosses")
     client = LLMClient(
@@ -150,10 +209,25 @@ def check_llm_client_integration() -> None:
     repaired = client._repair_glosses(["YO", "CONTENTO"], "Estoy contento")
     check("an explicit pronoun from the model is not duplicated", repaired, ["YO", "CONTENTO"])
 
+    ordering = LLMClient(
+        api_key="test",
+        model="gpt-4o-mini",
+        temperature=0.0,
+        timeout_ms=5000,
+        vocabulary=ORDER_VOCABULARY,
+        categories=ORDER_CATEGORIES,
+    )
+    repaired = ordering._repair_glosses(["QUIEN", "VIVIR", "TU", "FAMILIA"], "¿Quién vive con tu familia?")
+    check("the repair also fixes the order", repaired, ["QUIEN", "TU", "FAMILIA", "VIVIR"])
+
+    repaired = ordering._repair_glosses(["NIÑOS", "TRABAJAR", "TODOS"], "Niños, trabajen todos")
+    check("the singular and the quantifier land together", repaired, ["NIÑO", "TODOS", "TRABAJAR"])
+
 
 def main() -> None:
     check_inflection()
     check_pronoun()
+    check_order()
     check_llm_client_integration()
 
     print()

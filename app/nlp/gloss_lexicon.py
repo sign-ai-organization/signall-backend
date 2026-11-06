@@ -28,9 +28,16 @@ Fase 2):
    not TU). Only the reflexive "se" makes the subject invisible, so the
    ambiguous case requires it.
 
-Neither rule touches `normalize_gloss` or the catalog/cache key: both work
-one layer above it, on the list of glosses `llm_client._repair_glosses`
-already produced.
+3. Order (`normalize_order`): the corpus has two order conventions the model
+   does not always follow — in a question with a question gloss the verb goes
+   last ("DONDE,TU,FAMILIA,VIVIR"), and `TODOS`/`TODAS` stays next to the
+   person it quantifies, before the verb ("NIÑO,TODOS,TRABAJAR"). It only
+   moves glosses the model already produced, and only when the catalog's
+   categories are at hand to tell a verb from a noun.
+
+Neither rule touches `normalize_gloss` or the catalog/cache key: all three work
+one layer above it, on the list of glosses `llm_client._repair_glosses` already
+produced.
 """
 
 from app.nlp.text_normalizer import normalized_words
@@ -183,3 +190,60 @@ def _carries_person(gloss: str) -> bool:
     if len(words) < 2:
         return False
     return bool(set(words) & (_SECOND_PERSON_WORDS | _FIRST_PERSON_WORDS))
+
+
+def normalize_order(glosses: list[str], categories: dict[str, str] | None) -> list[str]:
+    """Puts the verb where the corpus puts it, when the model did not.
+
+    Two conventions of FR-01 and FR-02, both checked against every reference
+    phrase that exercises them (2026-11-06):
+
+    - **In a question that starts with a question gloss, the verb goes last.**
+      All 8 reference questions with a question gloss and a verb have it that
+      way: "DONDE,TU,FAMILIA,VIVIR", "QUIEN,USTEDES,COMER". The model tends to
+      put the verb right after the question gloss.
+    - **`TODOS`/`TODAS` stays with the person it quantifies, before the verb.**
+      All 11 reference phrases have it after a noun and, when there is a verb,
+      before it: "NIÑO,TODOS,TRABAJAR". The model sometimes leaves it at the
+      end.
+
+    Both rules only *move* a gloss the model already produced; neither adds nor
+    drops one, and neither rewrites the answer. They are applied only when the
+    catalog's categories are available (`CatalogRepository.categories()`),
+    because guessing which gloss is a verb from its spelling would mistake
+    MUJER for one.
+
+    Deliberately absent: anything that would reorder statements. The corpus is
+    not consistent there — "ABUELO,TIO,VIVIR,FAMILIA" puts the verb before its
+    complement while "QUIEN,TU,FAMILIA,VIVIR" puts it after — and a rule that
+    guesses wrong changes the meaning instead of the style.
+    """
+    if len(glosses) < 3 or not categories:
+        return glosses
+
+    result = list(glosses)
+    verb_indexes = [i for i, gloss in enumerate(result) if categories.get(normalize_gloss(gloss)) == "verbo"]
+    if not verb_indexes:
+        return glosses
+
+    # `TODOS`/`TODAS` after the verb: it belongs to the person before it.
+    first_verb = verb_indexes[0]
+    quantifiers = [
+        gloss
+        for index, gloss in enumerate(result)
+        if index > first_verb and categories.get(normalize_gloss(gloss)) == "determinante"
+    ]
+    if quantifiers:
+        verb_gloss = result[first_verb]
+        rest = [gloss for gloss in result if gloss not in quantifiers]
+        position = rest.index(verb_gloss)
+        result = [*rest[:position], *quantifiers, *rest[position:]]
+        verb_indexes = [i for i, gloss in enumerate(result) if categories.get(normalize_gloss(gloss)) == "verbo"]
+        first_verb = verb_indexes[0]
+
+    # A question with one verb: the verb closes the phrase.
+    if normalize_gloss(result[0]).lower() in _QUESTION_OPENERS and len(verb_indexes) == 1:
+        verb_gloss = result[first_verb]
+        result = [gloss for gloss in result if gloss != verb_gloss] + [verb_gloss]
+
+    return result

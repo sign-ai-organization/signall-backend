@@ -4,7 +4,7 @@ import re
 from langchain_openai import ChatOpenAI
 
 from app.metrics import metrics_timer
-from app.nlp.gloss_lexicon import insert_implicit_pronoun, resolve_inflection
+from app.nlp.gloss_lexicon import insert_implicit_pronoun, normalize_order, resolve_inflection
 from app.validation.catalog_repository import normalize_gloss
 
 logger = logging.getLogger(__name__)
@@ -165,6 +165,11 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
     does not scale and the validator already marks a sign that is not in the
     catalog as unavailable.
 
+    `categories` is the same folded keys mapped to the catalog's semantic
+    category (`verbo`, `sustantivo`, ...). It is optional and only used to put
+    the verb where the corpus puts it (`gloss_lexicon.normalize_order`); without
+    it the answer keeps the order the model gave.
+
     `timeout_ms` is the ceiling of a single call and `max_retries` how many
     times a failed call is tried again. Together they keep the answer inside
     the window the Android client waits for a phrase before it gives up on its
@@ -180,12 +185,14 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
         max_retries: int = 1,
         base_url: str = "",
         vocabulary: dict[str, str] | None = None,
+        categories: dict[str, str] | None = None,
     ) -> None:
         self.model = model
         self.temperature = temperature
         self.timeout_ms = timeout_ms
         self.max_retries = max_retries
         self.vocabulary = vocabulary or {}
+        self.categories = categories or {}
         # The prompt is a constant: it does not depend on the catalog. D-7
         # (owner, 2026-10-16) took the closed vocabulary out of it, so there is
         # nothing left to build at start-up, and nothing that has to be rebuilt
@@ -337,7 +344,7 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
         if dropped:
             logger.info("Dropped out-of-catalog glosses %s from %s", dropped, repaired)
 
-        return insert_implicit_pronoun(text, repaired, self.vocabulary)
+        return insert_implicit_pronoun(text, normalize_order(repaired, self.categories), self.vocabulary)
 
     def _split_into_glosses(self, gloss: str) -> list[str]:
         """Split a chunk that is really several glosses run together.
