@@ -47,7 +47,7 @@ from app.controller.stt_service_client import SttServiceClient
 from app.domain.models import ValidatedSegment
 from app.metrics import metrics
 from app.observability.pipeline_trace import PipelineTrace, start_trace, trace_step
-from app.orchestrator.orchestrator import Orchestrator
+from app.orchestrator.orchestrator_service import OrchestratorService
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class Controller:
     def __init__(
         self,
         websocket: WebSocket,
-        orchestrator: Orchestrator,
+        orchestrator: OrchestratorService,
         stt_client: SttServiceClient,
         debug_trace_enabled: bool = False,
         audio_max_chunk_bytes: int = 32768,
@@ -166,7 +166,7 @@ class Controller:
         Whether the phrase was typed, dictated, or dictated in live mode is the
         client's business and makes no difference here: a phrase that arrives as
         `text` is a phrase to translate. It goes through
-        `Orchestrator.translate_stream`, which splits it into sentences and
+        `OrchestratorService.translate_stream`, which splits it into sentences and
         yields them in order with a real `index` and `total`.
 
         `turn` is the client's identifier for this phrase. The backend copies it

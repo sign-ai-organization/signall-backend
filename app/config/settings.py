@@ -109,6 +109,15 @@ class Settings(BaseSettings):
     # el proceso se coma la RAM.
     semantic_cache_max_rows: int = 20000
 
+    # Token for the administration endpoints (`POST /admin/cache/reload`, fase 5
+    # of the implementation plan). Empty means the endpoints are not exposed at
+    # all: a deployment that does not set it answers 404, instead of leaving a
+    # route that reloads the cache open to anyone who can reach the port.
+    #
+    # It is a header (`X-Admin-Token`) and not a query parameter on purpose:
+    # a token in the URL ends up in logs and in shell history.
+    admin_token: str = ""
+
     # Default matches the "stt" service name in docker-compose.yml.
     stt_ws_url: str = "ws://stt:8000/ws/transcribe"
 

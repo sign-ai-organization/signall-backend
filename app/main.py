@@ -11,6 +11,7 @@ from fastapi.responses import PlainTextResponse
 
 from app.config.logging import configure_logging
 from app.config.settings import settings
+from app.controller.admin import router as admin_router
 from app.controller.router import router as controller_router
 from app.metrics import metrics
 from app.nlp.embedding_model import EmbeddingModel
@@ -192,6 +193,9 @@ async def _watch_stt_config(app: FastAPI) -> None:
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(controller_router)
+# Fase 5: recargar la cache semántica sin reiniciar. Solo existe cuando
+# ADMIN_TOKEN está configurado; ver el docstring de app/controller/admin.py.
+app.include_router(admin_router)
 
 
 @app.get("/health")

@@ -63,7 +63,7 @@ class FakePool:
         self.writes: list[tuple[str, tuple]] = []
         self.released = 0
 
-    async def acquire(self):
+    async def acquire(self, timeout: float | None = None):
         return FakeConnection(self)
 
     async def release(self, _conn) -> None:

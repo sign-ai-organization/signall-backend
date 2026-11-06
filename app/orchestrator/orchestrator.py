@@ -4,10 +4,11 @@ from collections.abc import AsyncIterator
 from app.domain.models import ValidatedSegment
 from app.nlp.nlp_service import NLPService
 from app.observability.pipeline_trace import trace_step
+from app.orchestrator.orchestrator_service import OrchestratorService
 from app.validation.validator_service import ValidatorService
 
 
-class Orchestrator:
+class Orchestrator(OrchestratorService):
     def __init__(self, nlp_service: NLPService, validator_service: ValidatorService) -> None:
         self.nlp_service = nlp_service
         self.validator_service = validator_service

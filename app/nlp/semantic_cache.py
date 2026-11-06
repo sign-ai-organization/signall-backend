@@ -146,21 +146,81 @@ class SemanticCache:
 
         started = asyncio.get_running_loop().time()
         try:
-            rows = await run_with_retry(
-                lambda: pool.fetch(
-                    """
-                    SELECT original_text, phrase_type, glosses, embedding::text AS embedding
-                    FROM semantic_cache
-                    ORDER BY id
-                    """
-                ),
-                self._retry_policy,
-                "could not preload the semantic cache",
-            )
+            rows = await self._fetch_rows(pool)
         except Exception:
             logger.exception("could not preload semantic_cache; falling back to per-lookup queries")
             return
 
+        self._indexes, self._rows = self._build_indexes(rows)
+        self._loaded = True
+        logger.info(
+            "SemanticCache preloaded %d rows in %.0f ms",
+            self._rows,
+            (asyncio.get_running_loop().time() - started) * 1000,
+        )
+
+    async def reload(self) -> int:
+        """Rebuild the in-memory index from `semantic_cache` and return how many rows it holds.
+
+        `load_all` runs once, at start-up, and until now nothing called it
+        again: an `UPDATE` or a `DELETE` run by hand on Neon stayed invisible
+        until the container restarted, and a restart drops every open session.
+        This is the body of the admin endpoint of fase 5 of the plan — the
+        explicit call instead of `LISTEN/NOTIFY`, which is the option that fits
+        an occasional manual edit.
+
+        The rows are fetched **before** the index is touched, so a database
+        that fails halfway leaves the previous cache serving; that is the same
+        best-effort rule the start-up follows, and the endpoint reports the
+        failure instead of pretending it worked. The swap itself is one
+        assignment, so no lookup can see a half-built index.
+
+        A `store` that lands while the fetch is in flight is not lost — it is
+        already in Neon — but its row can be missing from the new index until
+        the next reload. That costs one extra LLM call, never a wrong answer.
+
+        Returns 0 when `semantic_cache_preload` is off: in that mode every
+        lookup goes to Neon and there is no in-memory index to rebuild.
+        """
+        if not self._preload:
+            logger.info("SemanticCache reload ignored: preload is disabled")
+            return 0
+
+        pool = self._pool
+        if pool is None:
+            raise RuntimeError("no hay pool de base de datos: no se puede recargar la cache")
+
+        rows = await self._fetch_rows(pool)
+        indexes, loaded = self._build_indexes(rows)
+        async with self._lock:
+            self._indexes = indexes
+            self._rows = loaded
+            self._loaded = True
+        logger.info("SemanticCache reloaded %d rows", loaded)
+        return loaded
+
+    async def _fetch_rows(self, pool: asyncpg.Pool) -> list[asyncpg.Record]:
+        """Every row of `semantic_cache`, exactly as `load_all` reads them."""
+        return await run_with_retry(
+            lambda: pool.fetch(
+                """
+                SELECT original_text, phrase_type, glosses, embedding::text AS embedding
+                FROM semantic_cache
+                ORDER BY id
+                """
+            ),
+            self._retry_policy,
+            "could not load the semantic cache",
+        )
+
+    def _build_indexes(self, rows: list[asyncpg.Record]) -> tuple[dict[str, _PhraseTypeIndex], int]:
+        """The in-memory index for these rows, built apart from the live one.
+
+        Built off to the side on purpose: `reload` swaps the finished dictionary
+        in, so building it never mutates what lookups are reading, and a row
+        that does not parse does not leave a half-reloaded cache behind.
+        """
+        indexes: dict[str, _PhraseTypeIndex] = {}
         loaded = 0
         for row in rows:
             try:
@@ -168,16 +228,11 @@ class SemanticCache:
             except ValueError:
                 logger.warning("skipping malformed embedding for %r", row["original_text"])
                 continue
-            index = self._indexes.setdefault(row["phrase_type"], _PhraseTypeIndex())
+            index = indexes.setdefault(row["phrase_type"], _PhraseTypeIndex())
             normalized = substitute_synonyms(normalize(row["original_text"]), self._synonyms)
             index.add(normalized, vector, list(row["glosses"]))
             loaded += 1
-
-        self._rows = loaded
-        self._loaded = True
-        logger.info(
-            "SemanticCache preloaded %d rows in %.0f ms", loaded, (asyncio.get_running_loop().time() - started) * 1000
-        )
+        return indexes, loaded
 
     @property
     def is_loaded(self) -> bool:
