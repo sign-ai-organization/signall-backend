@@ -81,7 +81,13 @@ class Settings(BaseSettings):
 
     # Max cosine distance (pgvector <=>) between embeddings to count as a
     # semantic cache HIT. Lower = stricter match required.
-    semantic_cache_similarity_threshold: float = 0.05
+    #
+    # 0.03 instead of 0.05 (owner's decision D5, 2026-11-05): with 0.05 the
+    # cached variants of PR-CAC-03 resolved 21/30 but two of them returned the
+    # glosses of a *different* phrase (measured 2026-11-04); with 0.03 no
+    # variant matched a foreign row. The cost is fewer hits, i.e. more LLM
+    # calls, which is the trade the round is paying for.
+    semantic_cache_similarity_threshold: float = 0.03
 
     # Cargar el semantic_cache completo en memoria al arrancar. Con la base
     # Neon a ~100 ms por viaje, un HIT por red costaba más que el LLM que
