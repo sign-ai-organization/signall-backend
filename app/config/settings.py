@@ -96,12 +96,13 @@ class Settings(BaseSettings):
     # Max cosine distance (pgvector <=>) between embeddings to count as a
     # semantic cache HIT. Lower = stricter match required.
     #
-    # 0.03 instead of 0.05 (owner's decision D5, 2026-11-05): with 0.05 the
-    # cached variants of PR-CAC-03 resolved 21/30 but two of them returned the
-    # glosses of a *different* phrase (measured 2026-11-04); with 0.03 no
-    # variant matched a foreign row. The cost is fewer hits, i.e. more LLM
-    # calls, which is the trade the round is paying for.
-    semantic_cache_similarity_threshold: float = 0.03
+    # 0.04 (owner's decision, 2026-11-10): measured on the sentence-level unit
+    # with the 25 catalog synonyms of migration 007, 0.04 resolves 32 of 34
+    # variants and no trap; 0.05 resolves 33 but accepts 2 of the 30 traps, and
+    # 0.03 resolves 31. It is the highest threshold with zero false hits
+    # (PR-CAC-02 and PR-CAC-04, 2026-11-10). The old 0.03 came from the
+    # 2026-11-04 measurement, before the synonyms existed.
+    semantic_cache_similarity_threshold: float = 0.04
 
     # Cargar el semantic_cache completo en memoria al arrancar. Con la base
     # Neon a ~100 ms por viaje, un HIT por red costaba más que el LLM que
