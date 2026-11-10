@@ -13,6 +13,45 @@ abiertas.
 
 ---
 
+## `normalize_gloss` — la regla de escritura canónica de una glosa
+
+**Dónde:** `app/validation/catalog_repository.py` (donde estaba la función),
+`app/nlp/llm_client.py` y `app/nlp/gloss_lexicon.py` (quienes la importaban).
+
+**Inconsistencia:** el SDD dice que los componentes se comunican solo por sus
+interfaces (`NLPService` y `ValidatorService`), y el criterio de PR-TRA-01 es
+que ninguna importación se salte la interfaz. La función que dobla una glosa a
+la clave con la que ambos lados de una búsqueda coinciden —mayúsculas, tildes,
+signos de interrogación y puntuación— estaba **dentro del componente de
+validación** (`catalog_repository.py`), así que el NLP tenía que importarla de
+ahí: dos importaciones se saltaban la interfaz. PR-TRA-01 quedó en **Falla**
+el 2026-11-06 y el 2026-11-10, con 6 aristas entre componentes y 2 que se
+saltan la interfaz.
+
+**Evidencia a favor de moverla, no de cambiar el criterio:**
+
+- `normalize_gloss` es una **función pura**: no tiene estado, no toca la base
+  de datos, no es asíncrona. Importarla no arrastra ninguna implementación.
+- La capa de dominio (`app/domain/`) ya es el núcleo que los dos componentes
+  comparten: `app/nlp/models.py` importa `PhraseType` de `app.domain.models` y
+  `app/validation/catalog_repository.py` importa `CatalogEntry` de ahí.
+- El SDD no nombra esta función ni en la narrativa ni en los diagramas: el
+  cambio **no obliga a tocar `sdd.md`**.
+
+**Qué se aplicó el 2026-11-10:** la función y sus dos tablas de traducción
+(`_ACCENTS`, `_PUNCTUATION`) pasaron a `app/domain/gloss_text.py`, y los tres
+módulos que la usan (`catalog_repository`, `llm_client`, `gloss_lexicon`)
+importan desde ahí. `catalog_repository` sigue importándola, así que el nombre
+queda disponible en su módulo y ningún otro archivo del repositorio cambia.
+
+**Estado:** aplicado al código el 2026-11-10 (PR #14 contra `develop`). El SDD
+queda como está: no hay nada que actualizar en él. PR-TRA-01 se midió de nuevo
+con el arnés del plan de pruebas y dio 4 aristas, 4 por interfaz y 0 que se
+saltan la interfaz: **Pasa**.
+**Fecha:** 2026-11-10
+
+---
+
 ## SemanticCache — tipo de `lookup()` y `store()`
 
 **Dónde:** Figura 5 (`docs/diagrams/sdd-7.1-clases-2-nlp.drawio.png`),

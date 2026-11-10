@@ -40,8 +40,8 @@ one layer above it, on the list of glosses `llm_client._repair_glosses` already
 produced.
 """
 
+from app.domain.gloss_text import normalize_gloss
 from app.nlp.text_normalizer import normalized_words
-from app.validation.catalog_repository import normalize_gloss
 
 # Verb forms and possessives that mark the sentence as addressed to "tú", or
 # spoken about "yo". This is not an exhaustive conjugator: it covers the

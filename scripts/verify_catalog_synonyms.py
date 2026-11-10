@@ -20,8 +20,9 @@ os.environ.setdefault("DATABASE_URL", "postgresql://user:pass@localhost/db")
 os.environ.setdefault("LLM_API_KEY", "test")
 os.environ.setdefault("LLM_MODEL", "gpt-4o-mini")
 
+from app.domain.gloss_text import normalize_gloss
 from app.nlp.text_normalizer import normalize, substitute_synonyms  # noqa: E402
-from app.validation.catalog_repository import CatalogRepository, normalize_gloss  # noqa: E402
+from app.validation.catalog_repository import CatalogRepository  # noqa: E402
 
 failures: list[str] = []
 

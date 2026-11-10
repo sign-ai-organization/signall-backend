@@ -3,9 +3,9 @@ import re
 
 from langchain_openai import ChatOpenAI
 
+from app.domain.gloss_text import normalize_gloss
 from app.metrics import metrics_timer
 from app.nlp.gloss_lexicon import insert_implicit_pronoun, normalize_order, resolve_inflection
-from app.validation.catalog_repository import normalize_gloss
 
 logger = logging.getLogger(__name__)
 
