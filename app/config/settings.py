@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     db_max_retries: int = 1
     # Wait between two attempts of the same query.
     db_retry_delay_seconds: float = 0.5
+    # How often the backend tries again to reach the database, or to load the
+    # catalog and the semantic cache, when it started without them (PR-RES-04).
+    # The check stops for good once everything is loaded. 0 disables it.
+    db_recovery_interval_seconds: float = 15
 
     # Neon suspends compute after 5 min idle (fixed on the Free plan). While
     # there was activity (session opened / final transcript) within the idle

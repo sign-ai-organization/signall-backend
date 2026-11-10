@@ -128,6 +128,17 @@ class SemanticCache:
         self._rows = 0
         self._loaded = False
 
+    def attach_pool(self, pool: asyncpg.Pool) -> None:
+        """Give the cache the pool it did not have at start-up (PR-RES-04)."""
+        self._pool = pool
+
+    def set_synonym_pairs(self, synonym_pairs: list[tuple[str, str]]) -> None:
+        """Replace the catalog synonyms, for a catalog that loaded after start-up.
+
+        The index keys are built with these, so call `reload` afterwards.
+        """
+        self._synonyms = {normalize(synonym): normalize(canonical) for synonym, canonical in synonym_pairs}
+
     async def load_all(self) -> None:
         """Load the table into memory. Best-effort: on failure, keep using Neon.
 
