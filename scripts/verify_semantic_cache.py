@@ -5,12 +5,13 @@ from app.domain.models import PhraseType
 from app.nlp.embedding_model import EmbeddingModel
 from app.nlp.models import Fingerprint
 from app.nlp.semantic_cache import SemanticCache
-from app.persistence.database import create_pool
+from app.persistence.database import open_pool
 
 
 async def main() -> None:
     model = EmbeddingModel()
-    pool = await create_pool(settings.database_url, settings.db_pool_min_size, settings.db_pool_max_size)
+    pool = await open_pool(settings.database_url, settings.db_pool_min_size, settings.db_pool_max_size)
+    assert pool is not None, "this script needs Neon: it stores and looks up real rows"
     cache = SemanticCache(pool, model, settings.semantic_cache_similarity_threshold)
 
     content_question = Fingerprint(

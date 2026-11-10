@@ -27,3 +27,35 @@ def normalized_words(text: str) -> list[str]:
 
 def normalize(text: str) -> str:
     return " ".join(normalized_words(text))
+
+
+def substitute_synonyms(normalized: str, synonyms: dict[str, str]) -> str:
+    """Replaces a normalized phrase's synonyms with their canonical form.
+
+    `synonyms` maps a normalized phrase (as `normalize()` would produce it)
+    to its normalized canonical replacement, longest phrase first so "con
+    permiso" wins over "con". Used so two sentences that differ only in a
+    catalog synonym ("tengo mucha hambre" / "tengo muy hambre") land on the
+    same `semantic_cache` key instead of two that happen to mean the same
+    sign.
+    """
+    if not synonyms or not normalized:
+        return normalized
+
+    words = normalized.split()
+    ordered = sorted(synonyms.items(), key=lambda item: len(item[0].split()), reverse=True)
+
+    out: list[str] = []
+    index = 0
+    while index < len(words):
+        for phrase, canonical in ordered:
+            phrase_words = phrase.split()
+            end = index + len(phrase_words)
+            if words[index:end] == phrase_words:
+                out.extend(canonical.split())
+                index = end
+                break
+        else:
+            out.append(words[index])
+            index += 1
+    return " ".join(out)

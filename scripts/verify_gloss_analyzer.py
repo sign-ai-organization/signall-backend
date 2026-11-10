@@ -78,6 +78,28 @@ def main() -> None:
     )
     print(f"(of which, failures on sentences marked (*) as expected: {edge_case_failures_expected})")
 
+    # What Whisper usually delivers: no "?" at all. Only an accented question
+    # word at the start is a lexical signal (CO-02, 2026-11-05). The unaccented
+    # ones are relative pronouns in these declarations and must stay as they
+    # are; that is why they are in this list.
+    no_punctuation = [
+        ("cuál es su nombre", PhraseType.CONTENT_QUESTION),
+        ("dónde vive", PhraseType.CONTENT_QUESTION),
+        ("qué documento trajo", PhraseType.CONTENT_QUESTION),
+        ("cómo se llama", PhraseType.CONTENT_QUESTION),
+        ("por qué necesita este trámite", PhraseType.CONTENT_QUESTION),
+        ("para qué necesita el certificado", PhraseType.CONTENT_QUESTION),
+        ("la dirección coincide con la que tenemos registrada", PhraseType.AFFIRMATIVE),
+        ("cuando termine el trámite le avisaremos por correo", PhraseType.AFFIRMATIVE),
+        ("quien firmó el documento aparece en el registro", PhraseType.AFFIRMATIVE),
+        ("donde vive usted no afecta el proceso de registro", PhraseType.NEGATIVE),
+    ]
+    print("\nsin signo de interrogación:")
+    for sentence, expected in no_punctuation:
+        got = analyzer.analyze(sentence).category
+        mark = "ok  " if got == expected else "FAIL"
+        print(f"  {mark} {sentence!r} -> {got.value} (esperado {expected.value})")
+
 
 if __name__ == "__main__":
     main()

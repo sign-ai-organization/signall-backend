@@ -47,7 +47,7 @@ from app.controller.stt_service_client import SttServiceClient
 from app.domain.models import ValidatedSegment
 from app.metrics import metrics
 from app.observability.pipeline_trace import PipelineTrace, start_trace, trace_step
-from app.orchestrator.orchestrator import Orchestrator
+from app.orchestrator.orchestrator_service import OrchestratorService
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +77,7 @@ class Controller:
     def __init__(
         self,
         websocket: WebSocket,
-        orchestrator: Orchestrator,
+        orchestrator: OrchestratorService,
         stt_client: SttServiceClient,
         debug_trace_enabled: bool = False,
         audio_max_chunk_bytes: int = 32768,
@@ -166,7 +166,7 @@ class Controller:
         Whether the phrase was typed, dictated, or dictated in live mode is the
         client's business and makes no difference here: a phrase that arrives as
         `text` is a phrase to translate. It goes through
-        `Orchestrator.translate_stream`, which splits it into sentences and
+        `OrchestratorService.translate_stream`, which splits it into sentences and
         yields them in order with a real `index` and `total`.
 
         `turn` is the client's identifier for this phrase. The backend copies it
@@ -302,6 +302,20 @@ class Controller:
     async def send_error(self, message: str) -> None:
         logger.info("Sending error: %s", message)
         await self.websocket.send_json(self._with_turn({"type": "error", "message": message}))
+
+    async def send_capability(self, audio: bool, reason: str | None = None) -> None:
+        """Say what this session can do, without closing it.
+
+        `RNF-AV-03`: when the transcription service is down the client must keep
+        translating text. Closing the socket told the app "no connection" and it
+        stopped accepting text too, which is the failure this frame replaces.
+        The frame is additive: an older client ignores the unknown type, and an
+        older backend simply never sends it.
+        """
+        frame: dict[str, Any] = {"type": "capability", "audio": audio}
+        if reason:
+            frame["reason"] = reason
+        await self.websocket.send_json(frame)
 
     def _with_turn(self, frame: dict[str, Any]) -> dict[str, Any]:
         """Add the client's turn identifier to a frame, when there is one.

@@ -144,3 +144,24 @@ llamada al LLM, cuyo resultado queda guardado. Normalizar sin bajar el
 umbral sería peor que antes ("Vivo en Bogotá" / "Vivo en Medellín" baja
 a 0.083).
 **Fecha:** 2026-10-02
+
+---
+
+## Nota — Recarga de la caché semántica sin reiniciar (Fase 5)
+
+**Decisión:** endpoint de administración explícito
+(`POST /admin/cache/reload`) en vez de `LISTEN/NOTIFY` de Postgres, y protegido
+con un token en la cabecera `X-Admin-Token` (`ADMIN_TOKEN` vacío = la ruta
+responde 404).
+**Por qué:** el caso de uso medido es la edición manual ocasional de
+`semantic_cache` por SQL; `LISTEN/NOTIFY` agrega una conexión dedicada y un
+camino automático que nadie mira hasta que falla. El token no es
+autenticación de usuario —DEC-14 sigue abierta—: es lo mínimo para que la ruta
+no quede abierta a cualquiera que alcance el puerto y pueda hacer que el
+servicio golpee la base en un bucle. La recarga lee las filas antes de tocar el
+índice, así que una lectura fallida deja la caché anterior sirviendo y el
+endpoint responde 503. No recarga el catálogo: `catalog` y `catalog_synonym`
+siguen necesitando reinicio después de un seed.
+**Dónde:** `app/controller/admin.py`, `SemanticCache.reload` y
+`docs/sessions/2026-11-06-fase5-backend.md`.
+**Fecha:** 2026-11-06

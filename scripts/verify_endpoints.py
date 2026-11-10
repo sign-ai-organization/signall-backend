@@ -31,6 +31,7 @@ os.environ["STT_WS_URL"] = "ws://stt:8000/ws/transcribe"
 
 from app.config.settings import settings  # noqa: E402
 from app.main import _redact_url, app, health, metrics_json  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 failures: list[str] = []
 
@@ -60,6 +61,64 @@ class FakeCache:
 class FakeCatalog:
     def __init__(self, glosses: int) -> None:
         self.cache = {f"GLS-{i:02d}": object() for i in range(glosses)}
+
+
+class FakeReloadableCache:
+    """The only method `/admin/cache/reload` uses."""
+
+    def __init__(self, rows: int = 3) -> None:
+        self.rows = rows
+        self.row_count = 0
+        self.reloads = 0
+        self.fail = False
+
+    async def reload(self) -> int:
+        self.reloads += 1
+        if self.fail:
+            raise RuntimeError("neon did not answer")
+        self.row_count = self.rows
+        return self.rows
+
+
+def check_admin_reload() -> None:
+    """The admin route (fase 5) is closed unless `ADMIN_TOKEN` is set.
+
+    A route that makes the service re-read a table has to be the one thing that
+    is not open: the deployment without a token answers 404, as if the route did
+    not exist, and a wrong token is 403 without touching the cache.
+    """
+    print("\n/admin/cache/reload only exists when ADMIN_TOKEN is configured")
+    client = TestClient(app)
+    configured = settings.admin_token
+
+    settings.admin_token = ""
+    response = client.post("/admin/cache/reload")
+    check("without a configured token the route is not there", response.status_code, 404)
+
+    settings.admin_token = "token-de-prueba"
+    cache = FakeReloadableCache()
+    app.state.semantic_cache = cache
+
+    response = client.post("/admin/cache/reload")
+    check("without the header it is forbidden", response.status_code, 403)
+    response = client.post("/admin/cache/reload", headers={"X-Admin-Token": "otro"})
+    check("with the wrong token it is forbidden", response.status_code, 403)
+    check_that("a rejected call does not reload anything", cache.reloads == 0)
+
+    response = client.post("/admin/cache/reload", headers={"X-Admin-Token": "token-de-prueba"})
+    check("with the right token it answers 200", response.status_code, 200)
+    check("and says how many rows were loaded", response.json()["rows"], 3)
+    check("and how many are in memory", response.json()["cache_rows"], 3)
+
+    cache.fail = True
+    response = client.post("/admin/cache/reload", headers={"X-Admin-Token": "token-de-prueba"})
+    check("a failed read answers 503", response.status_code, 503)
+    check_that(
+        "and says the previous cache is still serving",
+        "se sigue usando la anterior" in response.json()["detail"],
+    )
+
+    settings.admin_token = configured
 
 
 def main() -> None:
@@ -103,6 +162,8 @@ def main() -> None:
     body = health()
     check("the status", body["status"], "degraded")
     check("the count", body["catalog_glosses"], 0)
+
+    check_admin_reload()
 
     print()
     if failures:

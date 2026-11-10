@@ -24,7 +24,8 @@ if "asyncpg" not in sys.modules:
     stub.Connection = object
     sys.modules["asyncpg"] = stub
 
-from app.validation.catalog_repository import CatalogRepository, normalize_gloss
+from app.domain.gloss_text import normalize_gloss
+from app.validation.catalog_repository import CatalogRepository
 
 # (what the catalog stores, what a caller may search for)
 MATCHING = [

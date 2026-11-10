@@ -24,8 +24,8 @@ os.environ.setdefault("DATABASE_URL", "postgresql://user:pass@localhost/db")
 os.environ.setdefault("LLM_API_KEY", "test")
 os.environ.setdefault("LLM_MODEL", "gpt-4o-mini")
 
+from app.domain.gloss_text import normalize_gloss
 from app.nlp.llm_client import PROMPT_TEMPLATE, LLMClient  # noqa: E402
-from app.validation.catalog_repository import normalize_gloss  # noqa: E402
 
 failures: list[str] = []
 
@@ -82,9 +82,9 @@ def main() -> None:
 
     # The repair is what covers the risk the closed vocabulary used to cover:
     # the model may answer with a sign that is not in the catalog.
-    repaired = client._repair_glosses(["ZUMBIDO", "TRUENO"])
+    repaired = client._repair_glosses(["ZUMBIDO", "TRUENO"], "zumbido trueno")
     check("a gloss of the catalog survives the repair", repaired == ["ZUMBIDO"], str(repaired))
-    repaired = client._repair_glosses(["TRUENO"])
+    repaired = client._repair_glosses(["TRUENO"], "trueno")
     # When nothing maps, the answer is kept as it came: an empty segment would
     # play nothing at all, and the validator is the one that marks a sign
     # outside the catalog as unavailable.

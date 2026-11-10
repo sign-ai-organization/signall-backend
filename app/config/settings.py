@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     db_max_retries: int = 1
     # Wait between two attempts of the same query.
     db_retry_delay_seconds: float = 0.5
+    # How often the backend tries again to reach the database, or to load the
+    # catalog and the semantic cache, when it started without them (PR-RES-04).
+    # The check stops for good once everything is loaded. 0 disables it.
+    db_recovery_interval_seconds: float = 15
 
     # Neon suspends compute after 5 min idle (fixed on the Free plan). While
     # there was activity (session opened / final transcript) within the idle
@@ -79,9 +83,26 @@ class Settings(BaseSettings):
     # esa, que es la peor forma de fallar. 0 lo desactiva.
     llm_warmup_enabled: bool = True
 
+    # Modelo de embeddings del caché semántico. Estaba fijo en el código
+    # (`DEFAULT_MODEL_NAME`), así que probar otra alternativa —`bge-m3`,
+    # `multilingual-e5-large`— exigía editar `embedding_model.py` y reconstruir
+    # la imagen. PR-CAC-01 pide comparar alternativas, y una comparación que
+    # necesita tocar el código no es una comparación: es un cambio de código
+    # por modelo. Cambiarlo obliga a vaciar `semantic_cache`, porque los
+    # vectores guardados son de otro espacio y la distancia entre ellos no
+    # significa nada.
+    embedding_model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"
+
     # Max cosine distance (pgvector <=>) between embeddings to count as a
     # semantic cache HIT. Lower = stricter match required.
-    semantic_cache_similarity_threshold: float = 0.05
+    #
+    # 0.04 (owner's decision, 2026-11-10): measured on the sentence-level unit
+    # with the 25 catalog synonyms of migration 007, 0.04 resolves 32 of 34
+    # variants and no trap; 0.05 resolves 33 but accepts 2 of the 30 traps, and
+    # 0.03 resolves 31. It is the highest threshold with zero false hits
+    # (PR-CAC-02 and PR-CAC-04, 2026-11-10). The old 0.03 came from the
+    # 2026-11-04 measurement, before the synonyms existed.
+    semantic_cache_similarity_threshold: float = 0.04
 
     # Cargar el semantic_cache completo en memoria al arrancar. Con la base
     # Neon a ~100 ms por viaje, un HIT por red costaba más que el LLM que
@@ -92,6 +113,15 @@ class Settings(BaseSettings):
     # dice; si sepas que va a crecer mucho, esto lo frena en vez de dejar que
     # el proceso se coma la RAM.
     semantic_cache_max_rows: int = 20000
+
+    # Token for the administration endpoints (`POST /admin/cache/reload`, fase 5
+    # of the implementation plan). Empty means the endpoints are not exposed at
+    # all: a deployment that does not set it answers 404, instead of leaving a
+    # route that reloads the cache open to anyone who can reach the port.
+    #
+    # It is a header (`X-Admin-Token`) and not a query parameter on purpose:
+    # a token in the URL ends up in logs and in shell history.
+    admin_token: str = ""
 
     # Default matches the "stt" service name in docker-compose.yml.
     stt_ws_url: str = "ws://stt:8000/ws/transcribe"

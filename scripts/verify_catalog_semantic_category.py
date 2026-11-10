@@ -53,6 +53,11 @@ class FakePool:
 
     async def fetch(self, query: str, *_args, **_kwargs):
         self.queries.append(query)
+        # `load_all()` also reads `catalog_synonym` (Fase 2). This double has
+        # no synonyms, which is exactly a database where that migration has
+        # not run: an empty answer, not an error.
+        if "catalog_synonym" in query:
+            return []
         return [
             {
                 "gloss": "HOLA",

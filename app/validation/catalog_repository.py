@@ -1,32 +1,11 @@
 import logging
 
 import asyncpg
+from app.domain.gloss_text import normalize_gloss
 from app.domain.models import CatalogEntry
 from app.persistence.database import RetryPolicy, run_with_retry
 
 logger = logging.getLogger(__name__)
-
-# Accented vowels -> unaccented, on purpose an explicit table instead of
-# `unicodedata.normalize("NFD", ...)`: that decomposition splits the tilde off
-# Ñ, so stripping the combining marks would turn NIÑO into NINO, which is a
-# different gloss and would resolve to the wrong sign.
-_ACCENTS = str.maketrans({"Á": "A", "É": "E", "Í": "I", "Ó": "O", "Ú": "U", "Ü": "U"})
-
-# The glossing prompt asks for uppercase with no punctuation, but the dataset
-# spells its question words ¿QUÉ? / ¿CUÁNDO? / ¿CÓMO?. The catalog stores the
-# bare word, so the same marks are dropped on both sides of the lookup.
-_PUNCTUATION = str.maketrans("", "", "¿?")
-
-
-def normalize_gloss(gloss: str) -> str:
-    """Folds a gloss to the single key both sides of a lookup agree on.
-
-    Case, accents, the inverted-question marks the dataset uses, and stray
-    whitespace all collapse; Ñ survives untouched. Returns "" for input that is
-    only whitespace or punctuation, so it can never collide with a real entry.
-    """
-    folded = gloss.strip().upper().translate(_ACCENTS).translate(_PUNCTUATION)
-    return " ".join(folded.split())
 
 
 class CatalogRepository:
@@ -36,6 +15,14 @@ class CatalogRepository:
         self._pool = pool
         self._retry_policy = retry_policy or RetryPolicy()
         self.cache: dict[str, CatalogEntry] = {}
+        # Display spelling pairs (synonym, canonical gloss), for callers that
+        # normalize on their own terms (`SemanticCache` folds whole sentences,
+        # not single glosses, so it cannot reuse `normalize_gloss` keys here).
+        self.synonym_pairs: list[tuple[str, str]] = []
+
+    def attach_pool(self, pool: asyncpg.Pool) -> None:
+        """Give the repository the pool it did not have at start-up (PR-RES-04)."""
+        self._pool = pool
 
     async def load_all(self) -> None:
         """Load the catalog into memory.
@@ -68,6 +55,54 @@ class CatalogRepository:
             for row in rows
         }
 
+        await self._load_synonyms(pool)
+
+    async def _load_synonyms(self, pool: asyncpg.Pool) -> None:
+        """Folds `catalog_synonym` into the same vocabulary the glosses use.
+
+        A synonym is wired to the *same* `CatalogEntry` its canonical gloss
+        already has, so `vocabulary()` resolves it automatically and
+        `LLMClient._repair_glosses` needs no change for this rule (Fase 2,
+        decisión 4). The table may not exist yet on an older database; that
+        is not an error, it just means no synonym to load.
+        """
+        try:
+            rows = await run_with_retry(
+                lambda: pool.fetch(
+                    """
+                    SELECT cs.synonym, c.gloss
+                    FROM catalog_synonym cs
+                    JOIN catalog c ON c.id_sign = cs.id_sign
+                    """
+                ),
+                self._retry_policy,
+                "could not load catalog synonyms",
+            )
+        except asyncpg.UndefinedTableError:
+            logger.info("catalog_synonym does not exist yet; no synonyms loaded")
+            return
+
+        self.synonym_pairs = []
+        for row in rows:
+            canonical_key = normalize_gloss(row["gloss"])
+            canonical_entry = self.cache.get(canonical_key)
+            if canonical_entry is None:
+                logger.warning(
+                    "Synonym %r points to gloss %r, which is not in the catalog", row["synonym"], row["gloss"]
+                )
+                continue
+
+            synonym_key = normalize_gloss(row["synonym"])
+            if synonym_key in self.cache:
+                logger.warning(
+                    "Synonym %r collides with an existing catalog gloss; keeping the catalog entry",
+                    row["synonym"],
+                )
+                continue
+
+            self.cache[synonym_key] = canonical_entry
+            self.synonym_pairs.append((row["synonym"], row["gloss"]))
+
     def search(self, gloss: str) -> CatalogEntry | None:
         return self.cache.get(normalize_gloss(gloss))
 
@@ -79,3 +114,13 @@ class CatalogRepository:
         into the prompt: decision D-7 (owner, 2026-10-16) took it out of it.
         """
         return {folded: entry.gloss for folded, entry in self.cache.items()}
+
+    def categories(self) -> dict[str, str]:
+        """The same folded keys, mapped to the catalog's semantic category.
+
+        `LLMClient` uses it to place the verb where the corpus places it, which
+        needs to tell a verb from a noun; the display spelling alone cannot.
+        Synonyms inherit the category of the gloss they point to, because they
+        are the same `CatalogEntry`.
+        """
+        return {folded: entry.semantic_category for folded, entry in self.cache.items()}
