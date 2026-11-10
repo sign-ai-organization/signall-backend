@@ -23,6 +23,7 @@ from app.nlp.semantic_cache import SemanticCache
 from app.orchestrator.orchestrator import Orchestrator
 from app.persistence.database import RetryPolicy, open_pool
 from app.persistence.keep_alive import DatabaseKeepAlive
+from app.persistence.recovery import recover_database
 from app.validation.catalog_repository import CatalogRepository
 from app.validation.validator_service_impl import ValidatorServiceImpl
 
@@ -49,6 +50,10 @@ async def lifespan(app: FastAPI):
         settings.db_keepalive_idle_window_seconds,
     )
     db_keep_alive.start()
+    # Kept on the app, not only in this scope: if the database was down at
+    # start-up the pool is opened later by `recover_database`, and the
+    # shutdown below has to close whichever one exists.
+    app.state.db_pool = pool
 
     catalog_repository = CatalogRepository(pool, retry_policy)
     try:
@@ -122,6 +127,17 @@ async def lifespan(app: FastAPI):
     # is already done.
     warmup_task = asyncio.create_task(_warm_up_llm(llm_client)) if settings.llm_warmup_enabled else None
 
+    # Started without the database, the catalog or the cache: keep trying until
+    # they load (PR-RES-04). Without this the service stayed `degraded` until
+    # somebody restarted it, even after the database came back.
+    recovery_task = (
+        asyncio.create_task(
+            recover_database(app.state, catalog_repository, semantic_cache, llm_client, db_keep_alive)
+        )
+        if settings.db_recovery_interval_seconds > 0
+        else None
+    )
+
     # The STT's own configuration, mirrored so the Android app can read it.
     app.state.stt_config = {}
     stt_config_task = (
@@ -134,10 +150,12 @@ async def lifespan(app: FastAPI):
         warmup_task.cancel()
     if stt_config_task is not None:
         stt_config_task.cancel()
+    if recovery_task is not None:
+        recovery_task.cancel()
     await nlp_service.wait_for_pending_stores()
     await db_keep_alive.stop()
-    if pool is not None:
-        await pool.close()
+    if app.state.db_pool is not None:
+        await app.state.db_pool.close()
 
 
 async def _warm_up_llm(llm_client: LLMClient) -> None:

@@ -28,6 +28,10 @@ class DatabaseKeepAlive:
         self._loop_task: asyncio.Task | None = None
         self._wake_up_tasks: set[asyncio.Task] = set()
 
+    def attach_pool(self, pool: asyncpg.Pool) -> None:
+        """Give the keep-alive the pool it did not have at start-up (PR-RES-04)."""
+        self._pool = pool
+
     def start(self) -> None:
         # Startup counts as activity: the client usually connects a while
         # after the backend comes up, and the pool just woke the database.

@@ -47,6 +47,10 @@ class CatalogRepository:
         # not single glosses, so it cannot reuse `normalize_gloss` keys here).
         self.synonym_pairs: list[tuple[str, str]] = []
 
+    def attach_pool(self, pool: asyncpg.Pool) -> None:
+        """Give the repository the pool it did not have at start-up (PR-RES-04)."""
+        self._pool = pool
+
     async def load_all(self) -> None:
         """Load the catalog into memory.
 

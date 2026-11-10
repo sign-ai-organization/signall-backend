@@ -233,6 +233,16 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
             )
         return self._repair_glosses(self._parse_glosses(response.content), text)
 
+    def update_catalog(self, vocabulary: dict[str, str], categories: dict[str, str]) -> None:
+        """Swap in a catalog that loaded after start-up (PR-RES-04).
+
+        The backend can start while the database is down; the repair of the
+        model's answer then has nothing to check against. When the catalog
+        arrives later, this gives it to the running client without a restart.
+        """
+        self.vocabulary = vocabulary
+        self.categories = categories
+
     async def warm_up(self) -> None:
         """One filler call, so the first real phrase does not pay for the load.
 
