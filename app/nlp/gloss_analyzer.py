@@ -31,9 +31,17 @@ IMPERATIVE_VERBS = {
     "acerquese", "siga", "pase", "tome", "complete",
     "indique", "confirme", "verifique", "deje", "muestre",
     "repita", "digame", "digale", "llene", "diligencie",
+    # Added 2026-11-10 with the orders of CO-02 that read as affirmatives
+    # (HUE-03: 18 of 40). They are the same registration-office register.
+    "deme", "anote", "adjunte", "acompaneme", "vuelva",
+    "explique", "actualice",
 }
 
 INITIAL_FILLERS = {"por favor", "porfavor", "por-favor"}
+
+# Discourse markers that can open an order without changing it ("Entonces
+# confirme sus datos"). They are skipped before looking for the verb.
+INITIAL_MARKERS = {"entonces", "ahora", "luego", "despues", "primero", "ademas", "tambien"}
 
 
 def _normalize(text: str) -> str:
@@ -104,6 +112,16 @@ def _has_negation(normalized_text: str) -> bool:
 
 
 def _has_imperative(normalized_text: str) -> bool:
+    """True when the order's verb opens the sentence.
+
+    The list is closed, so the only thing that can hide the verb is a word in
+    front of it: "por favor" (already handled) or a discourse marker
+    ("Entonces confirme sus datos"). When the sentence opens with a fronted
+    clause and a comma ("Antes de continuar, firme el consentimiento"), the
+    order starts after the comma, so the first word of that part is checked
+    too. Both cases were measured on 2026-11-10 (CO-02: 18 of 40 orders read
+    as affirmatives).
+    """
     words = _tokenize(normalized_text)
     if not words:
         return False
@@ -116,7 +134,22 @@ def _has_imperative(normalized_text: str) -> bool:
     if not words:
         return False
 
-    return words[0] in IMPERATIVE_VERBS
+    if words[0] in INITIAL_MARKERS:
+        words = words[1:]
+
+    if not words:
+        return False
+
+    if words[0] in IMPERATIVE_VERBS:
+        return True
+
+    # Fronted clause: the order begins after the first comma.
+    _, separador, resto = normalized_text.partition(",")
+    if separador:
+        tras_coma = _tokenize(resto)
+        return bool(tras_coma) and tras_coma[0] in IMPERATIVE_VERBS
+
+    return False
 
 
 class GlossAnalyzer:

@@ -292,6 +292,18 @@ has to be listening on an external interface (Ollama binds 127.0.0.1 by
             if len(pieces) == 1:
                 pieces = [text]
 
+        # A gloss never contains a period, and the model sometimes closes the
+        # list with a courtesy sentence when the dictated phrase ends in one:
+        # "TIO, TRABAJAR. Espero que te sirva." came out as
+        # TIO, TRABAJAR, ESPERO QUE TE SIRVA (measured 2026-11-10, CO-04-008).
+        # Splitting every piece again on sentence boundaries leaves that
+        # sentence on its own; the repair against the catalog drops it, because
+        # it is not a gloss.
+        by_sentence: list[str] = []
+        for piece in pieces:
+            by_sentence.extend(re.split(r"(?<=[.!?…])\s+", piece))
+        pieces = by_sentence
+
         glosses: list[str] = []
         for piece in pieces:
             gloss = _clean_gloss(piece)
