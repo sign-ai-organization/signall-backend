@@ -35,6 +35,10 @@ IMPERATIVE_VERBS = {
     # (HUE-03: 18 of 40). They are the same registration-office register.
     "deme", "anote", "adjunte", "acompaneme", "vuelva",
     "explique", "actualice",
+    # Added 2026-11-11 (PR-AVT-05): the orders of FR-01 are written in the
+    # informal "tu" form and the list only knew the formal one, so the six
+    # orders of FR-01 read as affirmatives.
+    "come", "dejame", "vive", "trabaja", "trabajen", "sientanse",
 }
 
 INITIAL_FILLERS = {"por favor", "porfavor", "por-favor"}
@@ -143,11 +147,13 @@ def _has_imperative(normalized_text: str) -> bool:
     if words[0] in IMPERATIVE_VERBS:
         return True
 
-    # Fronted clause: the order begins after the first comma.
-    _, separador, resto = normalized_text.partition(",")
-    if separador:
-        tras_coma = _tokenize(resto)
-        return bool(tras_coma) and tras_coma[0] in IMPERATIVE_VERBS
+    # Fronted clause or vocative ("Hola, familia, sientanse bienvenidos"): the
+    # order begins after one of the commas, so the first word after each comma
+    # is checked.
+    for trozo in normalized_text.split(",")[1:]:
+        tras_coma = _tokenize(trozo)
+        if tras_coma and tras_coma[0] in IMPERATIVE_VERBS:
+            return True
 
     return False
 
