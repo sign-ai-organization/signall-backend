@@ -4,3 +4,10 @@ sounddevice
 # Static analysis (RNF-MNT-03). The configuration of both is in pyproject.toml.
 ruff==0.17.1
 mypy==2.4.0
+# Test runner and coverage. `scripts/` still has no `tests/`, so today the
+# verify scripts are run by `scripts/cobertura.sh` under `coverage`; pytest is
+# the runner for the suite that replaces them, and its coverage plugin reads the
+# same report. Versions are pinned like every other dependency (RNF-MNT-04).
+pytest==9.2.0
+pytest-cov==7.1.0
+coverage==7.17.3

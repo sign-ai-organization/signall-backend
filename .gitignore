@@ -9,6 +9,13 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 
+# Coverage artifacts of `scripts/cobertura.sh`. They are regenerated on every
+# run and `coverage.xml` is read by the Sonar scanner from the working tree:
+# it does not need to be committed.
+.coverage
+.coverage.*
+coverage.xml
+
 # Local TLS material of the `caddy` service in `docker-compose.host.yml`:
 # the private key and the lab CA must never enter the repository. The
 # directory itself stays tracked so the bind mount has a source on a fresh
