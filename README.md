@@ -69,6 +69,13 @@ silencio.
 ### Comprobar que el sistema completo está arriba
 
 ```bash
+scripts/verify_proxy.sh
+```
+
+Ese script falla con código 1 y un mensaje distinto según lo que falte: el certificado, el
+contenedor de Caddy o la respuesta por TLS. También se puede mirar a mano:
+
+```bash
 docker compose -f docker-compose.yml -f docker-compose.host.yml ps caddy
 curl --cacert deploy/certs/lab-ca.crt https://127.0.0.1/health
 ```

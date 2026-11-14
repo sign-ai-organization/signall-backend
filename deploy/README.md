@@ -47,6 +47,13 @@ docker compose -f docker-compose.yml -f docker-compose.host.yml up -d
 ## Comprobar que el proxy está arriba
 
 ```bash
+scripts/verify_proxy.sh
+```
+
+El script revisa las tres piezas en orden —el certificado, el contenedor y la respuesta por
+TLS— y sale con código 1 en la primera que falle, diciendo qué hacer. A mano:
+
+```bash
 docker compose -f docker-compose.yml -f docker-compose.host.yml ps caddy
 curl --cacert deploy/certs/lab-ca.crt https://127.0.0.1/health
 ```
