@@ -126,7 +126,7 @@ quedan idénticas.
 ## 6. Cómo verificar
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.host.yml up -d --build
 docker compose exec backend python -m scripts.verify_client_frames      # contrato
 docker compose exec backend python -m scripts.verify_sentence_segmenter  # divisor
 ```

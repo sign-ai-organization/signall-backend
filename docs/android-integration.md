@@ -24,25 +24,17 @@ SignAll/
 `docker-compose.yml` deja el backend en la red de compose, así que el STT se
 resuelve por el nombre del servicio: `STT_WS_URL=ws://stt:8000/ws/transcribe`
 (ya es el default; `localhost` no funciona ahí, porque dentro de ese contenedor
-es el propio contenedor). Luego:
-
-```bash
-signall-backend> docker compose up --build
-```
-
-Ese comando levanta el backend (puerto **8080**) y el STT (puerto 8000), que se
-construye desde `../signall-stt`. Esperar a que ambos muestren `Application startup
-complete`. La primera vez tarda varios minutos (instala dependencias y descarga el
-modelo de Whisper).
-
-**Para el sistema completo, con el proxy TLS, se usa además el override:**
+es el propio contenedor). El sistema completo se levanta con los dos archivos,
+porque el proxy TLS vive en el override y es parte del sistema, no un extra:
 
 ```bash
 signall-backend> docker compose -f docker-compose.yml -f docker-compose.host.yml up --build
 ```
 
-El proxy es parte del sistema, no un extra: sin él no hay `wss://` y el APK `demo`,
-el que demuestra el cifrado, no conecta. El override también devuelve el backend a la
+`docker compose up --build` a secas levanta el backend (**8080**) y el STT (8000,
+construido desde `../signall-stt`) pero **deja el proxy abajo**: no hay `wss://` y
+el APK `demo`, el que demuestra el cifrado, no conecta. El override también
+devuelve el backend a la
 red del host, que es lo que hace falta cuando el LLM corre en un Ollama local y el
 firewall del host filtra el tráfico del bridge. El certificado de laboratorio y la
 verificación del proxy están en `deploy/README.md`.
