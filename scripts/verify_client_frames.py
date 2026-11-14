@@ -41,6 +41,9 @@ failures: list[str] = []
 
 PHRASE_TEXT = "hola, como estas"
 TYPED_PHRASE = '{"type":"text","text":"hola, como estas"}'
+# El primer frame de toda sesion: el backend avisa si hay voz antes de responder
+# a cualquier frase (commit 8a31cc2).
+CAPABILITY_FRAME = "capability"
 # Una frase escrita de dos oraciones produce transcript, un segment por
 # oraciones y done.
 # El eco de la frase escrita **no** se manda. Ver `Controller.handle_text`.
@@ -162,6 +165,21 @@ def build_app() -> FastAPI:
     return app
 
 
+def expect_capability(websocket) -> None:
+    """Consume el frame con el que abre toda sesion y comprueba que anuncia voz.
+
+    Desde `8a31cc2` el backend dice primero que puede hacer la sesion --si hay
+    voz-- y solo despues responde a las frases. Sin consumirlo, cada lectura por
+    posicion de este script queda corrida un frame. Que sea el primero y que
+    anuncie voz es parte del contrato, asi que se comprueba en vez de saltarse.
+    """
+    check(
+        "la sesion abre anunciando que hay voz",
+        websocket.receive_json(),
+        {"type": CAPABILITY_FRAME, "audio": True},
+    )
+
+
 def read_exactly(websocket, count: int) -> list[dict]:
     """Lee un numero exacto de mensajes.
 
@@ -175,16 +193,35 @@ def read_exactly(websocket, count: int) -> list[dict]:
     return [websocket.receive_json() for _ in range(count)]
 
 
+def read_phrase(websocket, limit: int = 10) -> list[dict]:
+    """Lee los frames de una frase hasta su `done`, incluido.
+
+    La traduccion corre en su propia tarea (commit `8631115`), asi que el eco de
+    voz y los `segment` no tienen un orden fijo entre si. Se sincroniza por
+    contenido --la frase termina en su `done`-- y no por posicion; lo que se
+    compare despues sigue siendo la lista exacta de frames, asi que un frame de
+    mas hace fallar la comprobacion.
+    """
+    frames: list[dict] = []
+    for _ in range(limit):
+        frame = websocket.receive_json()
+        frames.append(frame)
+        if frame.get("type") == "done":
+            return frames
+    raise RuntimeError(f"la frase no cerro con done: {[f.get('type') for f in frames]}")
+
+
 def main() -> None:
     # El router construye el cliente del STT con este nombre; sustituirlo ahi
     # alcanza para que la sesion no intente conectarse a un servicio real.
-    router_module.SttServiceClientImpl = FakeSttClient  # type: ignore[assignment]
+    router_module.SttServiceClientImpl = FakeSttClient  # type: ignore[assignment,misc]
 
     print("\nsesion: frase escrita")
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            expect_capability(ws)
             ws.send_text(TYPED_PHRASE)
-            messages = read_exactly(ws, 3)
+            messages = read_phrase(ws)
     check("responde 2 segment y done, sin eco", [m.get("type") for m in messages], THREE_MESSAGES)
     # Que no haya eco es la parte importante: un `transcript` con `final: true`
     # aqui seria indistinguible de la voz, y el cliente en vivo lo tomaria por
@@ -198,13 +235,14 @@ def main() -> None:
     FakeSttClient.end_calls = 0
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            expect_capability(ws)
             ws.send_bytes(b"\x01\x02" * 480)
             ws.send_bytes(b"\x03\x04" * 480)
             ws.send_text('{"type":"end"}')
             # La frase escrita va al final a proposito: cuando responde, los
             # frames anteriores ya pasaron por el socket.
             ws.send_text(TYPED_PHRASE)
-            messages = read_exactly(ws, 3)
+            messages = read_phrase(ws)
     check(
         "el audio llega crudo al STT",
         FakeSttClient.sent_audio,
@@ -216,11 +254,12 @@ def main() -> None:
     print("\nsesion: frame desconocido no tumba la sesion")
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            expect_capability(ws)
             ws.send_text("basura que no es json")
             ws.send_text('{"type":"desconocido"}')
             ws.send_text('{"type":"text","text":"   "}')
             ws.send_text(TYPED_PHRASE)
-            messages = read_exactly(ws, 3)
+            messages = read_phrase(ws)
     check("la sesion sigue viva", [m.get("type") for m in messages], THREE_MESSAGES)
 
     print("\nsesion: la voz se muestra pero no se traduce sola")
@@ -231,6 +270,7 @@ def main() -> None:
     FakeSttClient.incoming = [("hola, como estas", True)]
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            expect_capability(ws)
             messages = read_exactly(ws, 1)
             check("el final de voz se reenvia", [m.get("type") for m in messages], ["transcript"])
             check("con su texto", messages[0].get("text"), "hola, como estas")
@@ -238,7 +278,7 @@ def main() -> None:
             check("nada se represento solo", FakeOrchestrator.calls, [])
             # Recién ahora, con la frase ya en la barra del cliente, se manda.
             ws.send_text(TYPED_PHRASE)
-            tail = read_exactly(ws, 3)
+            tail = read_phrase(ws)
     check("y la frase del cliente si se tradujo", FakeOrchestrator.calls, [PHRASE_TEXT])
     check("con sus oraciones", [m.get("type") for m in tail], THREE_MESSAGES)
 
@@ -250,6 +290,7 @@ def main() -> None:
     FakeSttClient.incoming = [("hola", False), ("", True)]
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            expect_capability(ws)
             messages = read_exactly(ws, 2)
             check("el parcial y el final vacio llegan", [m.get("type") for m in messages], ["transcript", "transcript"])
             check("el final va vacio", messages[1].get("text"), "")
@@ -257,7 +298,7 @@ def main() -> None:
             check("nada se intento traducir solo", FakeOrchestrator.calls, [])
             # La frase escrita al final demuestra que la sesion sigue viva.
             ws.send_text(TYPED_PHRASE)
-            tail = read_exactly(ws, 3)
+            tail = read_phrase(ws)
     check("y el cliente puede seguir mandando", [m.get("type") for m in tail], THREE_MESSAGES)
 
     print("\nsesion: el frame `mode` ya no existe")
@@ -267,10 +308,11 @@ def main() -> None:
     FakeOrchestrator.calls = []
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            expect_capability(ws)
             ws.send_text('{"type":"mode","mode":"dictation"}')
             ws.send_text('{"type":"mode","mode":"realtime"}')
             ws.send_text(TYPED_PHRASE)
-            messages = read_exactly(ws, 3)
+            messages = read_phrase(ws)
     check("no cambia nada", [m.get("type") for m in messages], THREE_MESSAGES)
     check("y solo se tradujo lo que se mando", FakeOrchestrator.calls, [PHRASE_TEXT])
 
@@ -283,8 +325,9 @@ def main() -> None:
     FakeSttClient.close_calls = 0
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            expect_capability(ws)
             ws.send_text(TYPED_PHRASE)
-            read_exactly(ws, 3)
+            read_phrase(ws)
     check("el socket con el STT se cierra una vez", FakeSttClient.close_calls, 1)
 
     print("\nsesion: si el STT se cae, la sesión termina")
@@ -296,7 +339,8 @@ def main() -> None:
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
             # El socket del cliente queda abierto, pero la sesión ya terminó:
-            # manda un frame y no hay nadie escuchando del otro lado.
+            # manda un frame y no hay nadie escuchando del otro lado. El
+            # `capability` de apertura no se lee: no hay respuesta que correr.
             ws.send_text(TYPED_PHRASE)
             read_exactly(ws, 0)
     check("el socket con el STT se cierra igual", FakeSttClient.close_calls, 1)

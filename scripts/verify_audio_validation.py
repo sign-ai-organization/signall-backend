@@ -114,11 +114,31 @@ def rejection_count(reason: str) -> float:
     return metrics.counter_value("audio_chunks_rejected_total", {"reason": reason})
 
 
+def open_session(websocket) -> None:
+    """Consume y comprueba el frame con el que abre toda sesion.
+
+    Desde `8a31cc2` el backend dice primero que puede hacer la sesion --si hay
+    voz-- y solo despues responde al audio. Sin consumirlo, cada lectura por
+    posicion queda corrida un frame. Que sea el primero y que anuncie voz se
+    comprueba, no se salta: es parte del contrato.
+    """
+    check(
+        "la sesion abre anunciando que hay voz",
+        websocket.receive_json(),
+        {"type": "capability", "audio": True},
+    )
+
+
 def session_with(chunk: bytes) -> list[dict]:
-    """Open a session, send one fragment, and return every frame that arrives."""
+    """Open a session, send one fragment, and return every answer that arrives.
+
+    The opening `capability` frame is consumed (and checked) before the fragment
+    goes out, so the frames returned are the answers to it.
+    """
     frames: list[dict] = []
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_bytes(chunk)
             try:
                 while True:
@@ -132,7 +152,7 @@ def session_with(chunk: bytes) -> list[dict]:
 
 
 def main() -> None:
-    router_module.SttServiceClientImpl = FakeSttClient  # type: ignore[assignment]
+    router_module.SttServiceClientImpl = FakeSttClient  # type: ignore[assignment,misc]
     maximum = settings.audio_max_chunk_bytes
 
     print("\nthe limits that apply")
@@ -144,6 +164,7 @@ def main() -> None:
     chunk = b"\x00\x00" * 480
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_bytes(chunk)
             # A phrase closes the session on its own; without it the read loop
             # waits for the next frame and the test never returns.
@@ -181,6 +202,7 @@ def main() -> None:
     FakeSttClient.sent_audio = []
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_bytes(b"\x00\x00" * (maximum // 2))
             ws.send_text('{"type":"text","text":"hola","turn":1}')
             messages = [ws.receive_json() for _ in range(2)]
@@ -191,6 +213,7 @@ def main() -> None:
     FakeSttClient.sent_audio = []
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_bytes(b"\x00\x00" * 480)
             ws.send_text('{"type":"text","text":"hola","turn":1}')
             messages = [ws.receive_json() for _ in range(2)]

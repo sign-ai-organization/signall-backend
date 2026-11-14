@@ -119,8 +119,19 @@ def build_app() -> FastAPI:
     return app
 
 
+def open_session(ws) -> None:
+    """Consume the frame every session opens with, and check what it announces.
+
+    Since `8a31cc2` the backend tells the client what the session can do before
+    answering anything, so the first frame is never the answer to a phrase and
+    every positional read is one frame off without this. It is checked rather
+    than skipped: opening with it is part of the contract.
+    """
+    check("the session opens announcing audio", ws.receive_json(), {"type": "capability", "audio": True})
+
+
 def main() -> None:
-    router_module.SttServiceClientImpl = FakeSttClient  # type: ignore[assignment]
+    router_module.SttServiceClientImpl = FakeSttClient  # type: ignore[assignment,misc]
 
     print("\nthe classifier reads the identifier")
     frame = _parse_client_frame('{"type":"text","text":"hola","turn":7}')
@@ -140,6 +151,7 @@ def main() -> None:
     print("\nthe frames of the phrase carry the identifier")
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_text('{"type":"text","text":"hola","turn":7}')
             messages = [ws.receive_json() for _ in range(2)]
     check("the segment carries it", messages[0].get("turn"), 7)
@@ -148,6 +160,7 @@ def main() -> None:
     print("\na client that sends no identifier gets none")
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_text('{"type":"text","text":"hola"}')
             messages = [ws.receive_json() for _ in range(2)]
     check_that("the segment has no turn", "turn" not in messages[0])
@@ -156,6 +169,7 @@ def main() -> None:
     print("\nevery phrase of a connection has its own identifier")
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_text('{"type":"text","text":"hola","turn":1}')
             first = [ws.receive_json() for _ in range(2)]
             ws.send_text('{"type":"text","text":"adios","turn":2}')
@@ -166,6 +180,7 @@ def main() -> None:
     print("\nthe identifier does not leak into the next phrase")
     with TestClient(build_app()) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_text('{"type":"text","text":"hola","turn":7}')
             [ws.receive_json() for _ in range(2)]
             ws.send_text('{"type":"text","text":"adios"}')

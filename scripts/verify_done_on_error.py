@@ -120,12 +120,24 @@ def build_app(orchestrator) -> FastAPI:
     return app
 
 
+def open_session(ws) -> None:
+    """Consume the frame every session opens with, and check what it announces.
+
+    Since `8a31cc2` the backend tells the client what the session can do before
+    answering anything, so the first frame is never the answer to a phrase and
+    every positional read is one frame off without this. It is checked rather
+    than skipped: opening with it is part of the contract.
+    """
+    check("the session opens announcing audio", ws.receive_json(), {"type": "capability", "audio": True})
+
+
 def main() -> None:
-    router_module.SttServiceClientImpl = FakeSttClient  # type: ignore[assignment]
+    router_module.SttServiceClientImpl = FakeSttClient  # type: ignore[assignment,misc]
 
     print("\na phrase that fails is closed anyway")
     with TestClient(build_app(FailingOrchestrator())) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_text('{"type":"text","text":"hola"}')
             messages = [ws.receive_json() for _ in range(2)]
     check("the error comes first", messages[0].get("type"), "error")
@@ -135,6 +147,7 @@ def main() -> None:
     print("\na phrase that fails halfway is closed too")
     with TestClient(build_app(HalfFailingOrchestrator())) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_text('{"type":"text","text":"hola"}')
             messages = [ws.receive_json() for _ in range(3)]
     check("the sentence that was ready went out", messages[0].get("type"), "segment")
@@ -144,6 +157,7 @@ def main() -> None:
     print("\nthe session survives the failure")
     with TestClient(build_app(FailingOrchestrator())) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_text('{"type":"text","text":"hola"}')
             [ws.receive_json() for _ in range(2)]
             # A second phrase in the same session: the client is free to try
@@ -156,6 +170,7 @@ def main() -> None:
     print("\nthe done carries the identifier of the phrase it closes")
     with TestClient(build_app(FailingOrchestrator())) as client:
         with client.websocket_connect("/ws/translate") as ws:
+            open_session(ws)
             ws.send_text('{"type":"text","text":"hola","turn":4}')
             messages = [ws.receive_json() for _ in range(2)]
     check("the error carries it", messages[0].get("turn"), 4)
