@@ -45,28 +45,30 @@ def _resolve_fillers(fragments: list[str], config: SentenceSegmenterSettings) ->
     return result
 
 
-def _merge_short(fragments: list[str], config: SentenceSegmenterSettings) -> list[str]:
-    minimum = config.min_fragment_words
-    if minimum <= 1:
-        return fragments
-
+def _merge_short_into_previous(fragments: list[str], minimum: int) -> list[str]:
+    """Attaches every short fragment to the one before it."""
     def is_short(fragment: str) -> bool:
         return len(normalized_words(fragment)) < minimum
 
-    if config.short_fragment_merge_direction == "previous":
-        result: list[str] = []
-        for fragment in fragments:
-            if is_short(fragment) and result:
-                result[-1] = _join(result[-1], fragment)
-            else:
-                result.append(fragment)
-        # A short first fragment has no previous one: it goes to the next.
-        if len(result) > 1 and is_short(result[0]):
-            result[1] = _join(result[0], result[1])
-            result.pop(0)
-        return result
+    result: list[str] = []
+    for fragment in fragments:
+        if is_short(fragment) and result:
+            result[-1] = _join(result[-1], fragment)
+        else:
+            result.append(fragment)
+    # A short first fragment has no previous one: it goes to the next.
+    if len(result) > 1 and is_short(result[0]):
+        result[1] = _join(result[0], result[1])
+        result.pop(0)
+    return result
 
-    result = []
+
+def _merge_short_into_next(fragments: list[str], minimum: int) -> list[str]:
+    """Attaches every short fragment to the one after it."""
+    def is_short(fragment: str) -> bool:
+        return len(normalized_words(fragment)) < minimum
+
+    result: list[str] = []
     for fragment in reversed(fragments):
         if is_short(fragment) and result:
             result[-1] = _join(fragment, result[-1])
@@ -77,6 +79,15 @@ def _merge_short(fragments: list[str], config: SentenceSegmenterSettings) -> lis
         result[-2] = _join(result[-2], result[-1])
         result.pop()
     return result
+
+
+def _merge_short(fragments: list[str], config: SentenceSegmenterSettings) -> list[str]:
+    minimum = config.min_fragment_words
+    if minimum <= 1:
+        return fragments
+    if config.short_fragment_merge_direction == "previous":
+        return _merge_short_into_previous(fragments, minimum)
+    return _merge_short_into_next(fragments, minimum)
 
 
 def post_process(fragments: list[str], config: SentenceSegmenterSettings) -> list[str]:

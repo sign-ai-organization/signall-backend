@@ -157,51 +157,77 @@ async def _forward_audio(
 
         if message["type"] == "websocket.disconnect":
             break
+        if not await _handle_message(message, websocket, controller, translator, audio_available, busy_since):
+            break
 
-        chunk = message.get("bytes")
-        if chunk is not None:
-            if not audio_available:
-                # Sin servicio de voz no se reenvía nada. Descartar acá y no
-                # cerrar la sesión es el punto de S5: cerrarla dejaba al usuario
-                # sin texto también.
-                metrics.counter("rt_audio_dropped_no_stt_total")
-                metrics.histogram(*_busy(busy_since))
-                continue
-            if not await controller.handle_audio_chunk(chunk):
-                metrics.histogram(*_busy(busy_since))
-                # The session ends here: a client that sends a fragment that is
-                # not audio is not going to start sending audio on the next one,
-                # and keeping the socket open only lets it keep doing it.
-                await _try_send_error(controller, "El audio recibido no es válido.")
-                # Closed explicitly instead of leaving it to the end of the
-                # handler: the close frame is what tells a standard client that
-                # the session ended on purpose, and without it the socket can
-                # stay open on the other side. 1008 is "policy violation".
-                try:
-                    await websocket.close(code=1008)
-                except Exception:
-                    logger.debug("the socket was already closed", exc_info=True)
-                break
-            metrics.histogram(*_busy(busy_since))
-            continue
 
-        raw = message.get("text")
-        if raw is None:
-            metrics.histogram(*_busy(busy_since))
-            continue
+async def _handle_message(
+    message: dict[str, Any],
+    websocket: WebSocket,
+    controller: Controller,
+    translator: _PhraseTranslator,
+    audio_available: bool,
+    busy_since: float,
+) -> bool:
+    """Handles one message from the client socket; False when the session ends.
 
-        frame = _parse_client_frame(raw)
-        if frame is None:
-            metrics.histogram(*_busy(busy_since))
-            continue
+    `busy_since` is when the message came out of the socket, so it doubles as
+    the arrival time of the phrase and as the start of the read-loop timing.
+    """
+    chunk = message.get("bytes")
+    if chunk is not None:
+        return await _handle_audio_fragment(chunk, websocket, controller, audio_available, busy_since)
 
-        if frame.kind == TEXT_FRAME:
-            # `busy_since` is the moment the frame came out of the socket, so
-            # it doubles as the arrival time of the phrase.
-            translator.submit(frame.text, frame.turn, busy_since)
-        else:
-            await controller.handle_end()
+    raw = message.get("text")
+    if raw is None:
         metrics.histogram(*_busy(busy_since))
+        return True
+
+    frame = _parse_client_frame(raw)
+    if frame is None:
+        metrics.histogram(*_busy(busy_since))
+        return True
+
+    if frame.kind == TEXT_FRAME:
+        translator.submit(frame.text, frame.turn, busy_since)
+    else:
+        await controller.handle_end()
+    metrics.histogram(*_busy(busy_since))
+    return True
+
+
+async def _handle_audio_fragment(
+    chunk: bytes,
+    websocket: WebSocket,
+    controller: Controller,
+    audio_available: bool,
+    busy_since: float,
+) -> bool:
+    """Forwards one audio fragment to the STT; False when the session ends."""
+    if not audio_available:
+        # Sin servicio de voz no se reenvía nada. Descartar acá y no
+        # cerrar la sesión es el punto de S5: cerrarla dejaba al usuario
+        # sin texto también.
+        metrics.counter("rt_audio_dropped_no_stt_total")
+        metrics.histogram(*_busy(busy_since))
+        return True
+    if not await controller.handle_audio_chunk(chunk):
+        metrics.histogram(*_busy(busy_since))
+        # The session ends here: a client that sends a fragment that is
+        # not audio is not going to start sending audio on the next one,
+        # and keeping the socket open only lets it keep doing it.
+        await _try_send_error(controller, "El audio recibido no es válido.")
+        # Closed explicitly instead of leaving it to the end of the
+        # handler: the close frame is what tells a standard client that
+        # the session ended on purpose, and without it the socket can
+        # stay open on the other side. 1008 is "policy violation".
+        try:
+            await websocket.close(code=1008)
+        except Exception:
+            logger.debug("the socket was already closed", exc_info=True)
+        return False
+    metrics.histogram(*_busy(busy_since))
+    return True
 
 
 def _busy(since: float) -> tuple[str, float, str]:

@@ -17,6 +17,77 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+async def _open_pool(
+    state: Any,
+    catalog_repository: "CatalogRepository",
+    semantic_cache: "SemanticCache",
+    db_keep_alive: "DatabaseKeepAlive",
+) -> None:
+    """Opens the pool and hands it to the components that were built without it."""
+    pool = await database.create_pool(
+        settings.database_url,
+        settings.db_pool_min_size,
+        settings.db_pool_max_size,
+        settings.db_pool_max_inactive_connection_lifetime_seconds,
+        command_timeout_seconds=settings.db_command_timeout_seconds,
+        connect_timeout_seconds=settings.db_connect_timeout_seconds,
+    )
+    state.db_pool = pool
+    catalog_repository.attach_pool(pool)
+    semantic_cache.attach_pool(pool)
+    db_keep_alive.attach_pool(pool)
+    logger.info("The database is reachable again; the pool is open")
+
+
+async def _load_catalog(
+    catalog_repository: "CatalogRepository",
+    semantic_cache: "SemanticCache",
+    llm_client: "LLMClient",
+) -> bool:
+    """Loads the catalog and tells the components that depend on it. False when it stayed empty."""
+    await catalog_repository.load_all()
+    if not catalog_repository.cache:
+        return False
+    llm_client.update_catalog(catalog_repository.vocabulary(), catalog_repository.categories())
+    # The cache keys depend on the synonyms, so the index is rebuilt below even
+    # if it had loaded without them.
+    semantic_cache.set_synonym_pairs(catalog_repository.synonym_pairs)
+    metrics.gauge("catalog_glosses", len(catalog_repository.cache))
+    logger.info("Catalog loaded after start-up: %d glosses", len(catalog_repository.cache))
+    return True
+
+
+async def _reload_cache(semantic_cache: "SemanticCache") -> None:
+    await semantic_cache.reload()
+    metrics.gauge("cache_rows", semantic_cache.row_count)
+    metrics.gauge("cache_loaded", 1 if semantic_cache.is_loaded else 0)
+
+
+async def _recover_once(
+    state: Any,
+    catalog_repository: "CatalogRepository",
+    semantic_cache: "SemanticCache",
+    llm_client: "LLMClient",
+    db_keep_alive: "DatabaseKeepAlive",
+    cache_pending: bool,
+) -> None:
+    """One round: open the pool, load the catalog and rebuild the cache if needed.
+
+    A step that fails leaves the previous one in place: the next round only
+    picks up what is still missing.
+    """
+    if state.db_pool is None:
+        await _open_pool(state, catalog_repository, semantic_cache, db_keep_alive)
+
+    if not catalog_repository.cache:
+        if not await _load_catalog(catalog_repository, semantic_cache, llm_client):
+            return  # the catalog read failed: retry next round
+        cache_pending = settings.semantic_cache_preload
+
+    if cache_pending:
+        await _reload_cache(semantic_cache)
+
+
 async def recover_database(
     state: Any,
     catalog_repository: "CatalogRepository",
@@ -42,43 +113,12 @@ async def recover_database(
     """
     while True:
         await asyncio.sleep(settings.db_recovery_interval_seconds)
-        pool = state.db_pool
         cache_pending = settings.semantic_cache_preload and not semantic_cache.is_loaded
-        if pool is not None and catalog_repository.cache and not cache_pending:
+        if state.db_pool is not None and catalog_repository.cache and not cache_pending:
             logger.info("Database recovery check: nothing left to load; stopping")
             return
 
         try:
-            if pool is None:
-                pool = await database.create_pool(
-                    settings.database_url,
-                    settings.db_pool_min_size,
-                    settings.db_pool_max_size,
-                    settings.db_pool_max_inactive_connection_lifetime_seconds,
-                    command_timeout_seconds=settings.db_command_timeout_seconds,
-                    connect_timeout_seconds=settings.db_connect_timeout_seconds,
-                )
-                state.db_pool = pool
-                catalog_repository.attach_pool(pool)
-                semantic_cache.attach_pool(pool)
-                db_keep_alive.attach_pool(pool)
-                logger.info("The database is reachable again; the pool is open")
-
-            if not catalog_repository.cache:
-                await catalog_repository.load_all()
-                if not catalog_repository.cache:
-                    continue
-                llm_client.update_catalog(catalog_repository.vocabulary(), catalog_repository.categories())
-                # The cache keys depend on the synonyms, so the index is
-                # rebuilt below even if it had loaded without them.
-                semantic_cache.set_synonym_pairs(catalog_repository.synonym_pairs)
-                cache_pending = settings.semantic_cache_preload
-                metrics.gauge("catalog_glosses", len(catalog_repository.cache))
-                logger.info("Catalog loaded after start-up: %d glosses", len(catalog_repository.cache))
-
-            if cache_pending:
-                await semantic_cache.reload()
-                metrics.gauge("cache_rows", semantic_cache.row_count)
-                metrics.gauge("cache_loaded", 1 if semantic_cache.is_loaded else 0)
+            await _recover_once(state, catalog_repository, semantic_cache, llm_client, db_keep_alive, cache_pending)
         except Exception as error:  # noqa: BLE001 - the next round tries again
             logger.warning("Database recovery attempt failed (%s); trying again later", type(error).__name__)

@@ -14,7 +14,10 @@ class Orchestrator(OrchestratorService):
         self.validator_service = validator_service
 
     async def translate(self, text: str) -> list[ValidatedSegment]:
-        return [segment async for _, _, segment in self.translate_stream(text)]
+        segments: list[ValidatedSegment] = []
+        async for _, _, segment in self.translate_stream(text):
+            segments.append(segment)
+        return segments
 
     async def translate_stream(self, text: str) -> AsyncIterator[tuple[int, int, ValidatedSegment]]:
         """Translates all sentences concurrently; yields (index, total, segment) in sentence order."""
