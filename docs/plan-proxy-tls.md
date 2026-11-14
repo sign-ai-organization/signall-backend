@@ -126,7 +126,7 @@ backend sigue escuchando en `0.0.0.0:8080` sin saber que existe un proxy.
 | `AGENTS.md`, `docs/SISTEMA.md` | editar | Comando de demo con `wss://`, `adb reverse tcp:8443 tcp:443` y el nombre del certificado |
 | `docs/CONTRASTE-APPvsDOCUMENTOS.md` | editar | A3 (`:106`): nueva redacción y nuevo hook de verificación |
 
-**No se toca:** `SignAiBackendConfig.kt`, `SignAiWebSocketClient.kt`,
+**No se toca:** `SignAllBackendConfig.kt`, `SignAllWebSocketClient.kt`,
 `AndroidManifest.xml` (ya apunta a `@xml/network_security_config`) ni el puente
 Kotlin ↔ JS. El manifiesto y el cliente ya soportan `wss://`; el cambio es de build.
 

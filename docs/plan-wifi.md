@@ -32,7 +32,7 @@ El objetivo es que el cable desaparezca de las cuatro cosas que hoy dependen de 
 | Instalar o actualizar el APK | `./gradlew installDemo` (adb) | se baja de `https://192.168.80.49/apk/` en el navegador del teléfono |
 | Saber qué build corre | `adb shell dumpsys package` | la app lo reporta en su primer latido |
 | Leer las métricas del teléfono | `adb logcat -s SignAllMetrics` | `tools/wifi/metricas.sh`, que lee el reporte de la app |
-| Leer un error | `adb logcat -s SignAllNet SignAiState` | el último error viaja en el reporte |
+| Leer un error | `adb logcat -s SignAllNet SignAllState` | el último error viaja en el reporte |
 
 ```
 Antes
@@ -152,7 +152,7 @@ Dockerfile ni el protocolo de los frames.
 | Archivo | Acción | Qué |
 |---|---|---|
 | `app/build.gradle.kts` | editar | `GIT_SHA` en `BuildConfig`; `versionCode` desde la cantidad de commits; `ALLOW_CLEARTEXT_BACKEND` por build type |
-| `app/src/main/java/.../data/SignAiBackendConfig.kt` | editar | La URL sale de las preferencias si hay una guardada; validación por build type |
+| `app/src/main/java/.../data/SignAllBackendConfig.kt` | editar | La URL sale de las preferencias si hay una guardada; validación por build type |
 | `app/src/main/java/.../data/SettingsRepository.kt` | editar | Clave `server_url` (`null` = la del build) |
 | `app/src/main/java/.../domain/Settings.kt` | editar | `serverUrl: String?` |
 | `app/src/main/java/.../ui/screens/settings/SettingsSidebar.kt` | editar | Campo "Servidor", botón "Probar" y "Guardar", solo en AVANZADO |
@@ -166,7 +166,7 @@ Dockerfile ni el protocolo de los frames.
 | `tools/verificar-tiempo-real.sh` | editar | El bloque del dispositivo deja de usar `adb` |
 | `AGENTS.md`, `docs/SISTEMA.md` | editar | El camino Wi-Fi como camino normal |
 
-**No se toca:** `SignAiWebSocketClient` (ya soporta `wss://`), el puente Kotlin ↔ JS,
+**No se toca:** `SignAllWebSocketClient` (ya soporta `wss://`), el puente Kotlin ↔ JS,
 `AndroidManifest.xml`, los `network_security_config.xml`, ni el catálogo de señas.
 
 ### `../signall-docs` y Overleaf
@@ -285,7 +285,7 @@ Acerca de muestra el SHA de ese build, sin haber usado el cable.
 ### Fase 3 — La dirección, sin recompilar (2 h) 🔧
 
 1. `SettingsRepository` guarda `server_url` (`null` = la del build).
-2. `SignAiBackendConfig` lee primero la preferencia, valida y normaliza: acepta
+2. `SignAllBackendConfig` lee primero la preferencia, valida y normaliza: acepta
    `wss://host`, `wss://host/puerto` o la URL completa, y agrega `/ws/translate` si
    falta. El build type decide: `demo` y `release` solo `wss://`; `debug` también
    `ws://`.
