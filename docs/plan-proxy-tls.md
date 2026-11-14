@@ -207,7 +207,7 @@ otro servicio lo toma, Caddy no arranca y lo dice en el log.
    (Wi-Fi). Igual que `release`, solo acepta `wss://` en la propiedad de build.
 3. `./gradlew assembleDemo` y `./gradlew installDemo`.
 
-**Terminado cuando:** el APK instala y arranca, y en `adb logcat -s SignAiNet`
+**Terminado cuando:** el APK instala y arranca, y en `adb logcat -s SignAllNet`
 aparece `sesión abierta: wss://… (TLS)` una vez instalada la CA (fase 4).
 
 **Por qué el 8443:** en el teléfono, `adb reverse tcp:443 tcp:443` **falla**
@@ -238,7 +238,7 @@ adb reverse tcp:8443 tcp:443     # si la demo va por USB
 
 | Qué se prueba | Cómo | Esperado |
 |---|---|---|
-| El enlace va cifrado | `adb logcat -s SignAiNet` | `wss://… (TLS)` |
+| El enlace va cifrado | `adb logcat -s SignAllNet` | `wss://… (TLS)` |
 | El contenido no se puede leer | `sudo tcpdump -i lo -n -A 'tcp port 443'` mientras se envía una frase | el texto **no** aparece |
 | La app rechaza `ws://` | probar el APK `demo` contra el 8080 en claro | `CLEARTEXT communication … not permitted` |
 | El tramo interno sí va en claro | `sudo tcpdump -i lo -n -A 'tcp port 8080'` | ahí **sí** se lee: es la limitación declarada |
@@ -291,7 +291,7 @@ así que no es comparable con la línea base de 913 ms p50 del camino por palabr
 Mismo teléfono (Redmi Note 9S) por USB, mismo LLM (`qwen3:4b-instruct` en Ollama
 local), APK `demo` hablando `wss://127.0.0.1:8443/ws/translate` por
 `adb reverse tcp:8443 tcp:443`. Los números del teléfono son de
-`adb logcat -s SignAiMetrics`; los del NLP, del `Pipeline trace` del backend.
+`adb logcat -s SignAllMetrics`; los del NLP, del `Pipeline trace` del backend.
 
 | Qué | Sin cifrar (2026-10-26) | Con TLS (2026-10-27) |
 |---|---|---|
@@ -389,7 +389,7 @@ depende del owner, porque los `.tex` y los `.drawio` los aplica él.
 - [x] `http://127.0.0.1:8080/health` sigue respondiendo: backend intacto.
 - [x] APK `demo` instala, prohíbe texto en claro y confía en la CA de usuario.
 - [x] CA instalada en el teléfono.
-- [x] Log `SignAiNet` dice `(TLS)`.
+- [x] Log `SignAllNet` dice `(TLS)`.
 - [x] Captura de `tcpdump` sin texto legible en el 443.
 - [x] Intento de `ws://` rechazado por el APK `demo`.
 - [x] Dos diagramas redibujados y las PNG en los tres destinos.

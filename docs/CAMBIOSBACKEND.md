@@ -83,7 +83,7 @@ comparable**. La cifra nueva, medida el 2026-10-15 con `qwen3:4b-instruct` en
 Ollama local y la caché semántica vacía, es **p50 273 ms / p95 422 ms**.
 
 > Los nombres de métrica tienen que coincidir con los del lado del teléfono
-> (`SignAiMetrics`): un número que no se instrumentó en las dos partes no se puede
+> (`SignAllMetrics`): un número que no se instrumentó en las dos partes no se puede
 > comparar con nada.
 
 ---

@@ -21,7 +21,7 @@ Etiquetas, igual que en `plan-proxy-tls.md`:
 
 Hoy el teléfono habla con el backend por el cable: `adb reverse` convierte
 `127.0.0.1` en la máquina, y `adb` es también como se instala el APK y como se leen
-las métricas (`adb logcat -s SignAiMetrics`). El enlace cifrado ya existe y ya se
+las métricas (`adb logcat -s SignAllMetrics`). El enlace cifrado ya existe y ya se
 probó, pero por USB.
 
 El objetivo es que el cable desaparezca de las cuatro cosas que hoy dependen de él:
@@ -31,8 +31,8 @@ El objetivo es que el cable desaparezca de las cuatro cosas que hoy dependen de 
 | La app llega al backend | `adb reverse tcp:8443 tcp:443` | `wss://192.168.80.49/ws/translate` por la red local |
 | Instalar o actualizar el APK | `./gradlew installDemo` (adb) | se baja de `https://192.168.80.49/apk/` en el navegador del teléfono |
 | Saber qué build corre | `adb shell dumpsys package` | la app lo reporta en su primer latido |
-| Leer las métricas del teléfono | `adb logcat -s SignAiMetrics` | `tools/wifi/metricas.sh`, que lee el reporte de la app |
-| Leer un error | `adb logcat -s SignAiNet SignAiState` | el último error viaja en el reporte |
+| Leer las métricas del teléfono | `adb logcat -s SignAllMetrics` | `tools/wifi/metricas.sh`, que lee el reporte de la app |
+| Leer un error | `adb logcat -s SignAllNet SignAiState` | el último error viaja en el reporte |
 
 ```
 Antes
@@ -95,7 +95,7 @@ de energía del Wi-Fi es la causa más probable). Se anota en `performance.md`.
 3. **La dirección editable desde la app.** Hoy la IP entra por
    `-Psignai.backendWsUrl` y eso obliga a recompilar cada vez que el DHCP cambia.
    Pasa a ser un campo en AVANZADO, guardado en preferencias.
-4. **El reporte de métricas del teléfono.** La app manda su `SignAiMetrics` por HTTP al
+4. **El reporte de métricas del teléfono.** La app manda su `SignAllMetrics` por HTTP al
    mismo origen, y el backend lo publica junto a las suyas en `/metrics.json` y
    `/metrics`. Es lo que reemplaza `adb logcat`.
 
@@ -157,7 +157,7 @@ Dockerfile ni el protocolo de los frames.
 | `app/src/main/java/.../domain/Settings.kt` | editar | `serverUrl: String?` |
 | `app/src/main/java/.../ui/screens/settings/SettingsSidebar.kt` | editar | Campo "Servidor", botón "Probar" y "Guardar", solo en AVANZADO |
 | `app/src/main/java/.../data/DeviceMetricsReporter.kt` | **nuevo** | El POST periódico con el estado y las métricas |
-| `app/src/main/java/.../ui/state/SignAiMetrics.kt` | editar | `snapshotData()` tipado, además del `snapshot()` de texto; `session_id` al reiniciar |
+| `app/src/main/java/.../ui/state/SignAllMetrics.kt` | editar | `snapshotData()` tipado, además del `snapshot()` de texto; `session_id` al reiniciar |
 | `app/src/main/java/.../ui/state/MainScreenState.kt` | editar | Engancha el reporte: al terminar un turno, al reiniciar las métricas y en `fail()` |
 | `tools/wifi/publicar-apk.sh` | **nuevo** | Compila, publica en `deploy/apk/` y muestra la URL y el QR |
 | `tools/wifi/estado.sh` | **nuevo** | Salud del camino Wi-Fi y último latido del teléfono |
@@ -310,7 +310,7 @@ y conecta, sin compilar ni reinstalar.
 - Build: `versionName`, `versionCode`, build type y `GIT_SHA`.
 - Estado: `ws` (`connected`/`disconnected`/`connecting`), `mic`, `playback`, `last_error`
   y `session_id` (cambia cuando `metrics.reset()`).
-- Números: los contadores y los cuatro resúmenes de `SignAiMetrics` (p50, p95, max, n).
+- Números: los contadores y los cuatro resúmenes de `SignAllMetrics` (p50, p95, max, n).
 - Se apaga solo en `release` (`BuildConfig.DEBUG` es `false` ahí).
 
 **En el backend:**

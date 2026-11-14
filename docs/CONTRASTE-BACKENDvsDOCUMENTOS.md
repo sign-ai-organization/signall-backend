@@ -510,7 +510,7 @@ la frase hasta que **manda la primera oración por el cable**.
 | Tramo | Quién lo mide | Con qué nombre |
 |---|---|---|
 | Frase recibida → primera oración **enviada** | El backend | `rt_first_sign_ms` |
-| Oración **enviada** → el avatar **se mueve** | La app | `SignAiMetrics.onFirstSign` |
+| Oración **enviada** → el avatar **se mueve** | La app | `SignAllMetrics.onFirstSign` |
 
 La suma de los dos es lo que pide el SRS, y **los dos tramos existen**: el invariante 4 del
 contrato pide que los dos lados midan, y los dos miden.
@@ -631,7 +631,7 @@ texto se envía a traducir … hasta que el avatar ejecuta la primera seña"*. E
 métrica del backend dice `rt_first_sign_ms`, pero **no mide hasta la seña**: mide hasta que
 el backend **envía** la primera oración (`app/controller/controller.py:205-224`). El resto
 del tramo —de que la oración sale del cable hasta que el muñeco se mueve— lo mide la app
-en `SignAiMetrics.onFirstSign`.
+en `SignAllMetrics.onFirstSign`.
 
 O sea: **el número existe y está en los dos lados, pero cada uno mide un tramo y el nombre
 promete los dos.**
@@ -1175,7 +1175,7 @@ pierde:
 | **Hallazgo 2** — el `done` no identifica la frase | **6.5**, y el punto **39** |
 | Semilla 1 · ¿el `error` siempre llega? | **39** y **6.3**: los dos caminos existen y los dos están mal cerrando el turno |
 | Semilla 2 · ¿el `done` va después del último `segment`? | **39**: va después, salvo cuando algo falla |
-| Semilla 3 · nombres de métrica contra `SignAiMetrics` | **37**, con los dos casos en §2.4. Los nombres coinciden en los dos lados; lo que no coincide es lo que el nombre **promete** |
+| Semilla 3 · nombres de métrica contra `SignAllMetrics` | **37**, con los dos casos en §2.4. Los nombres coinciden en los dos lados; lo que no coincide es lo que el nombre **promete** |
 | Semilla 4 · RNF-DES-01 (latencia con caché / con LLM) | **37**. `llm_ms{model}` y `cache_lookup_ms` ya están instrumentados, así que la base está; falta poder separar los dos escenarios en `rt_first_sign_ms` |
 | Semilla 5 · columnas del catálogo contra `SignsCatalog.kt` | **11**, **12**, **36**. La migración `003` ya dejó las nueve columnas alineadas |
 | Semilla 6 · RF-INT-COM-01, "detectará una desconexión" | Fuera de este repo: el latido es del cliente. En el backend queda **34**, con el análisis en §7 |
@@ -1359,7 +1359,7 @@ verificaciones, está en `docs/plan-proxy-tls.md`.
 |---|---|---|
 | El proxy responde | `curl --cacert deploy/certs/lab-ca.crt https://127.0.0.1/health` | 200 con `status: ok` |
 | El handshake del WebSocket | `curl --http1.1` contra `/ws/translate` por el 443 | 101 |
-| La app usa TLS | `adb logcat -s SignAiNet` | `sesión abierta: wss://… (TLS)` |
+| La app usa TLS | `adb logcat -s SignAllNet` | `sesión abierta: wss://… (TLS)` |
 | El 443 no se lee | captura en `lo:443` mientras se envía una frase | 6 236 B, **cero** coincidencias del texto |
 | El tramo interno sí se lee | captura en `lo:8080` | el texto aparece: es la limitación declarada |
 | La app rechaza `ws://` | build `demo` contra el 8080 en claro | `CLEARTEXT communication … not permitted` |

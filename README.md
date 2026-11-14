@@ -29,18 +29,67 @@ la voz no entre en un bucle.
 
 ## Cómo se usa
 
-La forma normal es Docker, que levanta el backend y el servicio de voz juntos. El
-`docker-compose.yml` construye ese servicio desde un clon de `signall-stt` en la carpeta
-hermana (`../signall-stt`, la ruta que declara el propio archivo), así que el clon va ahí:
+El sistema completo —backend, servicio de voz y **proxy TLS**— se levanta con **dos archivos
+de Compose**:
 
 ```bash
 cp .env.example .env                                    # completar DATABASE_URL y LLM_API_KEY
 git clone https://github.com/sign-ai-organization/signall-stt ../signall-stt
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.host.yml up -d
 ```
 
-El backend queda en `http://localhost:8080`. Si no se quiere ese clon, se puede levantar el
-STT desde su propio repositorio y correr el backend contra él:
+El `docker-compose.yml` construye el servicio de voz desde un clon de `signall-stt` en la
+carpeta hermana (`../signall-stt`, la ruta que declara el propio archivo), así que el clon va
+ahí. El `docker-compose.host.yml` es un **override** que pone el backend en la red del host y
+agrega el proxy.
+
+| Servicio | Qué es | Queda en |
+|---|---|---|
+| `backend` | este repositorio | `http://localhost:8080` |
+| `stt` | el servicio de voz del clon hermano | `http://localhost:8000` |
+| `caddy` | el proxy TLS de `deploy/` | `https://127.0.0.1/` (443) y `wss://…/ws/translate` |
+
+**El proxy es parte del sistema, no un extra.** Sin él solo existe `ws://` en claro, y el APK
+`demo` de Android —el que demuestra el cifrado— apunta a `wss://` y no conecta. Por eso el
+`caddy` vive en el segundo archivo: necesita compartir la red del host para alcanzar al
+backend por `127.0.0.1:8080`, y el archivo base se mantiene portable (red de Compose, la misma
+configuración en Linux, macOS y Windows).
+
+La consecuencia práctica se confunde con un error del backend: `docker compose up -d` **a
+secas no levanta Caddy**. El backend responde en el 8080 y la app `demo` no conecta. Si se
+levantó así, alcanza con volver a correr el comando de dos archivos; no hay que reconstruir
+nada.
+
+Antes del primer arranque del proxy hace falta el certificado de laboratorio, una vez por
+máquina: son tres archivos en `deploy/certs/` que no están en git y se emiten con `mkcert`
+según [`deploy/README.md`](deploy/README.md). Sin `lab.pem` y `lab-key.pem` el contenedor de
+Caddy no arranca, y eso es a propósito: un proxy sin certificado no debe levantar en claro en
+silencio.
+
+### Comprobar que el sistema completo está arriba
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.host.yml ps caddy
+curl --cacert deploy/certs/lab-ca.crt https://127.0.0.1/health
+```
+
+El primero tiene que listar `signall-backend-caddy-1` con estado `Up`. El segundo tiene que
+devolver el mismo JSON de `/health` que el backend, porque el proxy solo reenvía. Si algo
+falla, cada síntoma significa una cosa distinta:
+
+| Síntoma | Qué significa | Qué hacer |
+|---|---|---|
+| `The file '…/lab-ca.crt' provided to --cacert does not exist` | el certificado no se emitió en esta máquina, o se borró | emitir los tres archivos con [`deploy/README.md`](deploy/README.md) |
+| `curl: (60) SSL certificate problem` **sin** `--cacert` | normal: la CA de laboratorio no está en el almacén del sistema | usar `--cacert`, o instalar la CA si se quiere evitar |
+| `curl: (7) Failed to connect … port 443` | Caddy no está arriba: se levantó con un solo archivo de Compose, o el contenedor se cayó porque falta el certificado | `docker compose -f docker-compose.yml -f docker-compose.host.yml up -d`, y si sigue, `… logs caddy` |
+| `502 Bad Gateway` | el proxy está arriba y el backend no | `curl -s http://localhost:8080/health` y `docker compose … ps backend` |
+| `ps caddy` no lista nada | el proxy nunca se levantó | el comando de dos archivos, no el de uno |
+
+El backend por el 8080 sigue respondiendo igual que siempre: `curl -s
+http://localhost:8080/health` sirve para separar "el backend está bien" de "el proxy falta".
+
+Si no se quiere ese clon, se puede levantar el STT desde su propio repositorio y correr el
+backend contra él:
 
 ```bash
 # en signall-stt
@@ -73,7 +122,8 @@ arrancar, así que después de un seed hay que reiniciar el servicio.
 | PostgreSQL 16 + pgvector | la cadena de conexión va en `DATABASE_URL` |
 | Clave de LLM | `LLM_API_KEY`; `LLM_BASE_URL` vacía usa OpenAI |
 | Servicio de voz | [signall-stt](https://github.com/sign-ai-organization/signall-stt) en `ws://…:8000/ws/transcribe`; sin él no hay voz |
-| Puertos | `8080` para el backend; el STT publica `8000` |
+| Certificado de laboratorio | `deploy/certs/` con la CA, el certificado y la clave; sin él el proxy no arranca (ver [`deploy/README.md`](deploy/README.md)) |
+| Puertos | `8080` para el backend, `8000` para el STT y `443` para el proxy |
 | GPU | opcional; el STT cae a CPU con `DEVICE=cpu` y `COMPUTE_TYPE=int8` |
 
 ## Estructura
@@ -105,12 +155,32 @@ pueden correr de a uno con `python -m scripts.<nombre>` y salen con código 1 cu
 comportamiento que vigilan cambió. La mayoría necesita las dependencias del servicio, así que
 lo práctico es correrlos dentro de la imagen con `scripts/cobertura.sh`.
 
+## El resto del sistema
+
+Este repositorio es **una pieza** de un sistema de cuatro, más la producción de las
+animaciones:
+
+| Repositorio | Qué aporta |
+|---|---|
+| [signall-stt](https://github.com/sign-ai-organization/signall-stt) | audio → texto en tiempo real |
+| [signall-android](https://github.com/sign-ai-organization/signall-android) | la app que captura, envía y representa las señas |
+| [signall-docs](https://github.com/sign-ai-organization/signall-docs) | los documentos de la tesis; **es el que manda para lo escrito** |
+| [signall-avatar](https://github.com/sign-ai-organization/signall-avatar) | los GLB finales de los dos avatares (rama `dev`) |
+
+Los repos hermanos son **fuentes de información**, no cajas negras: antes de cambiar un frame
+del WebSocket, una glosa del catálogo o un nombre de métrica hay que leer el otro lado, porque
+el contrato no lo verifica ningún compilador. La referencia cruzada está en
+[`docs/android-integration.md`](docs/android-integration.md).
+
+Cada cambio no trivial se documenta en `signall-docs`: en `cambios/` queda qué cambió y por
+qué, y si toca un documento formal se actualiza el `.tex` y se compila con `make`.
+
 ## Licencia
 
-Este proyecto se distribuye bajo la licencia {{LICENCIA}}. Ver [LICENSE](LICENSE).
+Este proyecto se distribuye bajo la licencia que defina la Pontificia Universidad Javeriana (pendiente de confirmación; por ahora, todos los derechos reservados). Ver [LICENSE](LICENSE).
 
 ## Trabajo de grado
 
 SignAll es un trabajo de grado de la Pontificia Universidad Javeriana (Colombia). Para
-citarlo: {{AUTOR}} ({{AÑO}}). *SignAll: español hablado a Lengua de Señas Colombiana con un
+citarlo: el equipo del trabajo de grado (2026). *SignAll: español hablado a Lengua de Señas Colombiana con un
 avatar 3D*.

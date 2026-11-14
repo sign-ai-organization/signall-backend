@@ -779,7 +779,7 @@ número?
 **Cómo:** Redmi Note 9S por USB, APK `demo` contra
 `wss://127.0.0.1:8443/ws/translate` (`adb reverse tcp:8443 tcp:443`), mismo LLM
 (`qwen3:4b-instruct` en Ollama local) y la caché semántica caliente. Los tiempos
-del teléfono salen de `SignAiMetrics` en logcat; los del NLP, del `Pipeline
+del teléfono salen de `SignAllMetrics` en logcat; los del NLP, del `Pipeline
 trace` del backend.
 
 | Qué | Sin cifrar (2026-10-26) | Con TLS (2026-10-27) |
