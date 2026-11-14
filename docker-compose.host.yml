@@ -30,9 +30,12 @@ services:
       # on the compose network), so the STT is addressed through the port it
       # publishes.
       STT_WS_URL: ws://127.0.0.1:8000/ws/transcribe
-      # Delete this line if the model is on the cloud instead of the host: an
-      # empty `LLM_BASE_URL` means OpenAI and the value from `.env` applies.
-      LLM_BASE_URL: http://127.0.0.1:11434/v1
+      # El servidor de modelo por defecto es el de la máquina (Ollama). Para usar
+      # la nube, se deja `LLM_BASE_URL=` **vacío** en `.env` (ver `.env.example`)
+      # y la variable pasa tal cual: vacío significa OpenAI. El `-` sin `:` es a
+      # propósito —con `${LLM_BASE_URL:-…}` un valor vacío volvería al default y
+      # el modelo de la nube nunca se usaría.
+      LLM_BASE_URL: ${LLM_BASE_URL-http://127.0.0.1:11434/v1}
 
   # TLS termination in front of `backend`. Design: docs/plan-proxy-tls.md.
   #
