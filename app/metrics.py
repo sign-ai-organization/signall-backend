@@ -1,6 +1,6 @@
 """Métricas del backend, sin dependencias.
 
-Mismo formato de exposición de Prometheus que el del STT (`sign-ai-stt/app/metrics.py`),
+Mismo formato de exposición de Prometheus que el del STT (`signall-stt/app/metrics.py`),
 implementado aparte porque los repos no comparten código y duplicar 150 líneas
 es preferible a inventar un paquete común para dos consumidores.
 

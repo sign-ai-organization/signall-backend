@@ -43,7 +43,7 @@ sistema. El backend por el 8080 sigue respondiendo igual que siempre.
 adb push deploy/certs/lab-ca.crt /sdcard/Download/
 # Ajustes → Seguridad → Cifrado y credenciales → Instalar un certificado → CA
 adb reverse tcp:8443 tcp:443
-cd ../sign-ai-android && ./gradlew installDemo
+cd ../signall-android && ./gradlew installDemo
 adb logcat -s SignAiNet      # esperado: sesión abierta: wss://… (TLS)
 ```
 

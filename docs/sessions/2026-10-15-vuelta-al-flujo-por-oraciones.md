@@ -2,7 +2,7 @@
 
 - **Fecha:** 2026-10-15
 - **Rama:** `flujo-oraciones`, desde `origin/main` (`979e99d`)
-- **Plan:** `sign-ai-docs/auditoria-flujo-2026-10-15.md` §6.1
+- **Plan:** `signall-docs/auditoria-flujo-2026-10-15.md` §6.1
 - **Decisiones del owner:** §5 punto 1 (base `origin/main` + cherry-pick),
   punto 4 (el caché en memoria se conserva), punto 6 (se vacía
   `semantic_cache`), y las dos que se tomaron en la sesión: **salida 1** para el

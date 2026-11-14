@@ -1,6 +1,6 @@
 # Contraste Backend ↔ Documentos
 
-**Fecha del contraste:** 2026-10-18 · **Backend:** `sign-ai-backend`, rama `flujo-oraciones`,
+**Fecha del contraste:** 2026-10-18 · **Backend:** `signall-backend`, rama `flujo-oraciones`,
 commit `4b8b9b8` (sin mergear).
 
 **Última actualización: 2026-10-26**, cuando el punto 33 se cerró: la red de compose pasó a
@@ -18,8 +18,8 @@ también el registro de lo que se hizo. **Lo que se hizo y lo que falta está en
 > código, en [§10.3](#103-los-cambios-de-código-que-faltan).**
 
 > **Este es el documento único de contraste.** Reemplaza a los dos que lo precedieron:
-> `../sign-ai-docs/auditoria-flujo-2026-10-15.md` (el primer contraste, del 15 de
-> octubre) y `../sign-ai-docs/modificaciones/texto-overleaf-pendiente.md` (el archivo de
+> `../signall-docs/auditoria-flujo-2026-10-15.md` (el primer contraste, del 15 de
+> octubre) y `../signall-docs/modificaciones/texto-overleaf-pendiente.md` (el archivo de
 > textos para pegar en Overleaf, que ya no sirve: todo lo que tenía se pegó).
 > Los dos se borraron el 2026-10-21.
 
@@ -28,12 +28,12 @@ también el registro de lo que se hizo. **Lo que se hizo y lo que falta está en
 | Fuente | Qué se leyó | Sello | Cuándo |
 |---|---|---|---|
 | **El código** | `app/` completo, `scripts/verify_*.py`, `tools/`, migraciones, `docker-compose.yml`, `Dockerfile`, `requirements.txt`, `.env` | `flujo-oraciones` @ `4b8b9b8` | 2026-10-21 |
-| **Los documentos del proyecto** | `../sign-ai-docs`: Requerimientos (**750 líneas**, v0.16), `modificaciones/requerimientos.md` (**45 filas**), `plan-pruebas/00-bases/` (3) y `plan-pruebas/01-diseno/*/general.md` (6), y los **12 `.drawio` con sus PNG** | `docs-contraste-2026-10-19` @ `18457be`, con 9 archivos modificados sin commitear | 2026-10-21 |
+| **Los documentos del proyecto** | `../signall-docs`: Requerimientos (**750 líneas**, v0.16), `modificaciones/requerimientos.md` (**45 filas**), `plan-pruebas/00-bases/` (3) y `plan-pruebas/01-diseno/*/general.md` (6), y los **12 `.drawio` con sus PNG** | `docs-contraste-2026-10-19` @ `18457be`, con 9 archivos modificados sin commitear | 2026-10-21 |
 | **Overleaf — SDD** | proyecto `6a85c9a632974414503d9b82`, `main.tex`, **550 líneas**, más las **12 PNG de `images/`** | **v212** | 2026-10-21 |
 | **Overleaf — SRS** | proyecto `6a122a19bb9a5dd9d390ba3d`, `main.tex`, **1495 líneas** | **v524**, editado el **2026-10-21 04:05** | 2026-10-21 |
 | **La app** | `.opencode/skills/contrato-websocket/SKILL.md`, **solo lectura** | `flujo-oraciones` @ `dee9241` | 2026-10-21 |
 
-> El contraste de la app (`../sign-ai-android/docs/CONTRASTE-APPvsDOCUMENTOS.md`) es un
+> El contraste de la app (`../signall-android/docs/CONTRASTE-APPvsDOCUMENTOS.md`) es un
 > documento **de otro repo** y no se lleva desde acá. Lo único que se lee de ese repo es
 > el contrato del WebSocket, que es lo que este repo implementa.
 >
@@ -49,9 +49,9 @@ viven:
 
 | # | Qué | Dónde | Cómo terminó |
 |---|---|---|---|
-| 1 | **Copiar las 12 imágenes** del juego viejo al juego nuevo. No es redibujar: es subir el archivo que ya existe | De `../sign-ai-docs/diagramas/png/` a `images/` del SDD en Overleaf, y a `docs/diagrams/` de este repo | **Hecho.** Los tres juegos son el mismo archivo: verificado byte a byte el 2026-10-21 (§10.1) |
-| 2 | **Editar el C4-2**: cambiar "Filament" por Three.js. Regenerar su PNG y volver a subirla | `../sign-ai-docs/diagramas/draw.io/sdd-c4-2-contenedores.drawio` | **Hecho.** Editado y con su PNG nueva |
-| 3 | **Editar el 7.4**: agregar el estado *Texto listo* con sus tres transiciones, y quitar el "≤2s" de la salida de *Error*. Regenerar su PNG y volver a subirla | `../sign-ai-docs/diagramas/draw.io/sdd-7.4-diagrama-estados-ui.drawio` | **Hecho.** Editado y con su PNG nueva |
+| 1 | **Copiar las 12 imágenes** del juego viejo al juego nuevo. No es redibujar: es subir el archivo que ya existe | De `../signall-docs/diagramas/png/` a `images/` del SDD en Overleaf, y a `docs/diagrams/` de este repo | **Hecho.** Los tres juegos son el mismo archivo: verificado byte a byte el 2026-10-21 (§10.1) |
+| 2 | **Editar el C4-2**: cambiar "Filament" por Three.js. Regenerar su PNG y volver a subirla | `../signall-docs/diagramas/draw.io/sdd-c4-2-contenedores.drawio` | **Hecho.** Editado y con su PNG nueva |
+| 3 | **Editar el 7.4**: agregar el estado *Texto listo* con sus tres transiciones, y quitar el "≤2s" de la salida de *Error*. Regenerar su PNG y volver a subirla | `../signall-docs/diagramas/draw.io/sdd-7.4-diagrama-estados-ui.drawio` | **Hecho.** Editado y con su PNG nueva |
 | 4 | **Solo después**, corregir el texto del SDD §6.1, §6.2, §6.3, §7.1, §7.2 y §7.3 | SDD de Overleaf y `docs/sdd.md` de este repo | **Hecho.** Los 17 lugares del SDD de Overleaf y 11 secciones de `docs/sdd.md` (que son 32 bloques de párrafo) |
 
 El orden importa: si se empieza por el texto se cambian veinte frases y después aparecen
@@ -80,7 +80,7 @@ no dejar nada colgado:
 ```
 
 Aplica a los tres documentos: el **SRS** y el **SDD** de Overleaf, y el
-**Requerimientos Consolidados v0.16** de `../sign-ai-docs`. La marca es la misma
+**Requerimientos Consolidados v0.16** de `../signall-docs`. La marca es la misma
 en los tres, y el texto del documento **no se deforma para dejarla**: el
 requerimiento sigue diciendo lo que dice, y la coletilla va al final, entre
 paréntesis.
@@ -117,7 +117,7 @@ Al contrastar el backend de `flujo-oraciones` contra el SRS, el SDD y los docume
 repo de documentos, aparecen 43 contrastes. **Lo primero que hay que sacar de dudas es lo
 que más preocupaba: casi ninguno toca un diagrama.** Diez de los doce diagramas ya están
 correctos y lo único que hay que hacer con ellos es **subir el archivo de imagen correcto**
-—los `.drawio` de `../sign-ai-docs/diagramas/` ya son la versión nueva, y lo que está
+—los `.drawio` de `../signall-docs/diagramas/` ya son la versión nueva, y lo que está
 mal son las copias de Overleaf y las de `docs/diagrams/` de este repo—. De los dos que sí
 hay que editar, uno es **cambiar la palabra "Filament" por "Three.js"**. El otro es
 agregar el estado *Texto listo* al diagrama 7.4, que hoy tiene seis estados y el SRS
@@ -162,25 +162,25 @@ El owner preguntó esto primero, así que va primero.
 
 | Cosa | ¿Al día? | Evidencia |
 |---|---|---|
-| **`../sign-ai-docs/diagramas/*.drawio`** (las fuentes) | **Sí, casi todo.** Diez de doce correctas | Los métodos que contienen coinciden con el código, uno por uno. Ver §1.3 |
-| **`../sign-ai-docs/diagramas/png/*.png`** (los render) | **Sí**, son la exportación de esas fuentes | Salen de los `.drawio` de al lado |
-| **Overleaf SDD `images/*.png`** | **No.** Es el juego anterior | **Idénticas byte a byte** a `sign-ai-backend/docs/diagrams/*.png`. Ver §1.2 |
-| **`sign-ai-backend/docs/diagrams/*.png`** | **No.** Es el mismo juego anterior | Ver §1.2 |
+| **`../signall-docs/diagramas/*.drawio`** (las fuentes) | **Sí, casi todo.** Diez de doce correctas | Los métodos que contienen coinciden con el código, uno por uno. Ver §1.3 |
+| **`../signall-docs/diagramas/png/*.png`** (los render) | **Sí**, son la exportación de esas fuentes | Salen de los `.drawio` de al lado |
+| **Overleaf SDD `images/*.png`** | **No.** Es el juego anterior | **Idénticas byte a byte** a `signall-backend/docs/diagrams/*.png`. Ver §1.2 |
+| **`signall-backend/docs/diagrams/*.png`** | **No.** Es el mismo juego anterior | Ver §1.2 |
 | **Overleaf SDD `main.tex` (v159)** | **No.** El texto es del flujo viejo | Habla de `sendResult(segments)`, de `translate(text)` como único método y del Static GLB Server |
-| **`sign-ai-backend/docs/sdd.md`** | **No.** Es el mismo texto viejo que el `.tex` | Copia del Overleaf |
+| **`signall-backend/docs/sdd.md`** | **No.** Es el mismo texto viejo que el `.tex` | Copia del Overleaf |
 | **Overleaf SRS `main.tex` (v436)** | **Sí**, salvo la §3 vacía y las filas de §5 | Editado el 2026-10-18 |
-| **`../sign-ai-docs/documentos/requerimientos` v0.16** | **Es la fuente de los RF/RNF**; su lista de cambios pendientes ya recoge varios de estos ítems | 11 de agosto de 2026 |
+| **`../signall-docs/documentos/requerimientos` v0.16** | **Es la fuente de los RF/RNF**; su lista de cambios pendientes ya recoge varios de estos ítems | 11 de agosto de 2026 |
 
-En una frase: **`sign-ai-docs` está al día y Overleaf no.** El SDD de Overleaf es el que
+En una frase: **`signall-docs` está al día y Overleaf no.** El SDD de Overleaf es el que
 se quedó atrás, y `docs/sdd.md` del backend es una copia suya, así que arrastra lo mismo.
 
 ### 1.2 Cómo se sabe — método 1: los archivos son idénticos
 
 Se calculó un hash del contenido de las PNG de las tres copias. **Las de Overleaf y las
 de `docs/diagrams/` del backend son el mismo archivo, byte por byte**, y ninguna se parece
-a la de `sign-ai-docs`:
+a la de `signall-docs`:
 
-| Diagrama | Overleaf SDD | `sign-ai-backend/docs/diagrams/` | `sign-ai-docs/diagramas/png/` |
+| Diagrama | Overleaf SDD | `signall-backend/docs/diagrams/` | `signall-docs/diagramas/png/` |
 |---|---|---|---|
 | 6.1 Vista lógica | `ad8f17c6` | `ad8f17c6` **= igual** | `653d225e` |
 | 6.2 Vista física | `af77dd8e` | `af77dd8e` **= igual** | `c901131b` |
@@ -201,9 +201,9 @@ tamaño en bytes idéntico también.)
 ### 1.3 Cómo se sabe — método 2: qué dicen los `.drawio` y qué dice el código
 
 Un `.drawio` es un XML con el texto de cada caja. Leyéndolo y comparándolo con el código,
-no hay interpretación posible. Esto es lo que dice el juego de `sign-ai-docs`:
+no hay interpretación posible. Esto es lo que dice el juego de `signall-docs`:
 
-| Lo que el `.drawio` de `sign-ai-docs` nombra | ¿Está en el código? |
+| Lo que el `.drawio` de `signall-docs` nombra | ¿Está en el código? |
 |---|---|
 | `+ sendSegment(index, total, segment)`, `+ sendTranscript`, `+ sendError` | Sí, `controller.py` |
 | `+ translateStream(text): AsyncIterator<(index, total, segment)>` | Sí, `orchestrator.py:18` |
@@ -287,7 +287,7 @@ junto es perder justamente lo que la tesis va a mostrar.
 | SDD §6.1, el rótulo de la interfaz | La versión vieja dice `«interface» Translate(text): result` |
 
 **Y acá está lo importante: el diagrama ya está bien.** La versión de 6.1 que está en
-`../sign-ai-docs/diagramas/` **no dice** `Translate(text): result`: dice
+`../signall-docs/diagramas/` **no dice** `Translate(text): result`: dice
 `«interface» TranslateStream(text): validated segments`. O sea, la imagen correcta ya
 existe y hay que subirla (es el punto 1). Lo único viejo es el texto de la página de al
 lado.
@@ -305,19 +305,19 @@ SDD tiene que encontrar el protocolo completo ahí.
 **Punto 2 — `sendResult(segments)`: B.** Solo texto. No rompe ningún diagrama.
 
 **Punto 3 — `translate` contra `translateStream`: B.** Los tres diagramas que nombran esto
-(7.1-1, 7.2 y C4-3) **ya están correctos** en `sign-ai-docs`: muestran los dos métodos y
+(7.1-1, 7.2 y C4-3) **ya están correctos** en `signall-docs`: muestran los dos métodos y
 marcan `translateStream` como el paso 2 de la secuencia. El texto del SDD es lo único
 viejo. Un detalle que hay que cuidar al escribir: como el diagrama 7.1-1 muestra los dos
 métodos, el texto tiene que decir los dos. Si el texto dijera "solo hay uno", el documento
 se contradiría a sí mismo.
 
 **Punto 5 — `SentenceSegmenter` y `EmbeddingModel` en la Figura 5: B.** Solo texto. El
-diagrama de `sign-ai-docs` ya tiene las dos clases y el cuarto colaborador `segmenter`. Este
+diagrama de `signall-docs` ya tiene las dos clases y el cuarto colaborador `segmenter`. Este
 pendiente ya estaba anotado el **2026-09-03** en `docs/sdd-changes.md` y nunca se aplicó
 al SDD.
 
 **Punto 7 — el `store` en segundo plano: B.** Solo texto. El paso 14 del diagrama 7.2 de
-`sign-ai-docs` **ya dice** "store(sentence, fingerprint, glosses) (asíncrono, no se espera
+`signall-docs` **ya dice** "store(sentence, fingerprint, glosses) (asíncrono, no se espera
 respuesta)": es el único de los 23 pasos con ese comentario. Lo único viejo es el texto.
 
 Un detalle que hay que añadir al escribir el SDD, porque hoy no está en ningún documento y
@@ -469,7 +469,7 @@ la etiqueta de la arista, porque en nivel 1 el sistema sigue siendo una caja.
 | §Alcance, final del ítem *Validación contra el catálogo de señas* (`main.tex:202`) | "Si la glosa existe en el catálogo pero su animación no puede cargarse, la aplicación omite esa seña y continúa representando las demás." |
 | Tabla de estados, fila *Reproduciendo* (`main.tex:747`) | "Cuando la animación de una glosa no puede cargarse, esa seña se omite, el resto de la frase se sigue representando y la pantalla muestra el mismo mensaje." |
 
-Ese texto **ya está escrito** en `../sign-ai-android/docs/CONTRASTE-APPvsDOCUMENTOS.md`
+Ese texto **ya está escrito** en `../signall-android/docs/CONTRASTE-APPvsDOCUMENTOS.md`
 §6 punto 7. No hay que redactarlo de nuevo.
 
 **El problema que se corrige, en dos partes:**
@@ -665,17 +665,17 @@ adapta el documento** (cambiar el SRS, el SDD o los documentos del repo). La col
 
 | # | El contraste | A) Se adapta el backend | B) Se adapta el documento | Recomiendo | Toca un diagrama | Decisión |
 |---|---|---|---|---|---|---|
-| **1** | **Overleaf y `docs/diagrams/` del backend tienen las 12 PNG del juego viejo. Las de `sign-ai-docs` son el juego nuevo.** Verificado byte a byte en §1.2 | No aplica | Reemplazar las 12 PNG de Overleaf por las de `sign-ai-docs/diagramas/png/`, y poner esas mismas en `docs/diagrams/` | **B.** Es subir archivos, no redibujar | **No.** Ninguna de las 12 fuentes hay que tocar | **B** |
-| **2** | `Controller.sendResult(segments)` no existe. Hay cinco métodos de salida. Explicado en §2.1 | Crear un `sendResult` que nadie usaría | Reescribir §7.1 (`main.tex:308`) | **B.** La imagen de `sign-ai-docs` ya está correcta | No | **B** |
-| **3** | El SDD dice que `Orchestrator` tiene un **único** método público, `translate(text)`. Hay dos: `translate` y `translate_stream`. Explicado en §2.2 | Borrar `translate()` y dejar solo `translate_stream`: se rompe `scripts/verify_orchestrator.py` | Decir que `translate_stream` es el camino del protocolo y `translate` el método cómodo | **B**, y no borrar `translate()`. La imagen de `sign-ai-docs` ya está correcta | No | **B** |
-| **4** | `NLPService.transform(text)` es el único método; no hay segmentación. El código tiene `split(text)` y `transform_sentence(sentence)`, y `transform` se arma con los dos | Borrar `transform` | Describir los tres y decir que `transform` es la composición | **B.** Verificado: la Figura 5 de `sign-ai-docs` **ya tiene** `transform`, `split` y `transformSentence`, y 7.2 ya tiene los pasos `split` → `segment` → `transformSentence`. **El diagrama no cambia** | No | **Pendiente.** El owner pidió ver las implicaciones antes de decidir; la respuesta es que B no toca diagrama y que el diagrama ya está bien |
-| **5** | El SDD dice que en el diagrama de clases de NLP no existen `SentenceSegmenter` ni `EmbeddingModel`, y que `NLPServiceImpl` tiene tres colaboradores | No aplica | Agregar las dos clases y su dependencia a la Figura 5 | **B**, y **no rompe nada**: verificado que la Figura 5 de `sign-ai-docs` **ya tiene las tres clases** y el cuarto colaborador `segmenter`. Lo único viejo es el texto del SDD | No | **B** |
-| **6** | El SDD dice que `lookup` devuelve `List<Segment>` y que `store` guarda los `Segment`. El código usa `List<String>` | No aplica: la columna de la base es `glosses TEXT[]` y un `Segment` completo duplicaría el `type` | Corregir la firma en §7.1 (`:323`) y §7.2 (`:361`) | **B**. La Figura 5 de `sign-ai-docs` **ya dice** `List<String>?` y `glosses: List<String>` | No | **B** |
-| **7** | El `store` aparece como paso **síncrono**. En el código corre en segundo plano | Volverlo síncrono: medido, costaba ~220 ms por frase nueva | Marcarlo como asíncrono en la Figura 7 | **B**. El 7.2 de `sign-ai-docs` **ya dice** *"store(sentence, fingerprint, glosses) (asíncrono, no se espera respuesta)"* | No | **B** |
-| **8** | El SDD **nunca dice quién dispara la traducción**: §6.3 arranca en "el usuario activa el micrófono" y §7.2 empieza en "Controller recibe el texto final", como si el `final` del STT disparara | No aplica | Reescribir el arranque de §6.3 (`:266`) y §7.2 (`:359`) | **B.** El 6.3 de `sign-ai-docs` ya tiene `Silencio de 1.5s detectado?` → `Divide el texto final en oraciones`, que es compatible. Lo que falta es la frase que lo diga | No | **B** |
-| **9** | Existe un **"Static GLB Server"** y un canal HTTPS aparte para los GLB (§6.1, §6.2, C4-2, C4-3). El SRS dice que los GLB van dentro del APK | Implementarlo: `app/static_glb/` está vacío y con el corpus en el APK sería un 404 garantizado | Sacarlo del SDD (`main.tex:215, :238, :240, :471, :507`) | **B**. Las cuatro imágenes de `sign-ai-docs` **ya no lo tienen**: verificado, el texto "Static GLB Server" no aparece en ninguno de los 12 `.drawio` | No | **B** |
-| **10** | El SDD dice que `modified_at` "permite detectar cambios en el catálogo **sin reiniciar el backend**". No lo lee nadie | Recarga en caliente: rompe RNF-BD-03, porque para saber que cambió hay que consultar la base | Corregir la frase (§7.3, `main.tex:387`) | **B**. La imagen 7.3 de `sign-ai-docs` es una tabla de columnas y **no dice nada del reinicio**, así que no se toca | No | **B** (misma decisión que §6.2) |
-| **11** | `catalog.semantic_category` está documentada pero **ningún código la lee**: el `SELECT` es `gloss, glb_animation_path` | Leerla: tres palabras en `catalog_repository.py:37-39` y un campo más en `Gloss` | Sacarla del SDD y quitar "categoría" de RF-CAT-01 | **A.** Y **no rompe el diagrama**: la imagen 7.3 de `sign-ai-docs` **ya lista `semantic_category`**, así que leerla pone el código de acuerdo con el diagrama, no al revés | No | **A** |
+| **1** | **Overleaf y `docs/diagrams/` del backend tienen las 12 PNG del juego viejo. Las de `signall-docs` son el juego nuevo.** Verificado byte a byte en §1.2 | No aplica | Reemplazar las 12 PNG de Overleaf por las de `signall-docs/diagramas/png/`, y poner esas mismas en `docs/diagrams/` | **B.** Es subir archivos, no redibujar | **No.** Ninguna de las 12 fuentes hay que tocar | **B** |
+| **2** | `Controller.sendResult(segments)` no existe. Hay cinco métodos de salida. Explicado en §2.1 | Crear un `sendResult` que nadie usaría | Reescribir §7.1 (`main.tex:308`) | **B.** La imagen de `signall-docs` ya está correcta | No | **B** |
+| **3** | El SDD dice que `Orchestrator` tiene un **único** método público, `translate(text)`. Hay dos: `translate` y `translate_stream`. Explicado en §2.2 | Borrar `translate()` y dejar solo `translate_stream`: se rompe `scripts/verify_orchestrator.py` | Decir que `translate_stream` es el camino del protocolo y `translate` el método cómodo | **B**, y no borrar `translate()`. La imagen de `signall-docs` ya está correcta | No | **B** |
+| **4** | `NLPService.transform(text)` es el único método; no hay segmentación. El código tiene `split(text)` y `transform_sentence(sentence)`, y `transform` se arma con los dos | Borrar `transform` | Describir los tres y decir que `transform` es la composición | **B.** Verificado: la Figura 5 de `signall-docs` **ya tiene** `transform`, `split` y `transformSentence`, y 7.2 ya tiene los pasos `split` → `segment` → `transformSentence`. **El diagrama no cambia** | No | **Pendiente.** El owner pidió ver las implicaciones antes de decidir; la respuesta es que B no toca diagrama y que el diagrama ya está bien |
+| **5** | El SDD dice que en el diagrama de clases de NLP no existen `SentenceSegmenter` ni `EmbeddingModel`, y que `NLPServiceImpl` tiene tres colaboradores | No aplica | Agregar las dos clases y su dependencia a la Figura 5 | **B**, y **no rompe nada**: verificado que la Figura 5 de `signall-docs` **ya tiene las tres clases** y el cuarto colaborador `segmenter`. Lo único viejo es el texto del SDD | No | **B** |
+| **6** | El SDD dice que `lookup` devuelve `List<Segment>` y que `store` guarda los `Segment`. El código usa `List<String>` | No aplica: la columna de la base es `glosses TEXT[]` y un `Segment` completo duplicaría el `type` | Corregir la firma en §7.1 (`:323`) y §7.2 (`:361`) | **B**. La Figura 5 de `signall-docs` **ya dice** `List<String>?` y `glosses: List<String>` | No | **B** |
+| **7** | El `store` aparece como paso **síncrono**. En el código corre en segundo plano | Volverlo síncrono: medido, costaba ~220 ms por frase nueva | Marcarlo como asíncrono en la Figura 7 | **B**. El 7.2 de `signall-docs` **ya dice** *"store(sentence, fingerprint, glosses) (asíncrono, no se espera respuesta)"* | No | **B** |
+| **8** | El SDD **nunca dice quién dispara la traducción**: §6.3 arranca en "el usuario activa el micrófono" y §7.2 empieza en "Controller recibe el texto final", como si el `final` del STT disparara | No aplica | Reescribir el arranque de §6.3 (`:266`) y §7.2 (`:359`) | **B.** El 6.3 de `signall-docs` ya tiene `Silencio de 1.5s detectado?` → `Divide el texto final en oraciones`, que es compatible. Lo que falta es la frase que lo diga | No | **B** |
+| **9** | Existe un **"Static GLB Server"** y un canal HTTPS aparte para los GLB (§6.1, §6.2, C4-2, C4-3). El SRS dice que los GLB van dentro del APK | Implementarlo: `app/static_glb/` está vacío y con el corpus en el APK sería un 404 garantizado | Sacarlo del SDD (`main.tex:215, :238, :240, :471, :507`) | **B**. Las cuatro imágenes de `signall-docs` **ya no lo tienen**: verificado, el texto "Static GLB Server" no aparece en ninguno de los 12 `.drawio` | No | **B** |
+| **10** | El SDD dice que `modified_at` "permite detectar cambios en el catálogo **sin reiniciar el backend**". No lo lee nadie | Recarga en caliente: rompe RNF-BD-03, porque para saber que cambió hay que consultar la base | Corregir la frase (§7.3, `main.tex:387`) | **B**. La imagen 7.3 de `signall-docs` es una tabla de columnas y **no dice nada del reinicio**, así que no se toca | No | **B** (misma decisión que §6.2) |
+| **11** | `catalog.semantic_category` está documentada pero **ningún código la lee**: el `SELECT` es `gloss, glb_animation_path` | Leerla: tres palabras en `catalog_repository.py:37-39` y un campo más en `Gloss` | Sacarla del SDD y quitar "categoría" de RF-CAT-01 | **A.** Y **no rompe el diagrama**: la imagen 7.3 de `signall-docs` **ya lista `semantic_category`**, así que leerla pone el código de acuerdo con el diagrama, no al revés | No | **A** |
 | **12** | `glb_animation_path` guarda rutas de un servidor que no existe (`/static/glb/…`) | Cambiar los valores en Neon | Escribir en el SDD que el valor es una clave que la app resuelve con sus propios recursos | **B.** La imagen 7.3 solo dice `glb_animation_path : VARCHAR`, así que no se toca | No | **B** |
 | **13** | El diagrama 7.4 tiene **seis** estados —le falta *Texto listo*—. El texto del mismo SDD dice siete y el SRS tiene siete (`main.tex:717-766`) | No aplica | Agregar *Texto listo* al `.drawio` y regenerar la PNG | **B.** Y es el **único diagrama que hay que editar de verdad**: un nodo nuevo y las transiciones `Grabando → Texto listo`, `Texto listo → Procesando` (confirma envío) y `Texto listo → Inactivo` (cancela) | **Sí.** Un nodo y tres flechas en `sdd-7.4-diagrama-estados-ui.drawio` | **B** |
 | **14** | El 7.4 rotula la salida de *Error* como "automático, **≤2s**". El SRS dice "vuelve a Inactivo automáticamente" **sin plazo** | No aplica: es de la app | Sacar el número del SDD (`:417`) y dejarlo solo en el SRS | **B.** Se hace **en el mismo archivo y el mismo minuto** que el punto 13, así que no agrega trabajo | **Sí.** Una etiqueta de flecha, en el mismo archivo del 13 | **B** |
@@ -717,7 +717,7 @@ Esta es la pregunta que el owner hizo, y la respuesta es buena.
 
 ### 4.1 Verificación de las doce fuentes
 
-Se leyó el XML de los doce `.drawio` de `../sign-ai-docs/diagramas/` y se comparó cada
+Se leyó el XML de los doce `.drawio` de `../signall-docs/diagramas/` y se comparó cada
 caja con el código.
 
 > **La columna "Qué hay que tocar" es el plan del 2026-10-18, y ya se ejecutó entero.** Los
@@ -758,7 +758,7 @@ se quiere dibujar la arista del `error`.
 
 | Paso | Qué | Por qué en ese orden |
 |---|---|---|
-| 1 | Copiar las 12 PNG de `sign-ai-docs/diagramas/png/` a Overleaf `images/` | Es lo que arregla de golpe los puntos 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 22 y parte del 1. **Sin tocar un solo `.drawio`** |
+| 1 | Copiar las 12 PNG de `signall-docs/diagramas/png/` a Overleaf `images/` | Es lo que arregla de golpe los puntos 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 22 y parte del 1. **Sin tocar un solo `.drawio`** |
 | 2 | Editar el C4-2: "Filament" → Three.js. Regenerar su PNG y volver a subirla | Una palabra |
 | 3 | Editar el 7.4: agregar *Texto listo* y quitar el "≤2s". Regenerar y subir | El único desenho nuevo |
 | 4 | Recién entonces corregir el texto del SDD | Para que el texto describa las imágenes que ya están bien |
@@ -1005,7 +1005,7 @@ teléfono**: el backend no tiene forma de enterarse. Sigue traduciendo, y cuando
 manda el resto de las oraciones y su `done`.
 
 La app ya lo sabe y lo maneja: descarta esas oraciones (`StaleTurn`, en
-`../sign-ai-android/openspec/specs/ui/spec.md` `STA-25`). Lo que **no** puede hacer es
+`../signall-android/openspec/specs/ui/spec.md` `STA-25`). Lo que **no** puede hacer es
 saber **a qué frase pertenece ese `done`**. El frame es `{"type": "done"}` y nada más.
 
 El problema aparece cuando las dos cosas se cruzan. El usuario cancela la frase A, manda
@@ -1100,7 +1100,7 @@ El owner dijo que la app y los diagramas hacen creer que sí. Se revisaron las t
 
 ### 7.1 Qué dice la app
 
-`../sign-ai-android/docs/CONTRASTE-APPvsDOCUMENTOS.md` §8 (punto A3) y el skill del
+`../signall-android/docs/CONTRASTE-APPvsDOCUMENTOS.md` §8 (punto A3) y el skill del
 contrato: desde el 2026-10-17 la app tiene el cifrado como cosa del **build type**:
 
 | Build | URL | Texto en claro |
@@ -1197,7 +1197,7 @@ once.
 
 | Punto | Decisión | Diagrama que toca |
 |---|---|---|
-| **2** `sendResult(segments)` | B | Ninguno. El 6.1 de `sign-ai-docs` ya está bien |
+| **2** `sendResult(segments)` | B | Ninguno. El 6.1 de `signall-docs` ya está bien |
 | **3** `translate` contra `translateStream` | B | Ninguno. Los tres diagramas que lo nombran ya están bien |
 | **5** `SentenceSegmenter` y `EmbeddingModel` | B | Ninguno. La Figura 5 ya tiene las dos clases |
 | **4** `transform` contra `split` y `transform_sentence` | B | Ninguno. La Figura 5 ya muestra los tres métodos |
@@ -1227,7 +1227,7 @@ once.
 
 | # | Qué | Dónde |
 |---|---|---|
-| **Punto 4** | `NLPService.transform` contra `split` y `transform_sentence`. Se le explicó que **B no toca ningún diagrama** y que la Figura 5 y la 7.2 de `sign-ai-docs` ya están correctas, pero el owner no llegó a responder | §3.1, fila 4 |
+| **Punto 4** | `NLPService.transform` contra `split` y `transform_sentence`. Se le explicó que **B no toca ningún diagrama** y que la Figura 5 y la 7.2 de `signall-docs` ya están correctas, pero el owner no llegó a responder | §3.1, fila 4 |
 | **§6.2** | Catálogo: ¿reinicio o recarga en caliente? Recomendando **A** (aceptar el reinicio) | §6.2 |
 | **§6.3** | Espera máxima del modelo. Recomendando **B** (`max_retries=1`, `llm_timeout_ms=5000`) | §6.3 |
 | **§6.4** | Espera máxima y reintentos de la base. Recomendando **A** (timeout de 5 s + un reintento) | §6.4 |
@@ -1265,7 +1265,7 @@ en el equipo tiene activada la opción de redes de host (ver el punto 33). No se
 **Punto 4, ya decidido el 2026-10-18: B.** Es el punto más barato de la lista: una frase en el
 SDD, porque los dos diagramas que lo nombran ya están correctos. Lo que no se puede es A:
 borrar `transform()` rompe `scripts/verify_nlp_service.py:34` y `:43`, y **no hay razón de
-fondo**, porque la Figura 5 del propio `sign-ai-docs` ya muestra los tres métodos. Mientras se
+fondo**, porque la Figura 5 del propio `signall-docs` ya muestra los tres métodos. Mientras se
 escribe, conviene decir **por qué se segmenta antes de calcular la huella y no después**: es
 la diferencia entre que "Me llamo Ana. ¿Cómo estás?" salga con un tipo de frase o con dos.
 
@@ -1287,7 +1287,7 @@ dedicaron a **ejecutar** esas decisiones en los tres documentos de la tesis. Est
 el estado: qué se hizo, qué falta y de quién es.
 
 **Todo lo de §10 se reverificó el 2026-10-21**, leyendo los archivos y no de memoria: el
-código de este repo con `git`, los documentos de `../sign-ai-docs` con `git diff`, y los dos
+código de este repo con `git`, los documentos de `../signall-docs` con `git diff`, y los dos
 `.tex` y las doce PNG de Overleaf por el MCP. Donde dice "verificado", está verificado con
 esa lectura; no con lo que se recuerda de la sesión anterior.
 
@@ -1298,19 +1298,19 @@ esa lectura; no con lo que se recuerda de la sesión anterior.
 | **SRS de Overleaf** (`6a122a19bb9a5dd9d390ba3d`) | Los doce lugares: el protocolo del canal (§2.1.5), los cuatro puntos de entrada, la memoria del NLP, el búfer de audio del STT, la caché y su retención, el tiempo hasta la primera seña en dos tramos, el plazo del modelo de lenguaje, la GPU, la tabla de software, y los `[PENDIENTE:]` convertidos en `(TODO:)` | Aplicado. Verificado el 2026-10-20 y **reverificado el 2026-10-21** en `v524` (1495 líneas): `:643` los cuatro puntos de entrada, `:751` el plazo del modelo, `:850-857` los dos tramos, `:1041-1042` y `:1062-1063` la tabla de software, `:1117` el protocolo, `:1211` el búfer del STT, `:1272-1279` la caché y la retención, `:1291` la GPU, y los cuatro `(TODO:)` en `:945`, `:1190`, `:1272` y `:1279` |
 | **SDD de Overleaf** (`6a85c9a632974414503d9b82`) | Los diecisiete lugares de texto: §6.1, §6.2, §6.3, §7.1, §7.4, §8.2 y §8.3, más la subsección nueva `\subsection{Instrumentación}` (línea 425) y la fila del historial del 20/10/2026 (línea 131) | Aplicado. Verificado el 2026-10-20 y **reverificado el 2026-10-21** en `v212` (550 líneas): `:131` la fila del historial, `:210-217` el §6.1, `:310` los tres métodos de entrada, `:323` los cuatro colaboradores, `:361` el `translateStream`, `:391` la tabla `catalog`, `:419-421` el §7.4 con el estado *Texto listo*, `:425-431` la subsección de instrumentación, `:513-517` el §8.3 |
 | **`docs/sdd.md`** de este repo | Once secciones corregidas (§6.1, §6.2, §6.3, §7.1, §7.2, §7.3, §7.4, §8.2, §8.3, el índice y el §7.5 nuevo), que en párrafos son **32 bloques** | Hecho. Es el único de los tres que se corrige en este repo, sin pasar por Overleaf |
-| **v0.16** de `../sign-ai-docs` (antes v0.15) | El encabezado pasó a 0.16 con su fila de historial; se agregaron seis requerimientos (RF-NLP-05, RF-STT-04, RF-STT-05, RF-UI-06, RF-UI-07 y RF-UI-08); se reescribieron **treinta y siete** requerimientos; se eliminó RNF-POR-03 (fusionado en RNF-MNT-04) y RNF-BD-02 pasó al SDD; **quince** de los **setenta y uno** requerimientos quedaron con un `(TODO: ...)` | Hecho. El archivo ahora se llama `SignAI_Requerimientos_Consolidados_v0.16.md` — el rename se hizo el 2026-10-21 |
-| **Registro** `../sign-ai-docs/modificaciones/requerimientos.md` | **Cuarenta y cinco filas: 36 Hecho**, 4 Acordado, 4 Bloqueado hasta la ronda diagnóstica y 1 Propuesto | Al día. Contado con script, no a ojo |
+| **v0.16** de `../signall-docs` (antes v0.15) | El encabezado pasó a 0.16 con su fila de historial; se agregaron seis requerimientos (RF-NLP-05, RF-STT-04, RF-STT-05, RF-UI-06, RF-UI-07 y RF-UI-08); se reescribieron **treinta y siete** requerimientos; se eliminó RNF-POR-03 (fusionado en RNF-MNT-04) y RNF-BD-02 pasó al SDD; **quince** de los **setenta y uno** requerimientos quedaron con un `(TODO: ...)` | Hecho. El archivo ahora se llama `SignAI_Requerimientos_Consolidados_v0.16.md` — el rename se hizo el 2026-10-21 |
+| **Registro** `../signall-docs/modificaciones/requerimientos.md` | **Cuarenta y cinco filas: 36 Hecho**, 4 Acordado, 4 Bloqueado hasta la ronda diagnóstica y 1 Propuesto | Al día. Contado con script, no a ojo |
 | **Trazabilidad** `plan-pruebas/00-bases/trazabilidad.md` | Las dos referencias a RNF-BD-02, la fusión de RNF-POR-03 (tres lugares), y el **contraste reverificado el 2026-10-20**: las seis filas de los requerimientos nuevos, el estado real de la aplicación (el modo dictado, la entrada de texto y el historial ya existen) y el estado de los **trece** bloques | Hecho. El conteo de bloques no cambió: siguen siendo trece |
-| **Diagramas** | Tres `.drawio` editados (7.1-1, 7.4 y C4-2) con sus PNG regeneradas, y las doce PNG de `docs/diagrams/` de este repo reemplazadas por las nuevas | Hecho. Las doce de este repo y las doce de `../sign-ai-docs/diagramas/png/` son **el mismo archivo**, verificado con md5 el 2026-10-21 |
-| **Las doce PNG del SDD en Overleaf** | Subidas a `images/` del proyecto `6a85c9a632974414503d9b82`, con los nombres idénticos a los de `../sign-ai-docs/diagramas/png/` | Hecho el 2026-10-20. **Verificado el 2026-10-21 por hash:** las doce, leídas del servidor, coinciden byte a byte con las locales |
+| **Diagramas** | Tres `.drawio` editados (7.1-1, 7.4 y C4-2) con sus PNG regeneradas, y las doce PNG de `docs/diagrams/` de este repo reemplazadas por las nuevas | Hecho. Las doce de este repo y las doce de `../signall-docs/diagramas/png/` son **el mismo archivo**, verificado con md5 el 2026-10-21 |
+| **Las doce PNG del SDD en Overleaf** | Subidas a `images/` del proyecto `6a85c9a632974414503d9b82`, con los nombres idénticos a los de `../signall-docs/diagramas/png/` | Hecho el 2026-10-20. **Verificado el 2026-10-21 por hash:** las doce, leídas del servidor, coinciden byte a byte con las locales |
 | **La tabla de software del SRS** | FastAPI 0.115 → **0.143.0** y LangChain 1.4.6 → **1.4.5** | Hecho el 2026-10-20, verificado por el MCP: los números viejos ya no están |
 | **RF-UI-04 del v0.16** | El permiso de micrófono se pide al abrir la app y de nuevo al activar la captura si fue denegado. El requisito decía solo lo segundo, que no era lo que el código hacía | Hecho el 2026-10-20, decisión del owner: escribir los dos momentos en el requisito, sin tocar la app |
 | **`docs/requirements.md`** | Borrado: duplicaba el documento de requerimientos y estaba desactualizado | Hecho el 2026-10-21. `CLAUDE.md` pasó a apuntar al documento consolidado |
-| **El nombre del archivo de requerimientos** | `../sign-ai-docs/documentos/requerimientos/` | El `.md` pasó de `..._v0.15.md` a `..._v0.16.md`, para que el nombre coincida con la versión de adentro. Las **nueve citas por nombre** de los tres repos se cambiaron en el mismo momento, y las referencias sueltas a "v0.15" en el repo de documentos y en el de la app pasaron a "v0.16". Hecho el 2026-10-21 |
+| **El nombre del archivo de requerimientos** | `../signall-docs/documentos/requerimientos/` | El `.md` pasó de `..._v0.15.md` a `..._v0.16.md`, para que el nombre coincida con la versión de adentro. Las **nueve citas por nombre** de los tres repos se cambiaron en el mismo momento, y las referencias sueltas a "v0.15" en el repo de documentos y en el de la app pasaron a "v0.16". Hecho el 2026-10-21 |
 | **El historial de `docs/sdd.md`** | `docs/sdd.md:9-14` | Le faltaba la fila del 20/10/2026. El contenido del SDD del backend ya estaba alineado con el código desde el 20 de octubre, pero su tabla de historial solo tenía la del 19 de agosto: el documento contaba una historia distinta a la del SDD de Overleaf sobre el mismo día. Se copió la fila de Overleaf (`main.tex:131`, v212) tal cual, cambiando `\textit{Texto listo}` por `*Texto listo*`. Hecho el 2026-10-21 |
 | **`docs/sdd-changes.md`** | `docs/sdd-changes.md` | Las siete entradas que seguían diciendo "pendiente de reflejar en el SDD" se verificaron una por una contra el código, los diagramas y el texto del SDD. Seis están **aplicadas** desde el 20/10/2026 y su línea de estado se reescribió diciendo qué se hizo, dónde y cuándo; una quedó a medias y se documentó como entrada nueva del 2026-10-21. Las dos entradas que son registro de trabajo (15/10 y 16/10) se dejaron intactas, con su pendiente de remedir `rt_first_sign_ms`. Hecho el 2026-10-21 |
 | **La revisión de cierre de este mismo documento** | `docs/CONTRASTE-BACKENDvsDOCUMENTOS.md` | Se leyó entero y se corrigieron **nueve citas por número de línea** que apuntaban a otra cosa, más una afirmación sobre las dependencias fijadas y otra sobre las herramientas de análisis estático. Los números de §10.1 se reverificaron con script, no a ojo. Hecho el 2026-10-21 |
-| **El trabajo de octubre, integrado en `main`** | Los cuatro repos | El 2026-10-21 el owner decidió que `flujo-oraciones` fuera el nuevo `main`. En este repo fue un **fast-forward** (`979e99d` → `6842ce9`), sin conflictos y sin reescribir historia. `develop` quedó con el árbol de `main` mediante un commit de merge con dos padres, que conserva los 8 commits del camino por fragmentos en su historia. El punto de retorno quedó en `respaldo/main-2026-10-21`, que apunta al `main` viejo. En los otros tres repos: `sign-ai-docs` (`18457be` → `f0d673c`, desde `docs-contraste-2026-10-19`), `sign-ai-android` (`587ed04` → `2d8c757`, con el merge de `origin/main` que ya traía) y `sign-ai-stt` (`7e724d8` → `41d9390`) |
+| **El trabajo de octubre, integrado en `main`** | Los cuatro repos | El 2026-10-21 el owner decidió que `flujo-oraciones` fuera el nuevo `main`. En este repo fue un **fast-forward** (`979e99d` → `6842ce9`), sin conflictos y sin reescribir historia. `develop` quedó con el árbol de `main` mediante un commit de merge con dos padres, que conserva los 8 commits del camino por fragmentos en su historia. El punto de retorno quedó en `respaldo/main-2026-10-21`, que apunta al `main` viejo. En los otros tres repos: `signall-docs` (`18457be` → `f0d673c`, desde `docs-contraste-2026-10-19`), `signall-android` (`587ed04` → `2d8c757`, con el merge de `origin/main` que ya traía) y `signall-stt` (`7e724d8` → `41d9390`) |
 
 ### 10.2 Lo que falta
 
@@ -1324,17 +1324,17 @@ Se dejan en la tabla como están, pero no se trabajan: no son trabajo, son decis
 
 | # | Qué falta | Dónde hay que hacerlo | Por qué |
 |---|---|---|---|
-| 1 | **Las referencias a ADR, TSK, DEC, INC, LIM y RSK** del v0.16 | `../sign-ai-docs/...v0.16.md`, 44 líneas | **En pausa.** El owner prefiere preguntar primero al equipo. Los treinta y tres reemplazos propuestos quedaron preparados en §4.1 del registro, sin aplicar |
+| 1 | **Las referencias a ADR, TSK, DEC, INC, LIM y RSK** del v0.16 | `../signall-docs/...v0.16.md`, 44 líneas | **En pausa.** El owner prefiere preguntar primero al equipo. Los treinta y tres reemplazos propuestos quedaron preparados en §4.1 del registro, sin aplicar |
 | 2 | **El proxy inverso (punto 34)**: no hay TLS de verdad sin él | Decisión, no código | **Toca preguntar.** Falta decidir si se va a usar o no. Hoy la decisión es "se adapta el documento", con un `(TODO:)` en RNF-INT-COM-03. El detalle de qué costaría está en §10.2 bis |
-| 3 | **Hecho (2026-10-21).** Las tres citas al documento de requerimientos por número de línea | `../sign-ai-android/docs/PLAN-MEDICION.md:19`, `:135` y `:186` | `:380` → **`:439`**, `:237` → **`:260`**, `:326` → **`:358`**. El fondo de las tres sigue siendo cierto, pero dos de las tres **citas textuales** también cambiaron de palabras: RF-NLP-02 pasó de "una frase / el texto" a "una oración / esa oración", y RF-CAT-03 pasó de "el sistema responderá" a "es la aplicación la que muestra", y ahora cubre dos casos. Las tres se corrigieron en el repo de la app |
-| 4 | **Hecho (2026-10-21).** Las citas al `docs/requirements.md` borrado | `docs/decisions.md` y `docs/sdd-changes.md` | `docs/requirements.md` era una **copia** del documento de requerimientos de `../sign-ai-docs` (764 líneas), duplicada y desactualizada. Las dos citas apuntaron al documento real: **RF-INT-COM-01** (`decisions.md:103` → `...v0.16.md:168`) y **RF-INT-SW-04** y **RNF-REL-01** (`sdd-changes.md:373` → `...v0.16.md:160` y `:553`). Se encontró **una tercera** cita al archivo borrado, en el repo de la app (`openspec/sessions/2026-10-16-latencia-y-decisiones.md:99`), y se corrigió igual |
-| 5 | **Hecho (2026-10-21).** Las referencias a `fixtures/audio/` y a `tools/verificar-tiempo-real.sh` | `docs/performance.md` y `docs/sdd-changes.md` | Los 28 clips de audio **no están en este repo**: están en `../sign-ai-stt/fixtures/audio` y se generan con `scripts/make_audio_fixtures.py --all` en el repo del STT. El script de medición está en `../sign-ai-android/tools/verificar-tiempo-real.sh`. Las dos referencias quedaron apuntando bien |
-| 6 | **Hecho (2026-10-21).** El `.docx` se borró y el `.md` se renombró | `../sign-ai-docs/documentos/requerimientos/` | El archivo ahora se llama `SignAI_Requerimientos_Consolidados_v0.16.md` y su versión interna dice 0.16: coinciden. Las **nueve citas por nombre** de los tres repos se cambiaron en el mismo momento: `docs/decisions.md:104`, `docs/sdd-changes.md:373`, `CLAUDE.md:28`, `AGENTS.md:261`, `../sign-ai-android/docs/SISTEMA.md:83`, `../sign-ai-android/docs/PLAN-MEDICION.md:19`, `:135`, `:186` y `../sign-ai-android/openspec/sessions/2026-10-16-latencia-y-decisiones.md:101`. El `.docx`, ver §10.5 |
+| 3 | **Hecho (2026-10-21).** Las tres citas al documento de requerimientos por número de línea | `../signall-android/docs/PLAN-MEDICION.md:19`, `:135` y `:186` | `:380` → **`:439`**, `:237` → **`:260`**, `:326` → **`:358`**. El fondo de las tres sigue siendo cierto, pero dos de las tres **citas textuales** también cambiaron de palabras: RF-NLP-02 pasó de "una frase / el texto" a "una oración / esa oración", y RF-CAT-03 pasó de "el sistema responderá" a "es la aplicación la que muestra", y ahora cubre dos casos. Las tres se corrigieron en el repo de la app |
+| 4 | **Hecho (2026-10-21).** Las citas al `docs/requirements.md` borrado | `docs/decisions.md` y `docs/sdd-changes.md` | `docs/requirements.md` era una **copia** del documento de requerimientos de `../signall-docs` (764 líneas), duplicada y desactualizada. Las dos citas apuntaron al documento real: **RF-INT-COM-01** (`decisions.md:103` → `...v0.16.md:168`) y **RF-INT-SW-04** y **RNF-REL-01** (`sdd-changes.md:373` → `...v0.16.md:160` y `:553`). Se encontró **una tercera** cita al archivo borrado, en el repo de la app (`openspec/sessions/2026-10-16-latencia-y-decisiones.md:99`), y se corrigió igual |
+| 5 | **Hecho (2026-10-21).** Las referencias a `fixtures/audio/` y a `tools/verificar-tiempo-real.sh` | `docs/performance.md` y `docs/sdd-changes.md` | Los 28 clips de audio **no están en este repo**: están en `../signall-stt/fixtures/audio` y se generan con `scripts/make_audio_fixtures.py --all` en el repo del STT. El script de medición está en `../signall-android/tools/verificar-tiempo-real.sh`. Las dos referencias quedaron apuntando bien |
+| 6 | **Hecho (2026-10-21).** El `.docx` se borró y el `.md` se renombró | `../signall-docs/documentos/requerimientos/` | El archivo ahora se llama `SignAI_Requerimientos_Consolidados_v0.16.md` y su versión interna dice 0.16: coinciden. Las **nueve citas por nombre** de los tres repos se cambiaron en el mismo momento: `docs/decisions.md:104`, `docs/sdd-changes.md:373`, `CLAUDE.md:28`, `AGENTS.md:261`, `../signall-android/docs/SISTEMA.md:83`, `../signall-android/docs/PLAN-MEDICION.md:19`, `:135`, `:186` y `../signall-android/openspec/sessions/2026-10-16-latencia-y-decisiones.md:101`. El `.docx`, ver §10.5 |
 | 7 | **Hecho (2026-10-21).** La fila del historial del 20/10 en `docs/sdd.md` | `docs/sdd.md:9-14` | El SDD de Overleaf la tenía (`main.tex:131`) y esta copia no. Se copió tal cual, con `\textit{Texto listo}` en LaTeX pasado a `*Texto listo*` en Markdown. La fecha del documento (`docs/sdd.md:4`) quedó como estaba: en Overleaf es `\today`, que se pone solo al compilar |
 | 8 | **Hecho (2026-10-21).** `docs/sdd-changes.md` al día | `docs/sdd-changes.md` | Las siete entradas que decía "pendiente de reflejar en el SDD" se verificaron una por una contra el código, el diagrama y el texto: seis quedaron **aplicadas** el 20/10 y se reescribió su línea de estado diciendo qué se hizo y cuándo; una quedó **a medias** y se documentó como la entrada nueva del 2026-10-21 (punto 14). Las dos entradas que son registro de trabajo (15/10 y 16/10) se dejaron como están, con su pendiente de remedir `rt_first_sign_ms` |
-| 9 | **La fila del historial del v0.16 dice "ocho TODO"** | `../sign-ai-docs/...v0.16.md:32` | Hay **quince** `(TODO:)` en el archivo. La fila del historial quedó corta |
-| 10 | **Dos filas del registro contradicen el documento** | `../sign-ai-docs/modificaciones/requerimientos.md:43` (#16) y `:47` (#20) | Las dos dicen "el texto del requisito se queda como está", pero RNF-MNT-04 y RNF-REL-03 **sí** cambiaron de texto. Una de las dos cosas está mal |
-| 11 | **RF-UI-06 dice "un selector con dos opciones"** | `../sign-ai-docs/...v0.16.md:410` | La app tiene **dos interruptores** en la barra inferior, no un selector. La trazabilidad ya lo dice (`../sign-ai-docs/plan-pruebas/00-bases/trazabilidad.md:24-26`); el requisito no. También es lo que dejó el SRS con una descripción de los modos que no es la del código |
+| 9 | **La fila del historial del v0.16 dice "ocho TODO"** | `../signall-docs/...v0.16.md:32` | Hay **quince** `(TODO:)` en el archivo. La fila del historial quedó corta |
+| 10 | **Dos filas del registro contradicen el documento** | `../signall-docs/modificaciones/requerimientos.md:43` (#16) y `:47` (#20) | Las dos dicen "el texto del requisito se queda como está", pero RNF-MNT-04 y RNF-REL-03 **sí** cambiaron de texto. Una de las dos cosas está mal |
+| 11 | **RF-UI-06 dice "un selector con dos opciones"** | `../signall-docs/...v0.16.md:410` | La app tiene **dos interruptores** en la barra inferior, no un selector. La trazabilidad ya lo dice (`../signall-docs/plan-pruebas/00-bases/trazabilidad.md:24-26`); el requisito no. También es lo que dejó el SRS con una descripción de los modos que no es la del código |
   | 12 | **`AGENTS.md` describe mal el estado del árbol** | `AGENTS.md`, sección "Estado del repo" | Dice "15 archivos modificados y 2 sin trackear". Al cierre de la sesión del 21 de octubre eran **22 modificados, 1 borrado y 0 sin trackear**, y después de commitear y pasar `flujo-oraciones` a `main` (2026-10-21) el árbol quedó **limpio**. El número se mueve con cada tanda, así que conviene ponerlo con la fecha y no como un hecho fijo |
 | 13 | **La §3 del SRS, las dos portadas y los casos de uso CU-01 a CU-05** | Ver §10.4 | No nos compete. Quedan anotadas para que el owner sepa que están ahí |
 | 14 | **La lista de clases de la §7.1 no coincide con su propio diagrama** | `docs/sdd.md:192-210` contra la Figura 5 | La lista dice `lookup(...): List<Segment>?`, `store(..., segments: List<Segment>)` y tres atributos en `NLPServiceImpl`, **sin `EmbeddingModel`**. El diagrama de al lado dice `List<String>`, `glosses: List<String>`, cuatro atributos y `EmbeddingModel` con `embed()`. El SDD se contradice dentro de la misma sección, y la narrativa de 17 líneas más abajo ya está con la versión nueva. **Documentado** en `docs/sdd-changes.md` (entrada del 2026-10-21); **no se aplicó**, porque la regla del repo es anotar el cambio del SDD y que lo aplique el owner |
@@ -1350,7 +1350,7 @@ verificaciones, está en `docs/plan-proxy-tls.md`.
 |---|---|---|
 | **El proxy** | **Caddy** en red de host: escucha en el 443 con TLS y le pasa todo al backend por `127.0.0.1:8080`. Va con `admin off` y `auto_https off`, porque el certificado es un archivo y no lo gestiona Caddy | `deploy/Caddyfile` y el servicio `caddy` de `docker-compose.host.yml` |
 | **El certificado** | CA de laboratorio de `mkcert` y **un solo certificado** para `127.0.0.1`, `localhost` y `192.168.80.49`, así que sirve para USB y para Wi-Fi. La clave privada queda fuera de git; al teléfono va solo `lab-ca.crt` | `deploy/certs/`, ignorado por `.gitignore` |
-| **La app** | Build **`demo`**: `initWith(release)`, firma de `debug`, `isDebuggable` y `wss://127.0.0.1:8443/ws/translate`, con un `network_security_config` propio que prohíbe el texto en claro y confía en `system` y en `user` | `sign-ai-android/app/build.gradle.kts` y `app/src/demo/res/xml/` |
+| **La app** | Build **`demo`**: `initWith(release)`, firma de `debug`, `isDebuggable` y `wss://127.0.0.1:8443/ws/translate`, con un `network_security_config` propio que prohíbe el texto en claro y confía en `system` y en `user` | `signall-android/app/build.gradle.kts` y `app/src/demo/res/xml/` |
 | **El túnel** | `adb reverse tcp:8443 tcp:443`. El 443 no se puede mapear directo: `cannot bind listener: Permission denied` | host y teléfono |
 
 **Cómo se verificó el 2026-10-27**, con el teléfono por USB:
@@ -1369,7 +1369,7 @@ verificaciones, está en `docs/plan-proxy-tls.md`.
 en sus dos copias, `docs/sdd-changes.md`, el plan de pruebas, la trazabilidad (RF-INT-COM-06
 salió de "No implementado") y el SRS (párrafo del proxy, tabla de puertos y adaptación del
 sitio). Las dos PNG van a los tres destinos de siempre: `docs/diagrams/`,
-`../sign-ai-docs/diagramas/png/` y `images/` del SDD en Overleaf.
+`../signall-docs/diagramas/png/` y `images/` del SDD en Overleaf.
 
 **Lo que queda como deuda declarada:** el tramo proxy → backend en claro; el APK de `release`
 sigue apuntando a `wss://backend.invalid`; y el certificado es de una sola máquina, sin
@@ -1414,7 +1414,7 @@ Los demás puntos van con la decisión que los respalda y **sí** se implementan
 | 3 | Tiempo máximo de la base (5 s) y un reintento | `app/persistence/` | **No existe**. Además, la excepción en el arranque del backend no está controlada: si la base no contesta, el proceso no levanta | owner, 2026-10-18 (punto 29) |
 | 4 | Identificador de turno en `segment` y en `done` | `app/controller/controller.py` | **No existe**. El `done` solo se manda en el camino feliz (`:164`) | owner, 2026-10-18 (punto 39) |
 | 5 | `done` cuando la traducción falla | `app/controller/controller.py` | **No existe**: en el camino del error no se cierra el turno | owner, 2026-10-18 (punto 39) |
-| 6 | Leer `semantic_category` | `app/validation/catalog_repository.py:38` y el campo en `Gloss` | **Solo está en la migración** (`app/persistence/migrations/001_create_catalog.sql:5`); el `SELECT` es `gloss, glb_animation_path` y el código no lee la columna en ningún `.py` | **A**, owner: leerla. No rompe el diagrama, porque la imagen 7.3 de `../sign-ai-docs` ya la lista (punto 11 de §3) |
+| 6 | Leer `semantic_category` | `app/validation/catalog_repository.py:38` y el campo en `Gloss` | **Solo está en la migración** (`app/persistence/migrations/001_create_catalog.sql:5`); el `SELECT` es `gloss, glb_animation_path` y el código no lee la columna en ningún `.py` | **A**, owner: leerla. No rompe el diagrama, porque la imagen 7.3 de `../signall-docs` ya la lista (punto 11 de §3) |
 | 7 | `UPSERT` de la caché | `app/nlp/semantic_cache.py:225` | **No existe**: el `store()` hace un `INSERT` simple y la tabla no tiene restricción única sobre `(original_text, phrase_type)` | **A y B**, owner: `UPSERT` sobre `(original_text, phrase_type)` y no guardar respuestas vacías (punto 38 de §3) |
 | 8 | Analizadores estáticos (mypy, ruff) | No hay `.github/` (o sea, no hay integración continua) | **No hay**. `tools/` existe, pero trae un solo script (`verificar-conexiones-stt.py`); no hay configuración de mypy ni de ruff en ninguna parte | RNF-MNT-03 lo pide |
 | 9 | Dependencias fijadas | `requirements.txt` | **Nueve de las once** están sin versión: `fastapi`, `uvicorn[standard]`, `pydantic`, `pydantic-settings`, `asyncpg`, `sentence-transformers`, `langchain`, `langchain-openai` y `websockets`. Solo `spacy` (con rango) y `es_core_news_md` (con rueda exacta) están fijados | RNF-MNT-04 lo pide |
@@ -1422,7 +1422,7 @@ Los demás puntos van con la decisión que los respalda y **sí** se implementan
 #### 10.3.1 Cómo se implementa cada uno
 
 **1. D-7, quitar el vocabulario cerrado del prompt.** Es el más serio y el que tiene el
-análisis escrito (§10.3 bis, `docs/performance.md` §9 y `../sign-ai-android/docs/PLAN-MEDICION.md`
+análisis escrito (§10.3 bis, `docs/performance.md` §9 y `../signall-android/docs/PLAN-MEDICION.md`
 §3). Tres cosas:
 
 - `app/nlp/llm_client.py:149-150`: `self._prompt` se arma con
@@ -1449,8 +1449,8 @@ si la base no contesta, el proceso no levanta.
 
 **4 y 5. Identificador de turno y `done` en el error.** Los dos en
 `app/controller/controller.py`. **El punto 4 cambia el contrato del WebSocket**: antes de
-tocarlo hay que leer `../sign-ai-android/.opencode/skills/contrato-websocket/SKILL.md`, y
-después hay que actualizar el otro lado (`../sign-ai-android`) o decir explícitamente qué
+tocarlo hay que leer `../signall-android/.opencode/skills/contrato-websocket/SKILL.md`, y
+después hay que actualizar el otro lado (`../signall-android`) o decir explícitamente qué
 queda pendiente de ese lado. El identificador lo pone la aplicación y sube desde 1 en cada
 conexión.
 
@@ -1463,7 +1463,7 @@ leerla, para que el código quede de acuerdo con el diagrama y no al revés.
 tiene que dejar de guardar respuestas vacías. **Eso pide una migración**: la tabla
 (`app/persistence/migrations/002_create_semantic_cache.sql`) no tiene restricción única
 sobre `(original_text, phrase_type)`, y el `UPSERT` necesita una contra la que entrar en
-conflicto. Y el plan de pruebas de `../sign-ai-docs` hay que actualizarlo, porque hoy
+conflicto. Y el plan de pruebas de `../signall-docs` hay que actualizarlo, porque hoy
 describe el defecto como si fuera el comportamiento.
 
 **8 y 9. Analizadores estáticos y dependencias fijadas.** `mypy` y `ruff` con su
@@ -1506,10 +1506,10 @@ tomó el 2026-10-16 y **el código no la cumple**. Se encontró el 2026-10-21 al
 lista en el prompt fuera el diseño. No lo es.
 
 **Qué dice la decisión.** El prompt **no** lleva la lista de glosas del catálogo. Está en
-`../sign-ai-android/docs/PLAN-MEDICION.md` §3 (líneas 96-180), con el análisis. Las dos
+`../signall-android/docs/PLAN-MEDICION.md` §3 (líneas 96-180), con el análisis. Las dos
 razones:
 
-1. **Va contra el plan de pruebas.** `../sign-ai-docs/plan-pruebas/01-diseno/llm/general.md:31-33`
+1. **Va contra el plan de pruebas.** `../signall-docs/plan-pruebas/01-diseno/llm/general.md:31-33`
    dice, del prompt: *"No incluye la lista de las 50 glosas del catálogo, así que el modelo
    puede inventar glosas. Las que no existen las marca como no disponibles el validador."*
 2. **No escala**, y el mecanismo que hace falta ya está: **RF-CAT-02** (`:348-354`) pone la
@@ -1555,9 +1555,9 @@ que el prompt puede llevar la lista:
 | `docs/sdd-changes.md` | la lista de lo que se trajo de `develop` |
 | `docs/CAMBIOSBACKEND.md` | la nota del cherry-pick `db1fa69` |
 | `docs/sessions/2026-10-15-vuelta-al-flujo-por-oraciones.md` | la tabla de lo que se trajo |
-| `../sign-ai-android/openspec/sessions/2026-10-14-conectar-stt-y-backend-real.md` | la nota del prompt nuevo |
-| `../sign-ai-android/Revisión de develop.md` | los dos puntos del prompt |
-| `../sign-ai-docs/plan-pruebas/01-diseno/llm/general.md:31-33` | la limitación, que ya es el diseño |
+| `../signall-android/openspec/sessions/2026-10-14-conectar-stt-y-backend-real.md` | la nota del prompt nuevo |
+| `../signall-android/Revisión de develop.md` | los dos puntos del prompt |
+| `../signall-docs/plan-pruebas/01-diseno/llm/general.md:31-33` | la limitación, que ya es el diseño |
 
 ### 10.4 Lo que no nos compete
 
@@ -1575,9 +1575,9 @@ que existe y para que la *Memoria* lo recoja como trabajo futuro.
 
 | Qué | Dónde | Por qué |
 |---|---|---|
-| `auditoria-flujo-2026-10-15.md` | `../sign-ai-docs/` | Era **el primer contraste**, del 15 de octubre. Está commiteado y no se tocaba desde el 16. Todo lo que tenía está en este documento |
-| `texto-overleaf-pendiente.md` | `../sign-ai-docs/modificaciones/` | Era la lista de textos para pegar en Overleaf. **Todo lo que tenía ya se pegó**, así que el archivo solo servía para confundir. Decisión del owner, 2026-10-21 |
-| `SignAI_Requerimientos_Consolidados_v0.15.docx` | `../sign-ai-docs/documentos/requerimientos/` | La versión en Word del mismo documento. Lo había hecho **pandoc el 12 de agosto** (se sabe por los metadatos: el autor es "Un-named", el default de pandoc) y **nunca se actualizó**: seguía en la v0.15, sin RF-NLP-05, RF-UI-08 ni RF-STT-05, y todavía con RNF-POR-03 y RNF-BD-02, que en la v0.16 ya se fusionaron o se quitaron. Que en Word se lea la versión vieja, sin avisar, es el peor de los tres estados. **Decisión del owner, 2026-10-21: se borra** y el documento vive solo en Markdown. Queda la nota en el `.md` |
+| `auditoria-flujo-2026-10-15.md` | `../signall-docs/` | Era **el primer contraste**, del 15 de octubre. Está commiteado y no se tocaba desde el 16. Todo lo que tenía está en este documento |
+| `texto-overleaf-pendiente.md` | `../signall-docs/modificaciones/` | Era la lista de textos para pegar en Overleaf. **Todo lo que tenía ya se pegó**, así que el archivo solo servía para confundir. Decisión del owner, 2026-10-21 |
+| `SignAI_Requerimientos_Consolidados_v0.15.docx` | `../signall-docs/documentos/requerimientos/` | La versión en Word del mismo documento. Lo había hecho **pandoc el 12 de agosto** (se sabe por los metadatos: el autor es "Un-named", el default de pandoc) y **nunca se actualizó**: seguía en la v0.15, sin RF-NLP-05, RF-UI-08 ni RF-STT-05, y todavía con RNF-POR-03 y RNF-BD-02, que en la v0.16 ya se fusionaron o se quitaron. Que en Word se lea la versión vieja, sin avisar, es el peor de los tres estados. **Decisión del owner, 2026-10-21: se borra** y el documento vive solo en Markdown. Queda la nota en el `.md` |
 
 **Lo que se rescató antes de borrarlo** (el 2026-10-21, el mismo día):
 
@@ -1629,9 +1629,9 @@ las citas por línea quedaron apuntando a otra cosa. Se corrigieron todas:
 |---|---|---|
 | `docs/sdd-changes.md:371` → `docs/performance.md` | `:618-623` | **`:676-681`** |
 | `docs/sdd-changes.md:433` → `docs/performance.md` | `:688-693` | **`:756`** |
-| `../sign-ai-android/docs/PLAN-MEDICION.md:216` → `docs/CAMBIOSBACKEND.md` | `:183-185` | **`:186-188`** |
-| `../sign-ai-android/docs/PLAN-MEDICION.md:425` → `llm/general.md` | `:38` | **`:44`** |
-| `../sign-ai-android/openspec/sessions/2026-10-16-latencia-y-decisiones.md:93` | `docs/performance.md:621-623` | **`SignAiBottomBar.kt:114-115`**, que es donde está la cita textual |
+| `../signall-android/docs/PLAN-MEDICION.md:216` → `docs/CAMBIOSBACKEND.md` | `:183-185` | **`:186-188`** |
+| `../signall-android/docs/PLAN-MEDICION.md:425` → `llm/general.md` | `:38` | **`:44`** |
+| `../signall-android/openspec/sessions/2026-10-16-latencia-y-decisiones.md:93` | `docs/performance.md:621-623` | **`SignAiBottomBar.kt:114-115`**, que es donde está la cita textual |
 
 La última estaba mal desde antes: el texto *"intercalados, el `index` de las oraciones deja de
 corresponder al orden en que llegaron"* nunca estuvo en `performance.md`, estaba en el
@@ -1672,14 +1672,14 @@ Propuesto); el v0.16 tiene **71 requerimientos** (66 RF/RNF y 5 RD), contra **66
 
 | Si el trabajo toca… | Cargá |
 |---|---|
-| Un frame del WebSocket o un nombre de métrica | `../sign-ai-android/.opencode/skills/contrato-websocket/SKILL.md` — el contrato se lee en los dos lados antes de cambiarlo |
+| Un frame del WebSocket o un nombre de métrica | `../signall-android/.opencode/skills/contrato-websocket/SKILL.md` — el contrato se lee en los dos lados antes de cambiarlo |
 | Un nombre de clase o método que el SDD define | `.claude/skills/signai-sdd-conformance/SKILL.md` |
 | El contrato completo con la app | `docs/android-integration.md` §3.1 y §4 |
 | Qué se decidió ya entre el código y los documentos del backend | `docs/sdd-changes.md` — **con lo que quedó viejo, ver §10.2 punto 8** |
 | Qué cambió en el flujo por oraciones | `docs/CAMBIOSBACKEND.md` |
 | Latencias y efecto de cada optimización | `docs/performance.md` |
-| Los requisitos del proyecto | `../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md` — internamente v0.16 |
-| El estado de cada cambio de los requerimientos | `../sign-ai-docs/modificaciones/requerimientos.md` — **45 filas**, con el estado de cada una |
+| Los requisitos del proyecto | `../signall-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md` — internamente v0.16 |
+| El estado de cada cambio de los requerimientos | `../signall-docs/modificaciones/requerimientos.md` — **45 filas**, con el estado de cada una |
 | El estado de la ejecución de la alineación | Este documento, §10 |
 | El diseño del proyecto | `docs/sdd.md` (alineado con el backend el 2026-10-20) y el SDD de Overleaf (`v212`, texto alineado y las doce PNG nuevas subidas) |
-| Los diagramas | `../sign-ai-docs/diagramas/draw.io` es la fuente, y es la buena. Los tres juegos —el de ahí, el de `docs/diagrams/` de este repo y el de `images/` en Overleaf— son **el mismo archivo** |
+| Los diagramas | `../signall-docs/diagramas/draw.io` es la fuente, y es la buena. Los tres juegos —el de ahí, el de `docs/diagrams/` de este repo y el de `images/` en Overleaf— son **el mismo archivo** |

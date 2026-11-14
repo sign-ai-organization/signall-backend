@@ -84,4 +84,4 @@ concretos. **No se tocó el umbral**: mueve `PR-CAC-*` y merece su propia medici
   ni conflicto. `develop` queda atrás y no se tocó.
 - Backend reconstruido; la app instalada apunta a `ws://127.0.0.1:8080`.
 - La bitácora de la ronda en la app está en
-  `../sign-ai-android/openspec/sessions/2026-11-06-glosado-orden-y-prompt.md`.
+  `../signall-android/openspec/sessions/2026-11-06-glosado-orden-y-prompt.md`.

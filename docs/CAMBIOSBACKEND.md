@@ -11,7 +11,7 @@ oraciones**, y qué tiene que hacer el resto del sistema con esto.
 > modo dictado del controller, `scripts/verify_incremental.py`,
 > `verify_voice_modes.py`, `verify_realtime_latency.py`). Volver a `main` y
 > **dejar atrás** ese camino es decisión del owner, escrita en `Revisión de develop.md`
-> (nota en la raíz de `sign-ai-android`, 2026-10-15):
+> (nota en la raíz de `signall-android`, 2026-10-15):
 >
 > > **Base recomendada.** `origin/main` del backend ya contiene lo útil
 > > (normalización del catálogo y frames `text`/`end`), sin nada de tiempo real.
@@ -118,8 +118,8 @@ quedan idénticas.
 
 | repo | qué tiene que hacer |
 |---|---|
-| `sign-ai-stt` | seguir mandando `transcript` con `final`, y **responder a todo `end`, incluso vacío**. El backend no puede asumir que un `end` produce un `final`: si no llega, la frase queda colgada. |
-| `sign-ai-android` | decidir **cuándo** mandar el `text`: el client es quien dispara. En el cliente, el auto-envío en vivo **no debe poder dispararse por un frame que no venga del STT** — es el modo en que se manifestó el bug del eco. |
+| `signall-stt` | seguir mandando `transcript` con `final`, y **responder a todo `end`, incluso vacío**. El backend no puede asumir que un `end` produce un `final`: si no llega, la frase queda colgada. |
+| `signall-android` | decidir **cuándo** mandar el `text`: el client es quien dispara. En el cliente, el auto-envío en vivo **no debe poder dispararse por un frame que no venga del STT** — es el modo en que se manifestó el bug del eco. |
 
 ---
 
@@ -165,7 +165,7 @@ con el STT una vez, y que si el STT se cae la sesión también termine.
 
 Herramientas nuevas, que son las pruebas de regresión de cada punto:
 
-- `tools/verificar-bloqueo-lectura.py` (vive en `sign-ai-android/tools`) —
+- `tools/verificar-bloqueo-lectura.py` (vive en `signall-android/tools`) —
   falla si el bucle de lectura se traba más de 500 ms.
 - `tools/verificar-conexiones-stt.py` — falla si alguna sesión deja su socket
   con el STT abierto.

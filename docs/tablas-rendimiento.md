@@ -172,7 +172,7 @@
 
 ## STT
 
-### VAD — `sign-ai-stt/docs/performance.md` §1 · 2026-10-01
+### VAD — `signall-stt/docs/performance.md` §1 · 2026-10-01
 
 | | `VAD_AGGRESSIVENESS=0` | `VAD_AGGRESSIVENESS=2` |
 |---|---:|---:|
@@ -181,7 +181,7 @@
 | Cortes forzados a los 8 s (`buffer_max`) | 4 | 2 |
 | Fin de la habla → final (cierres por silencio) | 1877 ms | 1880–2047 ms |
 
-### Parciales activados y desactivados — `sign-ai-stt/docs/performance.md` §2 · 2026-10-01
+### Parciales activados y desactivados — `signall-stt/docs/performance.md` §2 · 2026-10-01
 
 | | Con parciales | Sin parciales |
 |---|---:|---:|
@@ -190,7 +190,7 @@
 | Fin de la habla → final, peor caso | 7742 ms | 2635 ms |
 | Fin de la habla → final, típico | 1880–2047 ms | 2148–2635 ms |
 
-### Parciales en segundo plano — `sign-ai-stt/docs/performance.md` §3 · 2026-10-01
+### Parciales en segundo plano — `signall-stt/docs/performance.md` §3 · 2026-10-01
 
 | | Parciales bloqueantes | Sin parciales | Parciales en segundo plano |
 |---|---:|---:|---:|
@@ -199,7 +199,7 @@
 | Picos de 6–8 s | sí | no | **no** |
 | Fin de la habla → final (con voz) | 1880–2047 ms | 2148–2635 ms | **1862 ms** |
 
-### Volúmenes medidos — `sign-ai-stt/docs/performance.md` §6 · 2026-10-01
+### Volúmenes medidos — `signall-stt/docs/performance.md` §6 · 2026-10-01
 
 | Audio | Nivel |
 |---|---|
@@ -208,7 +208,7 @@
 | Voz "pasito" | 0.017–0.022 |
 | Voz normal o fuerte | 0.025–0.06 |
 
-### Cortes en pausas y filtro de energía — `sign-ai-stt/docs/performance.md` §7 · 2026-10-01
+### Cortes en pausas y filtro de energía — `signall-stt/docs/performance.md` §7 · 2026-10-01
 
 | | Solo corte en pausas | Con filtro de energía por frame |
 |---|---:|---:|
@@ -217,7 +217,7 @@
 | Cortes en pausa / forzados | 5 / 3 | 2 / 0 |
 | Fin de la habla → final | — | 1813–2099 ms |
 
-### Perfil de tiempo real frente al flujo por oraciones — `sign-ai-stt/docs/performance.md` §8 · 2026-10-15
+### Perfil de tiempo real frente al flujo por oraciones — `signall-stt/docs/performance.md` §8 · 2026-10-15
 
 | | En el perfil | Ahora |
 |---|---|---|
@@ -231,7 +231,7 @@
 
 ## App y avatar
 
-### Primer seña, 28 fixtures — `sign-ai-android/tools/TIEMPO-REAL.md` · 2026-10-15
+### Primer seña, 28 fixtures — `signall-android/tools/TIEMPO-REAL.md` · 2026-10-15
 
 | | p50 | p95 |
 |---|---|---|

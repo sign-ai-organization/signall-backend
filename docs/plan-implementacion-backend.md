@@ -1,7 +1,7 @@
 # Plan de Implementación — Backend SignAI
 
 **Base de este plan:** SDD (Vistas 6.1–6.3, Diagramas de Clases 7.1, Secuencia 7.2, Persistencia 7.3, C4 Niveles 1–3)
-**Alcance:** Backend monolito (`sign-ai-backend`) + servicio STT. No cubre el cliente Android.
+**Alcance:** Backend monolito (`signall-backend`) + servicio STT. No cubre el cliente Android.
 **Unidad de trabajo:** cada subfase corresponde a un commit (o, en subfases de decisión, a una actualización documental — ver convenciones).
 
 ---
@@ -11,7 +11,7 @@
 **Etiquetas por subfase:**
 - 🔧 **Código** — produce un commit en el repositorio del backend.
 - 🗂️ **Infraestructura / fuera de código** — una tarea manual (crear un recurso en la nube, configurar una cuenta). Puede no generar commit, o generar uno de configuración (ej. `.env.example`).
-- 🛑 **Decisión requerida** — un punto donde el plan se detiene porque depende de una decisión (ADR/DEC) que hoy sigue abierta. No se avanza a la subfase siguiente sin resolverla. El "commit" de una decisión es la actualización del ADR correspondiente en `sign-ai-docs`, no código.
+- 🛑 **Decisión requerida** — un punto donde el plan se detiene porque depende de una decisión (ADR/DEC) que hoy sigue abierta. No se avanza a la subfase siguiente sin resolverla. El "commit" de una decisión es la actualización del ADR correspondiente en `signall-docs`, no código.
 - ✅ **Verificación** — no es un test formal (eso vive en la Fase 14), sino una comprobación rápida y manual de que el componente hace lo que el diagrama dice, antes de construir lo siguiente encima.
 
 **Formato de mensajes de commit:** convención tipo Conventional Commits — `tipo(scope): descripción`. Tipos usados en este plan: `feat`, `fix`, `chore`, `docs`, `test`, `infra`.
@@ -58,7 +58,7 @@
 Objetivo: tener un proyecto FastAPI ejecutable, vacío de lógica de negocio, pero con la estructura, configuración y contenedores listos para recibir el código de las fases siguientes.
 
 ### 0.1 — Estructura de carpetas del repositorio 🔧
-Crear la estructura de `sign-ai-backend` reflejando 1:1 los componentes del diagrama C4 nivel 3: `app/controller/`, `app/orchestrator/`, `app/nlp/`, `app/validation/`, `app/persistence/`, `app/static_glb/`, `app/config/`.
+Crear la estructura de `signall-backend` reflejando 1:1 los componentes del diagrama C4 nivel 3: `app/controller/`, `app/orchestrator/`, `app/nlp/`, `app/validation/`, `app/persistence/`, `app/static_glb/`, `app/config/`.
 **Commit:** `chore(setup): estructura inicial de carpetas del backend`
 
 ### 0.2 — Entorno virtual y dependencias base 🔧
@@ -106,7 +106,7 @@ DEC-15 sigue "En análisis" en el Architecture Backlog — no hay ADR que la res
 - **SQL directo con `asyncpg`:** menos capas, más rápido de escribir para dos tablas simples sin relaciones entre sí (como ya señala el propio SDD en 7.3). Las migraciones se manejan como scripts `.sql` versionados a mano.
 
 Mi recomendación: dado que el modelo son solo dos tablas sin relaciones (el propio SDD lo dice explícitamente en 7.3), y que CatalogRepository carga todo en memoria al arrancar sin volver a consultar por fila, `asyncpg` directo es proporcional a la complejidad real del problema. SQLAlchemy sería sobre-ingeniería aquí. Valida esto conmigo cuando lleguemos a esta subfase antes de escribir código.
-**Commit al resolverse:** `docs(adr): decisión de acceso a datos (DEC-15)` en `sign-ai-docs`.
+**Commit al resolverse:** `docs(adr): decisión de acceso a datos (DEC-15)` en `signall-docs`.
 
 ### 1.4 — Esquema de las tablas 🔧
 Script de creación de `catalog` y `semantic_cache` exactamente como en la Figura 8: `catalog(id_sign PK, gloss indexed, semantic_category, glb_animation_path, modified_at)`, `semantic_cache(id PK, original_text, embedding VECTOR(384), phrase_type, glosses TEXT[], secondary_signals TEXT[], had_collision BOOLEAN, created_at)`.

@@ -82,7 +82,7 @@ Whisper original).
 **Decisión:** `medium` (`MODEL_SIZE=medium`, `DEVICE=cuda`,
 `COMPUTE_TYPE=float16`).
 **Por qué:** medición ya realizada por un compañero de equipo sobre la
-misma RTX 3050 del Demo/Dev Host (repo `sign-ai-stt`), comparando
+misma RTX 3050 del Demo/Dev Host (repo `signall-stt`), comparando
 `tiny/base/small/medium/large-v3`; `medium` resultó el mejor balance de
 rendimiento según su informe. Cifras exactas de latencia/VRAM por
 tamaño: **por confirmar**, pendientes de que se comparta el informe
@@ -98,14 +98,14 @@ completo.
 Controller recibe audio del cliente Android por el único canal WebSocket
 ya definido (app ↔ backend), y por dentro abre su propia conexión
 WebSocket hacia `STT: /ws/transcribe` (protocolo ya implementado en
-`sign-ai-stt`: frames binarios PCM16LE 16kHz de entrada, mensajes JSON
+`signall-stt`: frames binarios PCM16LE 16kHz de entrada, mensajes JSON
 `{"type": "partial"|"final", "text": ...}` de vuelta). El cliente Android
 nunca se conecta directo al STT.
 **Por qué:** se evaluó una alternativa (repo `stt-integration-test`) donde
 el cliente le habla directo al STT y este reenvía por HTTP al backend
 como aviso aparte. Se descartó porque contradice un requerimiento ya
 aprobado (**RF-INT-COM-01**, en
-`../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md:168`):
+`../signall-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md:168`):
 un único canal WebSocket persistente
 entre la app y el backend, que lleva audio en un sentido y el resultado
 final en el otro — la alternativa necesitaría una segunda conexión
@@ -117,7 +117,7 @@ final en el otro — la alternativa necesitaría una segunda conexión
 ## Nota — Tiempo de silencio para transcripción final
 
 **Decisión:** 1500 ms, tal como ya especifica el SDD (Vista de Procesos).
-**Por qué:** el repo `sign-ai-stt` trae `SILENCE_TIMEOUT_MS=600` como
+**Por qué:** el repo `signall-stt` trae `SILENCE_TIMEOUT_MS=600` como
 default — hay que ajustarlo a 1500 al configurar el servicio para este
 proyecto, no usar su valor por defecto.
 **Fecha:** 2026-09-16

@@ -3,8 +3,8 @@
 - **Fecha:** 2026-11-04
 - **Rama:** `develop`
 - **Origen:** las 14 decisiones del owner sobre la sección 6 de
-  `../sign-ai-android/docs/backend/contraste-backend-2026-11-03.html`, más el reporte
-  `../sign-ai-android/docs/CONTRASTE-BACKEND-ARTIFACT-2026-11-03.md`.
+  `../signall-android/docs/backend/contraste-backend-2026-11-03.html`, más el reporte
+  `../signall-android/docs/CONTRASTE-BACKEND-ARTIFACT-2026-11-03.md`.
 - **Sin commit:** los cambios quedan en el árbol de trabajo, como manda `CLAUDE.md`.
 
 ---

@@ -3,7 +3,7 @@
 **Estado:** en ejecución. Fase 1 y fase 2 hechas el 2026-10-27; falta que el teléfono
 instale el APK publicado y siga la fase 3.
 **Fecha:** 2026-10-27.
-**Alcance:** `../sign-ai-android` (la app, casi todo), `../sign-ai-backend` (el endpoint
+**Alcance:** `../signall-android` (la app, casi todo), `../signall-backend` (el endpoint
 de métricas del teléfono y el APK servido por Caddy) y la documentación que lo describe.
 **Requisito que cierra:** RF-INT-COM-06 se sigue cumpliendo, y además el equipo deja de
 depender del cable para instalar, medir y depurar.
@@ -129,7 +129,7 @@ fase 4 en vez de dejar una regla que el código ya no cumple.
 
 ## 5. Qué se toca, archivo por archivo
 
-### `../sign-ai-backend`
+### `../signall-backend`
 
 | Archivo | Acción | Qué |
 |---|---|---|
@@ -147,7 +147,7 @@ fase 4 en vez de dejar una regla que el código ya no cumple.
 **No se toca:** el WebSocket, `app/realtime/` (no existe y no vuelve), el STT, Neon, el
 Dockerfile ni el protocolo de los frames.
 
-### `../sign-ai-android`
+### `../signall-android`
 
 | Archivo | Acción | Qué |
 |---|---|---|
@@ -169,7 +169,7 @@ Dockerfile ni el protocolo de los frames.
 **No se toca:** `SignAiWebSocketClient` (ya soporta `wss://`), el puente Kotlin ↔ JS,
 `AndroidManifest.xml`, los `network_security_config.xml`, ni el catálogo de señas.
 
-### `../sign-ai-docs` y Overleaf
+### `../signall-docs` y Overleaf
 
 | Archivo | Acción | Qué |
 |---|---|---|
@@ -181,9 +181,9 @@ Dockerfile ni el protocolo de los frames.
 
 ## 6. Los scripts permanentes
 
-Van en `../sign-ai-android/tools/wifi/` y se pueden correr desde cualquier lado. Todos
+Van en `../signall-android/tools/wifi/` y se pueden correr desde cualquier lado. Todos
 toman `SIGNAI_HOST` (por defecto, la IP de la PC en la red local) y `SIGNAI_CACERT` (por
-defecto, `../sign-ai-backend/deploy/certs/lab-ca.crt`).
+defecto, `../signall-backend/deploy/certs/lab-ca.crt`).
 
 | Script | Qué hace | Uso |
 |---|---|---|

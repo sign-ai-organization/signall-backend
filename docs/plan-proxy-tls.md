@@ -3,10 +3,10 @@
 **Estado:** ejecutado el 2026-10-27 (fases 0 a 6). Queda sin commit: el trabajo está
 en el árbol de los tres repos y las propuestas de commit están en §11.
 **Fecha:** 2026-10-26
-**Alcance:** despliegue de demo (`../sign-ai-backend` + `../sign-ai-android`) y la
-documentación que lo describe (`../sign-ai-docs` y el Overleaf de la tesis).
+**Alcance:** despliegue de demo (`../signall-backend` + `../signall-android`) y la
+documentación que lo describe (`../signall-docs` y el Overleaf de la tesis).
 **Requisito que cierra:** RF-INT-COM-06, que hasta el 2026-10-27 estaba marcado como
-"No implementado" en `../sign-ai-docs/plan-pruebas/00-bases/trazabilidad.md` y que ahora
+"No implementado" en `../signall-docs/plan-pruebas/00-bases/trazabilidad.md` y que ahora
 aparece en la tabla de lo implementado.
 
 Etiquetas usadas, igual que en `plan-implementacion-backend.md`:
@@ -73,7 +73,7 @@ el SRS en lugar de esconderse.
 
 - Una pantalla de bloqueo en el teléfono: Android 11 la exige para instalar una CA
   de usuario.
-- Aplicar los cambios de `.tex` en Overleaf y de `.drawio` en `../sign-ai-docs`:
+- Aplicar los cambios de `.tex` en Overleaf y de `.drawio` en `../signall-docs`:
   **los edita el owner**, la sesión solo propone el texto exacto.
 
 ---
@@ -97,7 +97,7 @@ pero no para probar que la app rechaza `ws://`.
 
 ## 4. Qué se toca, archivo por archivo
 
-### `../sign-ai-backend`
+### `../signall-backend`
 
 | Archivo | Acción | Qué |
 |---|---|---|
@@ -116,7 +116,7 @@ pero no para probar que la app rechaza `ws://`.
 **No se toca:** `Dockerfile`, `app/`, el protocolo del WebSocket, `uvicorn`. El
 backend sigue escuchando en `0.0.0.0:8080` sin saber que existe un proxy.
 
-### `../sign-ai-android`
+### `../signall-android`
 
 | Archivo | Acción | Qué |
 |---|---|---|
@@ -130,7 +130,7 @@ backend sigue escuchando en `0.0.0.0:8080` sin saber que existe un proxy.
 `AndroidManifest.xml` (ya apunta a `@xml/network_security_config`) ni el puente
 Kotlin ↔ JS. El manifiesto y el cliente ya soportan `wss://`; el cambio es de build.
 
-### `../sign-ai-docs`
+### `../signall-docs`
 
 | Archivo | Acción | Qué |
 |---|---|---|
@@ -252,8 +252,8 @@ app falla, el problema es de la app o del certificado, no de la red.
 ### Fase 6 — Documentación (2–3 h) 🗂️
 
 1. Redibujar 6.2 y C4-2; ajustar solo la etiqueta de C4-1.
-2. Regenerar las PNG y copiarlas a los **tres** destinos: `../sign-ai-docs/diagramas/png/`,
-   `../sign-ai-backend/docs/diagrams/` y la carpeta `images/` del SDD en Overleaf.
+2. Regenerar las PNG y copiarlas a los **tres** destinos: `../signall-docs/diagramas/png/`,
+   `../signall-backend/docs/diagrams/` y la carpeta `images/` del SDD en Overleaf.
 3. Aplicar los cambios de texto de §4 en el orden: SDD local → `sdd-changes.md` →
    plan de pruebas → trazabilidad → contrastes.
 4. Entregar al owner el texto exacto para el SRS y el SDD de Overleaf.
@@ -318,7 +318,7 @@ HOLA 2,12 s + COMO ESTAS 2,08 s). El descuento del fundido es el mismo en las do
 tráfico tardó **6.778 ms** (de los cuales 6.400 ms fueron el modelo). Ollama había
 descargado el modelo de memoria y lo estaba recargando, y el embedder de la caché
 también estaba frío (`cache.embed` 317,8 ms contra 23–43 ms en caliente). Es el
-mismo efecto que la entrada del 2026-10-26 de `../sign-ai-backend` ya había medido
+mismo efecto que la entrada del 2026-10-26 de `../signall-backend` ya había medido
 como *warm-up* del LLM, y en una demo se ve como "la primera frase se colgó".
 
 ---
@@ -403,6 +403,6 @@ depende del owner, porque los `.tex` y los `.drawio` los aplica él.
 
 | Repo | Mensaje |
 |---|---|
-| `sign-ai-backend` | `feat(deploy): proxy Caddy con TLS de laboratorio` |
-| `sign-ai-android` | `feat(build): variante demo con wss://` |
-| `sign-ai-docs` | `docs(diagramas): el proxy inverso en 6.2 y en C4-2` |
+| `signall-backend` | `feat(deploy): proxy Caddy con TLS de laboratorio` |
+| `signall-android` | `feat(build): variante demo con wss://` |
+| `signall-docs` | `docs(diagramas): el proxy inverso en 6.2 y en C4-2` |

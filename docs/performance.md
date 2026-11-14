@@ -434,7 +434,7 @@ del caché por similitud semántica con esa fila: distancia coseno
 
 **Fecha:** 2026-10-01
 **Contexto:** backend con todos los cambios anteriores y el STT
-(`sign-ai-stt`) con sus optimizaciones (ver su `docs/performance.md`):
+(`signall-stt`) con sus optimizaciones (ver su `docs/performance.md`):
 VAD con filtro de energía, parciales en segundo plano, cortes en pausas
 y precalentamiento del modelo.
 
@@ -533,9 +533,9 @@ costo de que el modelo preste atención a una lista que ya no cabe en su
 atención útil.
 
 **La decisión (D-7, owner, 2026-10-16).** El prompt **no** debe llevar la
-lista. El análisis está en `../sign-ai-android/docs/PLAN-MEDICION.md` §3. Las
+lista. El análisis está en `../signall-android/docs/PLAN-MEDICION.md` §3. Las
 dos razones: el plan de pruebas
-(`../sign-ai-docs/plan-pruebas/01-diseno/llm/general.md:31-33`) dice que el
+(`../signall-docs/plan-pruebas/01-diseno/llm/general.md:31-33`) dice que el
 prompt no la lleva, y el costo no escala. **El SDD no dice nada del contenido
 del prompt**, así que quitarlo no rompe ningún diagrama.
 
@@ -710,7 +710,7 @@ La tabla `catalog` en Neon tiene 3 señas de las 50 del corpus, por eso
 casi todas las glosas salen con `available: False`. Cargar el catálogo
 completo antes de la demo.
 
-## STT (`sign-ai-stt`)
+## STT (`signall-stt`)
 
 - **README:** actualizar la descripción del final (ahora las frases
   largas se cortan en pausas y los finales vacíos no se envían).
@@ -742,9 +742,9 @@ p95 que circula en `tools/TIEMPO-REAL.md` y en las sesiones es del camino por
 palabras. No se puede comparar con la de ahora: con oraciones la primera
 oración se representa al **terminarla**, no a mitad de camino, así que el número
 sube por construcción y por una razón que no es una regresión. Repetir las 28
-frases de `../sign-ai-stt/fixtures/audio` (los clips se generan con
+frases de `../signall-stt/fixtures/audio` (los clips se generan con
 `scripts/make_audio_fixtures.py --all` en el repo del STT) con
-`../sign-ai-android/tools/verificar-tiempo-real.sh` y recién
+`../signall-android/tools/verificar-tiempo-real.sh` y recién
 después hablar de mejora o de lo contrario.
 
 **Pendiente de esta entrada:**

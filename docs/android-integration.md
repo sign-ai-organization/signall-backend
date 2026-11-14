@@ -9,14 +9,14 @@ nunca se conecta directo al servicio STT.
 
 ## 1. Levantar el backend
 
-Se necesitan el backend y el servicio STT (`sign-ai-stt`, requiere GPU
+Se necesitan el backend y el servicio STT (`signall-stt`, requiere GPU
 NVIDIA). Los dos repos deben estar en la misma carpeta, uno al lado del
 otro:
 
 ```
-sign-ai-organization/
-├── sign-ai-backend/
-└── sign-ai-stt/
+SignAll/
+├── signall-backend/
+└── signall-stt/
 ```
 
 ### Opción recomendada: Docker, un solo comando
@@ -27,18 +27,18 @@ resuelve por el nombre del servicio: `STT_WS_URL=ws://stt:8000/ws/transcribe`
 es el propio contenedor). Luego:
 
 ```bash
-sign-ai-backend> docker compose up --build
+signall-backend> docker compose up --build
 ```
 
 Si el modelo del LLM corre en Ollama sobre la máquina y el firewall del host
 filtra el tráfico del bridge, usar el override de red de host:
 
 ```bash
-sign-ai-backend> docker compose -f docker-compose.yml -f docker-compose.host.yml up --build
+signall-backend> docker compose -f docker-compose.yml -f docker-compose.host.yml up --build
 ```
 
 Este comando levanta los dos servicios: el backend (puerto **8080**) y el
-STT (puerto 8000), que se construye desde `../sign-ai-stt`. Esperar a que
+STT (puerto 8000), que se construye desde `../signall-stt`. Esperar a que
 ambos muestren `Application startup complete`. La primera vez tarda
 varios minutos (instala dependencias y descarga el modelo de Whisper).
 
@@ -52,14 +52,14 @@ varios minutos (instala dependencias y descarga el modelo de Whisper).
 1. STT desde su repo:
 
    ```bash
-   sign-ai-stt> docker compose up --build
+   signall-stt> docker compose up --build
    ```
 
 2. Backend con el entorno virtual activado (ver `README.md`), con
    `STT_WS_URL=ws://localhost:8000/ws/transcribe` en `.env`:
 
    ```bash
-   sign-ai-backend> uvicorn app.main:app --host 0.0.0.0 --port 8080
+   signall-backend> uvicorn app.main:app --host 0.0.0.0 --port 8080
    ```
 
    `--host 0.0.0.0` es necesario para que el teléfono lo alcance.

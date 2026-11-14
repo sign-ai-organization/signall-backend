@@ -36,11 +36,11 @@ services:
       - path: .env.local
         required: false
 
-  # STT service (Whisper), lives in a separate repo (sign-ai-stt).
+  # STT service (Whisper), lives in a separate repo (signall-stt).
   # Its port stays published because the tooling on the host reaches it at
   # 127.0.0.1:8000 (`tools/verificar-conexiones-stt.py`, `scripts/fixtures/`).
   stt:
-    build: ../sign-ai-stt
+    build: ../signall-stt
     ports:
       - "8000:8000"
     environment:

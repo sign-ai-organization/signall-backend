@@ -417,9 +417,9 @@ punto de partida pasó a ser el envío del cliente, que es la "confirmación de
 envío del usuario" de RNF-DES-01.
 
 **Pendiente:** remedir `rt_first_sign_ms` con las 28 frases de
-`../sign-ai-stt/fixtures/audio` (los clips se generan con
+`../signall-stt/fixtures/audio` (los clips se generan con
 `scripts/make_audio_fixtures.py --all` en el repo del STT, y la medición se
-corre con `../sign-ai-android/tools/verificar-tiempo-real.sh`). La
+corre con `../signall-android/tools/verificar-tiempo-real.sh`). La
 cifra publicada de 913 ms p50 / 1336 ms p95 era del camino por palabras y con
 oraciones **no es comparable**: ahora se mide al terminar la primera oración y
 no a mitad de camino.
@@ -441,7 +441,7 @@ después. Ninguno cambia el contrato con la app.
 |---|---|
 | `docs/performance.md:676-681` | "Desacoplar la traducción de la lectura del STT. Hoy `_forward_transcripts` espera a que termine cada traducción antes de leer el siguiente mensaje del STT. **Lanzar cada traducción como tarea** y garantizar que los resultados se envíen al cliente en el orden de las frases." |
 | `docs/performance.md:331-334` | lo nombra como requisito |
-| `../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md:160` (RF-INT-SW-04) y `:553` (RNF-REL-01) | no bloquear el hilo principal |
+| `../signall-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md:160` (RF-INT-SW-04) y `:553` (RNF-REL-01) | no bloquear el hilo principal |
 | `app/controller/controller.py:29-36` (docstring) | "The translation now happens on its own task and the read loop keeps draining the STT" — **ya lo afirmaba y no era cierto** |
 
 **Qué se implementó:** `_PhraseTranslator` corre cada frase en su propia tarea
@@ -535,7 +535,7 @@ cambios por esto.
 
 **Dónde:** `docs/sdd.md:192-210` (la lista "Clases y elementos principales"
 de la Figura 5), contra
-`../sign-ai-docs/diagramas/draw.io/sdd-7.1-clases-2-nlp.drawio` y su PNG,
+`../signall-docs/diagramas/draw.io/sdd-7.1-clases-2-nlp.drawio` y su PNG,
 que es el mismo archivo que se ve en
 `docs/diagrams/sdd-7.1-clases-2-nlp.drawio.png`.
 
@@ -662,7 +662,7 @@ cierra el turno **también en el camino del error**, y eso está en
 El SRS y los requisitos piden **dos rangos** de latencia, no uno: uno para la
 frase que resolvió la caché semántica y otro para la que tuvo que llamar al
 modelo (RNF-DES-01, RNF-DES-03 en
-`../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md:443-468`).
+`../signall-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md:443-468`).
 Hasta ahora `/metrics` no podía separarlos: el acierto y el fallo de la caché
 solo existían como una línea del log
 (`app/nlp/nlp_service_impl.py`, `SemanticCache HIT` / `MISS`), así que el

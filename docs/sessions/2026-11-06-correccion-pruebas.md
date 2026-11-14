@@ -2,7 +2,7 @@
 
 Fase 2 del plan de implementación (artifact "De la propuesta al commit"): la
 capa de vocabulario que sube el acierto de `PR-INT-02`. Dos arreglos, los dos
-en `sign-ai-backend`; no se tocó `sign-ai-stt` ni `sign-ai-android` porque la
+en `signall-backend`; no se tocó `signall-stt` ni `signall-android` porque la
 Fase 2 del plan es solo backend.
 
 **Rama:** `Correccion-Pruebas`, desde `origin/main`. El trabajo se publicó como
@@ -108,7 +108,7 @@ Esto es dato, no código — no hay commit que lo registre, solo este archivo:
 ## 5. Pendiente
 
 1. **Reproducir `PR-INT-02` completo** (las 30 frases de
-   `sign-ai-docs/borradores/plan-pruebas/02-datos/FR-01-frases-dominio.md`),
+   `signall-docs/borradores/plan-pruebas/02-datos/FR-01-frases-dominio.md`),
    no solo las 4 de esta sesión — eso sí se decidió no correrlo todavía para
    no llenar `semantic_cache` de producción con datos de prueba sin que el
    owner lo decidiera primero.

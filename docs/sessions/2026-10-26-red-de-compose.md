@@ -63,7 +63,7 @@ log lo dice (`No gloss of [...] is in the catalog`), no es un fallo del cambio.
 
 | Qué | De quién |
 |---|---|
-| RNF-POR-02 dice *"hoy el backend usa la red del equipo anfitrión … se prevé quitar esa condición"*. La condición ya está quitada, así que la frase quedó falsa: hay que borrar esa cláusula | **Owner**, en `sign-ai-docs` y en el Overleaf |
+| RNF-POR-02 dice *"hoy el backend usa la red del equipo anfitrión … se prevé quitar esa condición"*. La condición ya está quitada, así que la frase quedó falsa: hay que borrar esa cláusula | **Owner**, en `signall-docs` y en el Overleaf |
 | Commit y PR contra `develop` | **Owner**: en este repo no se commitea sin que lo pida |
 | Ollama como servicio opcional con perfil `local`, para no depender del firewall ni del host | Opcional. El punto 33 se cierra sin esto, y evita duplicar un modelo de 2,5 GB |
 

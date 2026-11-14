@@ -1,6 +1,6 @@
-# SignAI Backend
+# SignAll Backend
 
-Backend del proyecto SignAI (traducción de audio en español a
+Backend del proyecto SignAll (traducción de audio en español a
 Lengua de Señas Colombiana mediante un avatar 3D). Ver `CLAUDE.md` y
 `docs/sdd.md` para la arquitectura completa.
 

@@ -48,7 +48,7 @@ queda disponible en su módulo y ningún otro archivo del repositorio cambia.
   `verify_gloss_lexicon`, `verify_llm_prompt`, `verify_gloss_analyzer`,
   `verify_static_analysis`).
 - El arnés de PR-TRA-01 (`docs/plan-pruebas/arnes/tra01.py` en
-  `sign-ai-android`), que lee solo el AST: **4 aristas, 4 por interfaz, 0 que
+  `signall-android`), que lee solo el AST: **4 aristas, 4 por interfaz, 0 que
   se saltan la interfaz**. La evidencia es
   `PR-TRA-01_E_20261110_02.*`.
 - Traducción real por el WebSocket contra el contenedor: «hola, buenos dias»

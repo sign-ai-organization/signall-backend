@@ -1,6 +1,6 @@
-# SignAI Backend
+# SignAll Backend
 
-SignAI traduce audio hablado en español a Lengua de Señas Colombiana (LSC)
+SignAll traduce audio hablado en español a Lengua de Señas Colombiana (LSC)
 mediante un avatar 3D, para que usuarios sordos o usuarios de LSC puedan
 seguir una conversación hablada en tiempo real. El usuario oyente habla,
 el sistema transcribe, interpreta el texto y lo traduce a una secuencia de
@@ -25,7 +25,7 @@ separados; este backend se comunica con ambos pero no los contiene.
 - Persistencia: PostgreSQL 16 + pgvector (Neon). Dos tablas sin relaciones
   entre sí: `catalog` y `semantic_cache`.
 - Fuente de verdad de la arquitectura: `docs/sdd.md` (diagramas en
-  `docs/diagrams/`). Requisitos: `../sign-ai-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md`.
+  `docs/diagrams/`). Requisitos: `../signall-docs/documentos/requerimientos/SignAI_Requerimientos_Consolidados_v0.16.md`.
   Plan de implementación por fases: `docs/plan-implementacion-backend.md`.
 
 ## Estructura de carpetas
