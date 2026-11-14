@@ -149,7 +149,8 @@ deploy/               proxy TLS y archivos para la demostración cifrada
 
 ```bash
 pip install -r requirements-dev.txt            # ruff, mypy y coverage
-ruff check app scripts                         # análisis estático, lo mismo que corre el CI
+tools/calidad/verificar.sh                     # ruff, mypy y gitleaks: toda la verificación local
+ruff check app scripts                         # solo el análisis estático, por separado
 mypy                                           # tipado de app/
 scripts/cobertura.sh                           # corre los verify_* bajo coverage y deja coverage.xml
 
