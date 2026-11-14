@@ -1,82 +1,72 @@
-# SignAll Backend
+# signall-backend
 
-Backend del proyecto SignAll (traducción de audio en español a
-Lengua de Señas Colombiana mediante un avatar 3D). Ver `CLAUDE.md` y
-`docs/sdd.md` para la arquitectura completa.
+Backend del proyecto **SignAll**: recibe audio en español desde la app Android, lo manda
+a transcribir, lo convierte en glosas de Lengua de Señas Colombiana y devuelve las señas
+que el avatar tiene que representar.
 
-## Setup local
+Monolito modular en FastAPI: `Controller` (WebSocket) → `Orchestrator` → `NLPService` →
+`ValidatorService` → `CatalogRepository`, con PostgreSQL + pgvector (Neon) para el catálogo
+y el caché semántico.
 
-1. Crear el entorno virtual (una sola vez, no se sube al repo):
+## Cómo se corre
 
-   ```bash
-   python -m venv .venv
-   ```
-
-2. Activar el entorno virtual (cada vez que se trabaje en el proyecto):
-
-   - Windows (PowerShell): `.venv\Scripts\Activate.ps1`
-   - Windows (Git Bash): `source .venv/Scripts/activate`
-   - Linux/Mac: `source .venv/bin/activate`
-
-3. Instalar las dependencias:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-Para desactivar el entorno virtual en cualquier momento: `deactivate`.
-
-### Nota sobre el modelo de embeddings
-
-`requirements.txt` incluye `sentence-transformers` (usado por
-`EmbeddingModel` para el caché semántico, ver `docs/decisions.md`), que
-trae PyTorch como dependencia — el `pip install` tarda notablemente más
-por esto, es esperado.
-
-Además, la primera vez que el modelo se use (no al instalar, sino al
-correr código que lo invoque por primera vez).
-
-### Nota sobre el modelo de spaCy
-
-`requirements.txt` también instala `spacy` y el modelo `es_core_news_md`
-(como wheel con versión fija), que usa `SentenceSegmenter` para dividir el
-texto final del STT en oraciones. El modelo se carga una sola vez al
-arrancar el backend. Para comprobar que el segmentador sigue cortando igual
-que el laboratorio donde se evaluó:
+Lo normal es Docker, que levanta el backend y el STT juntos:
 
 ```bash
+cp .env.example .env      # llena DATABASE_URL (Neon, sslmode=require) y LLM_API_KEY
+docker compose up -d
+```
+
+El STT se compila desde `../signall-stt`, así que los dos repos tienen que estar uno al
+lado del otro. Sin GPU NVIDIA se usa el override de host y el STT cae a CPU; ver
+[`docs/android-integration.md`](docs/android-integration.md).
+
+Para trabajar en el backend sin Docker:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt      # tarda: trae PyTorch por sentence-transformers
+uvicorn app.main:app --reload
+```
+
+## Cómo se verifica
+
+```bash
+curl -s http://127.0.0.1:8080/health     # {"status":"ok","catalog_glosses":75,...}
+curl -s http://127.0.0.1:8080/metrics    # rt_first_sign_ms, rt_phrase_total_ms, ...
+ruff check app scripts                   # análisis estático (lo que corre el CI)
+mypy
 python -m scripts.verify_sentence_segmenter
 ```
 
-## Carpeta `scripts/`
+Los scripts de `scripts/` prueban una pieza suelta sin pasar por la API:
+`python -m scripts.<nombre>`. Los que necesitan librerías de desarrollo salen de
+`requirements-dev.txt`.
 
-Contiene scripts sueltos para probar manualmente una pieza del backend
-(un repositorio, un servicio) sin pasar por la API HTTP/WebSocket —
-útil en fases tempranas del proyecto, antes de que el Controller (Fase 11)
-exista, o simplemente para verificar un componente de forma aislada. No es
-parte de la aplicación en sí, no se despliega con el backend.
+## Qué necesita
 
-Cada script se corre como módulo, desde la raíz del proyecto, con el
-entorno virtual activado:
+| Necesitas | Detalle |
+|---|---|
+| Python 3.12 | o Docker con el compose del repo |
+| PostgreSQL 16 + pgvector | Neon; la cadena va en `DATABASE_URL` |
+| Clave del LLM | `LLM_API_KEY`; con `LLM_BASE_URL` vacío usa OpenAI |
+| STT | `../signall-stt`, en el `8000`; lo levanta el mismo compose |
+| Puertos | `8080` (backend) y `8000` (STT) |
+| GPU | opcional: el STT corre en CPU con `DEVICE=cpu` |
 
-```bash
-python -m scripts.<nombre_del_script>
-```
+**El caché semántico no se invalida al cambiar el prompt ni el modelo.** Si el arreglo
+parece no surtir efecto, `DELETE FROM semantic_cache;`. El catálogo se carga **una sola
+vez** al arrancar: después de un seed hay que reiniciar el backend.
 
-Por ejemplo:
+## Adónde ir después
 
-```bash
-python -m scripts.verify_catalog_repository
-```
+| Si vas a tocar… | Lee |
+|---|---|
+| Reglas de código, decisiones de diseño, trampas | [`CLAUDE.md`](CLAUDE.md) |
+| La arquitectura completa | [`docs/sdd.md`](docs/sdd.md) |
+| La integración con la app Android | [`docs/android-integration.md`](docs/android-integration.md) |
+| El camino WiFi, TLS y el proxy | [`docs/plan-wifi.md`](docs/plan-wifi.md), [`docs/plan-proxy-tls.md`](docs/plan-proxy-tls.md) |
+| Rendimiento y mediciones | [`docs/performance.md`](docs/performance.md) |
 
-### Dependencias solo de desarrollo (`requirements-dev.txt`)
-
-Algunos scripts necesitan librerías que el backend en sí nunca usa (ej.
-captura de micrófono para probar manualmente una sesión de traducción
-completa). Esas van en `requirements-dev.txt`, no en `requirements.txt`,
-para no inflar la imagen Docker del backend con algo que solo sirve para
-pruebas locales:
-
-```bash
-pip install -r requirements-dev.txt
-```
+El código y los comentarios van **en inglés**, sin excepción, y los nombres de clase
+coinciden con los del SDD. Este repo no se commitea sin que el owner lo pida.
