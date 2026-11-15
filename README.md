@@ -49,6 +49,32 @@ agrega el proxy.
 | `stt` | el servicio de voz del clon hermano | `http://localhost:8000` |
 | `caddy` | el proxy TLS de `deploy/` | `https://127.0.0.1/` (443) y `wss://…/ws/translate` |
 
+### CPU o GPU: se elige, no se detecta
+
+La **CPU es el caso base** y la **GPU es opt-in**. El modelo y el dispositivo del servicio de
+voz se eligen con `MODEL_SIZE`, `DEVICE` y `COMPUTE_TYPE`; el perfil de GPU vive en
+`docker-compose.gpu.yml`, que fija `cuda`/`float16`/`medium` y reserva la tarjeta NVIDIA. La
+elección es **manual y explícita**: no hay preguntas, no hay autodetección y no hay un segundo
+Dockerfile.
+
+| Quiero… | Comando |
+|---|---|
+| **sin GPU** (caso base) | `docker compose -f docker-compose.yml -f docker-compose.host.yml up -d` |
+| **con GPU** (opt-in) | `docker compose -f docker-compose.yml -f docker-compose.host.yml -f docker-compose.gpu.yml up -d` |
+| solo el STT, sin GPU | `cd ../signall-stt && docker compose up --build` |
+| solo el STT, con GPU | `cd ../signall-stt && docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build` |
+
+| Archivo | `MODEL_SIZE` | `DEVICE` | `COMPUTE_TYPE` | Reserva NVIDIA |
+|---|---|---|---|---|
+| `docker-compose.yml` (base) | `${MODEL_SIZE:-small}` | `${DEVICE:-cpu}` | `${COMPUTE_TYPE:-int8}` | no |
+| `docker-compose.gpu.yml` (override) | `medium` | `cuda` | `float16` | sí, driver `nvidia` |
+
+El perfil de GPU necesita NVIDIA Container Toolkit (o Docker Desktop con soporte GPU
+habilitado). La imagen del backend instala torch desde el índice de CPU por defecto
+(`TORCH_INDEX_URL`, `https://download.pytorch.org/whl/cpu`); el override de GPU pasa PyPI, cuyo
+wheel de Linux trae el runtime de CUDA, y también acepta un índice CUDA fijo junto con
+`TORCH_VERSION` si se quiere un toolchain exacto.
+
 **El proxy es parte del sistema, no un extra.** Sin él solo existe `ws://` en claro, y el APK
 `demo` de Android —el que demuestra el cifrado— apunta a `wss://` y no conecta. Por eso el
 `caddy` vive en el segundo archivo: necesita compartir la red del host para alcanzar al
@@ -99,7 +125,7 @@ Si no se quiere ese clon, se puede levantar el STT desde su propio repositorio y
 backend contra él:
 
 ```bash
-# en signall-stt
+# en signall-stt (CPU por defecto; agregar docker-compose.gpu.yml para GPU)
 docker compose up --build
 
 # en signall-backend, con STT_WS_URL=ws://localhost:8000/ws/transcribe en .env
@@ -131,7 +157,7 @@ arrancar, así que después de un seed hay que reiniciar el servicio.
 | Servicio de voz | [signall-stt](https://github.com/sign-ai-organization/signall-stt) en `ws://…:8000/ws/transcribe`; sin él no hay voz |
 | Certificado de laboratorio | `deploy/certs/` con la CA, el certificado y la clave; sin él el proxy no arranca (ver [`deploy/README.md`](deploy/README.md)) |
 | Puertos | `8080` para el backend, `8000` para el STT y `443` para el proxy |
-| GPU | opcional; el STT cae a CPU con `DEVICE=cpu` y `COMPUTE_TYPE=int8` |
+| GPU | opcional; el caso base es CPU (`DEVICE=cpu`, `COMPUTE_TYPE=int8`) y la GPU se pide con `docker-compose.gpu.yml` |
 
 ## Estructura
 
