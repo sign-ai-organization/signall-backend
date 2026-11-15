@@ -132,6 +132,29 @@ toca el protocolo, y se actualiza en el mismo cambio.** Para cambiar un frame o 
 métrica, se lee además el skill `contrato-websocket` del repositorio de la app (vive en
 `signall-android/.opencode/skills/`).
 
+## CPU y GPU
+
+La **CPU es el caso base** y la **GPU es opt-in**. La elección es manual y explícita: no hay
+preguntas ni autodetección.
+
+| Quiero… | Comando |
+|---|---|
+| **sin GPU** (caso base) | `docker compose -f docker-compose.yml -f docker-compose.host.yml up -d` |
+| **con GPU** (opt-in) | `docker compose -f docker-compose.yml -f docker-compose.host.yml -f docker-compose.gpu.yml up -d` |
+
+- El servicio `stt` toma `MODEL_SIZE`, `DEVICE` y `COMPUTE_TYPE` del entorno, con
+  `small`/`cpu`/`int8` por defecto. `docker-compose.gpu.yml` fija `medium`/`cuda`/`float16` y
+  agrega `deploy.resources.reservations.devices` con driver `nvidia`.
+- El `Dockerfile` del backend instala torch desde `TORCH_INDEX_URL` (por defecto el índice de
+  CPU) **antes** de `requirements.txt`, para que el resolver no baje los paquetes `nvidia-*`.
+  El override de GPU pasa PyPI por defecto; también acepta un índice CUDA fijo junto con
+  `TORCH_VERSION`.
+- No existen `docker-compose.cpu.yml` ni `Dockerfile.cpu`: el caso base ya es CPU y el único
+  modo de pedir GPU es agregar el override. No se reintroducen esos archivos.
+- Si se pide CUDA y falla al cargar el modelo, el STT cae a CPU como red de seguridad y
+  `/health` publica el dispositivo efectivo (`device` y `requested_device`). Eso no elige el
+  perfil: el perfil ya quedó declarado en el comando.
+
 ## Decisiones de diseño
 
 Trátalas como el punto de partida, no como algo incuestionable: si al implementar una de estas
@@ -216,6 +239,9 @@ ruff check app scripts                # solo el análisis estático, por separad
 mypy                                  # tipado de app/
 scripts/cobertura.sh                  # corre los verify_* bajo coverage y deja coverage.xml
 
+docker compose -f docker-compose.yml -f docker-compose.host.yml config        # CPU
+docker compose -f docker-compose.yml -f docker-compose.host.yml \
+    -f docker-compose.gpu.yml config                                          # GPU
 docker compose -f docker-compose.yml -f docker-compose.host.yml exec backend \
     python -m scripts.verify_client_frames        # el contrato
 

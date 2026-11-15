@@ -39,25 +39,24 @@ services:
   # STT service (Whisper), lives in a separate repo (signall-stt).
   # Its port stays published because the tooling on the host reaches it at
   # 127.0.0.1:8000 (`tools/verificar-conexiones-stt.py`, `scripts/fixtures/`).
+  #
+  # CPU is the base case and GPU is opt-in: these three values come from the
+  # environment, with the CPU profile as default. To use the GPU, add
+  # `docker-compose.gpu.yml` to the command (it fixes cuda/float16/medium and
+  # reserves the NVIDIA device). There is no autodetection and no second
+  # Dockerfile: the choice is declared, not guessed.
   stt:
     build: ../signall-stt
     ports:
       - "8000:8000"
     environment:
-      MODEL_SIZE: medium
-      DEVICE: cuda
-      COMPUTE_TYPE: float16
+      MODEL_SIZE: ${MODEL_SIZE:-small}
+      DEVICE: ${DEVICE:-cpu}
+      COMPUTE_TYPE: ${COMPUTE_TYPE:-int8}
       LANGUAGE: es
       SILENCE_TIMEOUT_MS: 1500
     volumes:
       - stt-hf-cache:/root/.cache/huggingface
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
 
 volumes:
   stt-hf-cache:
