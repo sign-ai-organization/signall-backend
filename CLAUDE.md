@@ -134,23 +134,23 @@ métrica, se lee además el skill `contrato-websocket` del repositorio de la app
 
 ## CPU y GPU
 
-La **CPU es el caso base** y la **GPU es opt-in**. La elección es manual y explícita: no hay
-preguntas ni autodetección.
+El **default es el entorno del plan de pruebas**: `medium` en una GPU NVIDIA. La elección es
+manual y explícita: no hay preguntas ni autodetección. La opción de CPU existe para una PC sin
+GPU (o con una que no alcanza).
 
 | Quiero… | Comando |
 |---|---|
-| **sin GPU** (caso base) | `docker compose -f docker-compose.yml -f docker-compose.host.yml up -d` |
-| **con GPU** (opt-in) | `docker compose -f docker-compose.yml -f docker-compose.host.yml -f docker-compose.gpu.yml up -d` |
+| **el default** (GPU, `medium`) | `docker compose -f docker-compose.yml -f docker-compose.host.yml up -d` |
+| **sin GPU** | `docker compose -f docker-compose.yml -f docker-compose.host.yml -f docker-compose.cpu.yml up -d` |
 
 - El servicio `stt` toma `MODEL_SIZE`, `DEVICE` y `COMPUTE_TYPE` del entorno, con
-  `small`/`cpu`/`int8` por defecto. `docker-compose.gpu.yml` fija `medium`/`cuda`/`float16` y
-  agrega `deploy.resources.reservations.devices` con driver `nvidia`.
-- El `Dockerfile` del backend instala torch desde `TORCH_INDEX_URL` (por defecto el índice de
-  CPU) **antes** de `requirements.txt`, para que el resolver no baje los paquetes `nvidia-*`.
-  El override de GPU pasa PyPI por defecto; también acepta un índice CUDA fijo junto con
-  `TORCH_VERSION`.
-- No existen `docker-compose.cpu.yml` ni `Dockerfile.cpu`: el caso base ya es CPU y el único
-  modo de pedir GPU es agregar el override. No se reintroducen esos archivos.
+  `medium`/`cuda`/`float16` por defecto y `deploy.resources.reservations.devices` con driver
+  `nvidia`. `docker-compose.cpu.yml` fija `small`/`cpu`/`int8`, quita la reserva con
+  `deploy: !reset` y compila el STT con `requirements.txt` (sin las librerías de CUDA).
+- El `Dockerfile` del backend instala **siempre** torch desde el índice de CPU, **antes** de
+  `requirements.txt`, para que el resolver no baje los 7,5 GB de paquetes `nvidia-*`. El modelo
+  de embeddings del backend corre en CPU aunque la máquina tenga GPU, así que no hay variante
+  CUDA de esta imagen: el perfil de GPU es del STT.
 - Si se pide CUDA y falla al cargar el modelo, el STT cae a CPU como red de seguridad y
   `/health` publica el dispositivo efectivo (`device` y `requested_device`). Eso no elige el
   perfil: el perfil ya quedó declarado en el comando.
@@ -239,9 +239,9 @@ ruff check app scripts                # solo el análisis estático, por separad
 mypy                                  # tipado de app/
 scripts/cobertura.sh                  # corre los verify_* bajo coverage y deja coverage.xml
 
-docker compose -f docker-compose.yml -f docker-compose.host.yml config        # CPU
+docker compose -f docker-compose.yml -f docker-compose.host.yml config        # default (GPU)
 docker compose -f docker-compose.yml -f docker-compose.host.yml \
-    -f docker-compose.gpu.yml config                                          # GPU
+    -f docker-compose.cpu.yml config                                          # perfil de CPU
 docker compose -f docker-compose.yml -f docker-compose.host.yml exec backend \
     python -m scripts.verify_client_frames        # el contrato
 

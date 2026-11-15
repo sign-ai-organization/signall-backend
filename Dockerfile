@@ -2,19 +2,17 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Where the PyTorch wheel comes from. CPU is the base case: the GPU override
-# (`docker-compose.gpu.yml`) is the only place that changes this, pointing it at
-# PyPI or at a CUDA index. Nothing detects the hardware.
+# PyTorch comes from the CPU index, always. `sentence-transformers` needs torch
+# for the local embeddings model, and that model runs on the CPU
+# (`EmbeddingModel` never asks for CUDA): the PyPI wheel for Linux would drag
+# 7,5 GB of `nvidia-*` packages this service cannot use. Installing torch first,
+# from the explicit index, means the resolver in `requirements.txt` finds it
+# already present and does not download the CUDA build.
 #
-# The CPU index matters because the PyPI wheel for Linux drags several GB of
-# `nvidia-*` packages that a machine without a GPU cannot use. Installing torch
-# first, from an explicit index, means the resolver in `requirements.txt` finds
-# it already present and does not download the CUDA build.
-ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
-ARG TORCH_VERSION=2.15.0
-
+# There is no CUDA variant of this image on purpose: the backend has no GPU code
+# and the GPU profile belongs to the STT service, in the sibling repo.
 COPY requirements.txt .
-RUN pip install --no-cache-dir --index-url "${TORCH_INDEX_URL}" "torch==${TORCH_VERSION}" \
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu "torch==2.15.0" \
     && pip install --no-cache-dir -r requirements.txt
 
 # The configuration of the static analyzers (ruff, mypy) and the pinned
