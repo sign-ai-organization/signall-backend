@@ -71,10 +71,14 @@ autodetección y no hay un segundo Dockerfile.
 | `docker-compose.cpu.yml` (override) | `small` | `cpu` | `int8` | no (`!reset`) | `requirements.txt` |
 
 El perfil de GPU necesita NVIDIA Container Toolkit (o Docker Desktop con soporte GPU
-habilitado). **La imagen del backend siempre instala torch desde el índice de CPU**: el modelo
-de embeddings corre en CPU aunque la máquina tenga GPU, y el wheel de PyPI para Linux traería
-7,5 GB de paquetes `nvidia-*` inútiles para este servicio. El perfil de GPU es del STT, que vive
-en el repositorio hermano.
+habilitado). **La imagen del backend instala siempre torch desde el índice de CPU.** No es una
+concesión al perfil de CPU: el contenedor del backend **nunca recibe la GPU** —la reserva del
+dispositivo vive solo en el servicio `stt`, porque la GPU es para faster-whisper, como dicen el
+SDD y la memoria—, y `EmbeddingModel` no elige dispositivo, así que
+`SentenceTransformer` usa lo que ve y adentro de ese contenedor siempre fue la CPU. El wheel de
+PyPI para Linux solo agregaría 7,5 GB de paquetes `nvidia-*` que nadie usa. Si algún día los
+embeddings tienen que ir en GPU, es un cambio de diseño: reservar el dispositivo y llevar torch
+con CUDA.
 
 **El proxy es parte del sistema, no un extra.** Sin él solo existe `ws://` en claro, y el APK
 `demo` de Android —el que demuestra el cifrado— apunta a `wss://` y no conecta. Por eso el

@@ -148,9 +148,12 @@ GPU (o con una que no alcanza).
   `nvidia`. `docker-compose.cpu.yml` fija `small`/`cpu`/`int8`, quita la reserva con
   `deploy: !reset` y compila el STT con `requirements.txt` (sin las librerías de CUDA).
 - El `Dockerfile` del backend instala **siempre** torch desde el índice de CPU, **antes** de
-  `requirements.txt`, para que el resolver no baje los 7,5 GB de paquetes `nvidia-*`. El modelo
-  de embeddings del backend corre en CPU aunque la máquina tenga GPU, así que no hay variante
-  CUDA de esta imagen: el perfil de GPU es del STT.
+  `requirements.txt`, para que el resolver no baje los 7,5 GB de paquetes `nvidia-*`. El
+  contenedor del backend **no recibe la GPU** (`HostConfig.DeviceRequests` es `null`; la reserva
+  está solo en `stt`) y `EmbeddingModel` no elige dispositivo, así que los embeddings siempre
+  corrieron en CPU: el wheel de CUDA nunca se usó. Si algún día tienen que ir en GPU, es un
+  cambio de diseño (reservar el dispositivo y llevar torch con CUDA) y los documentos tienen que
+  decirlo.
 - Si se pide CUDA y falla al cargar el modelo, el STT cae a CPU como red de seguridad y
   `/health` publica el dispositivo efectivo (`device` y `requested_device`). Eso no elige el
   perfil: el perfil ya quedó declarado en el comando.
