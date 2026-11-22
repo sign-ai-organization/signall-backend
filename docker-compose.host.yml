@@ -48,7 +48,8 @@ services:
   # It has to share the host network for the same reason the backend does: the
   # upstream of `deploy/Caddyfile` is `127.0.0.1:8080`, and only on the host
   # network is that the backend's loopback instead of the container's. The
-  # backend is untouched and keeps listening on `0.0.0.0:8080`.
+  # backend binds to `127.0.0.1:8080` (see its `command` above), so Caddy reaches
+  # it over the loopback and the LAN cannot.
   #
   # `deploy/certs/` is not in git (`.gitignore`): on a fresh clone it only holds
   # `.gitkeep`, so the service fails at start until the certificate is issued
