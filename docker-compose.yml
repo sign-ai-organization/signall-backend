@@ -25,7 +25,7 @@ services:
     # `network_mode: host` exposed before, so the Android client (10.0.2.2 in the
     # emulator) is unaffected.
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     env_file:
@@ -48,7 +48,7 @@ services:
   stt:
     build: ../signall-stt
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
       MODEL_SIZE: ${MODEL_SIZE:-medium}
       DEVICE: ${DEVICE:-cuda}

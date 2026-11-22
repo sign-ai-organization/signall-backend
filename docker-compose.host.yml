@@ -19,6 +19,12 @@
 services:
   backend:
     network_mode: host
+    # The Dockerfile has no ENTRYPOINT, so this `command` replaces the CMD and
+    # binds the process to the machine's loopback instead of 0.0.0.0. With
+    # `network_mode: host` that closes port 8080 to the LAN while Caddy, which
+    # also runs on the host network and proxies to 127.0.0.1:8080, keeps
+    # working.
+    command: ["uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8080"]
     # `network_mode: host` and published ports are mutually exclusive, so the
     # base file's mapping is dropped instead of merged.
     ports: !reset []
